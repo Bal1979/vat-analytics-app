@@ -6,8 +6,10 @@ Momsanalyse fra Excel/CSV data — 103 automatiserede tests.
 
 import os
 import uuid
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import secrets
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import JSONResponse
 from parsers.excel_parser import parse_excel, get_column_mapping_preview
 from analytics.engine import run_analytics
@@ -17,6 +19,27 @@ app = FastAPI(
     description="Momsanalyse fra Excel/CSV data — 103 automatiserede tests baseret på Skattestyrelsens kontrolmetoder",
     version="0.1.0",
 )
+security = HTTPBasic()
+
+# Brugere med adgang
+USERS = {
+    "admin": "balai2025",
+    "Fabian": "Salvatore",
+}
+
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """Verificér brugernavn og password."""
+    correct_password = USERS.get(credentials.username)
+    if not correct_password or not secrets.compare_digest(
+        credentials.password.encode("utf-8"), correct_password.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Forkert brugernavn eller adgangskode",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +80,7 @@ def health():
 
 
 @app.post("/preview")
-async def preview_file(file: UploadFile = File(...)):
+async def preview_file(file: UploadFile = File(...), username: str = Depends(verify_credentials)):
     """
     Upload en fil og få en preview af kolonner + auto-detekteret mapping.
     Brugeren kan derefter bekræfte/rette mappingen før analyse.
@@ -76,7 +99,7 @@ async def preview_file(file: UploadFile = File(...)):
 
 
 @app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
+async def analyze(file: UploadFile = File(...), username: str = Depends(verify_credentials)):
     """
     Upload en Excel/CSV fil og kør alle 103 momsanalyser.
     Returnerer scores, findings og drill-down data.
