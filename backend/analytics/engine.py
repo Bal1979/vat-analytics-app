@@ -135,14 +135,9 @@ def build_report(data: dict, findings: list) -> dict:
     }
 
 
-def analyze_file(file_path: str) -> Optional[dict]:
+def run_analytics(data: dict) -> dict:
     """
-    Hovedfunktion: Parser en SAF-T fil og kører alle analytics tests.
-    Returnerer fuld rapport eller None ved fejl.
+    Hovedfunktion: Kør alle analytics tests mod parsed data.
+    Alias for run_all_tests — bruges af main.py.
     """
-    data = parse_saft_file(file_path)
-    if data is None:
-        return None
-
-    report = run_all_tests(data)
-    return report
+    return run_all_tests(data)
