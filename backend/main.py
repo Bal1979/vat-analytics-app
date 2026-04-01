@@ -10,7 +10,8 @@ import secrets
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from parsers.excel_parser import parse_excel, get_column_mapping_preview
 from analytics.engine import run_analytics
 
@@ -52,6 +53,9 @@ app.add_middleware(
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Serve static files
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
+
 ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv"}
 
 
@@ -77,6 +81,14 @@ def _cleanup(file_path: str):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "VAT Analytics", "version": "0.1.0"}
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(username: str = Depends(verify_credentials)):
+    """Serve frontend."""
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
+    with open(template_path, "r") as f:
+        return f.read()
 
 
 @app.post("/preview")

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAT Analytics</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>VAT Analytics</h1>
+            <p class="subtitle">Momsanalyse fra Excel/CSV data — 103 automatiserede tests</p>
+        </header>
+
+        <!-- Upload area -->
+        <div id="upload-area" class="upload-area">
+            <div class="upload-icon">📊</div>
+            <p class="upload-text">Træk din Excel- eller CSV-fil hertil</p>
+            <p class="upload-hint">eller</p>
+            <label class="upload-btn">
+                Vælg fil
+                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" hidden>
+            </label>
+            <p class="upload-formats">Understøtter .xlsx, .xls, .csv og .tsv filer</p>
+        </div>
+
+        <!-- Progress -->
+        <div id="progress-section" class="progress-section hidden">
+            <div class="spinner"></div>
+            <p id="progress-text">Analyserer momsdata...</p>
+            <p class="progress-hint">Kører 103 tests på tværs af 12 kategorier</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results-section" class="results-section hidden">
+            <!-- Overall Score -->
+            <div class="score-banner" id="score-banner">
+                <div class="score-circle" id="score-circle">
+                    <span class="score-number" id="score-number">0</span>
+                </div>
+                <div class="score-info">
+                    <h2>Samlet momsanalysescore</h2>
+                    <p id="score-summary"></p>
+                </div>
+            </div>
+
+            <!-- Impact Summary -->
+            <div class="impact-grid">
+                <div class="impact-card impact-economic">
+                    <h3>💰 Økonomisk Impact</h3>
+                    <div class="impact-amounts">
+                        <div class="impact-negative">
+                            <span class="impact-arrow">⬇️</span>
+                            <span id="econ-negative">DKK 0</span>
+                        </div>
+                        <div class="impact-positive">
+                            <span class="impact-arrow">⬆️</span>
+                            <span id="econ-positive">DKK 0</span>
+                        </div>
+                        <div class="impact-net">
+                            <strong>Net: <span id="econ-net">DKK 0</span></strong>
+                        </div>
+                    </div>
+                    <span class="impact-count" id="econ-count">0 findings</span>
+                </div>
+                <div class="impact-card impact-interest">
+                    <h3>⏱️ Renterisiko</h3>
+                    <div class="impact-amounts">
+                        <div class="impact-negative">
+                            <span class="impact-arrow">⬇️</span>
+                            <span id="interest-negative">DKK 0</span>
+                        </div>
+                        <div class="impact-positive">
+                            <span class="impact-arrow">⬆️</span>
+                            <span id="interest-positive">DKK 0</span>
+                        </div>
+                        <div class="impact-net">
+                            <strong>Net: <span id="interest-net">DKK 0</span></strong>
+                        </div>
+                    </div>
+                    <span class="impact-count" id="interest-count">0 findings</span>
+                </div>
+                <div class="impact-card impact-compliance">
+                    <h3>📋 Compliance</h3>
+                    <div class="severity-bars" id="compliance-bars"></div>
+                    <span class="impact-count" id="compliance-count">0 findings</span>
+                </div>
+            </div>
+
+            <!-- Severity Summary -->
+            <div class="severity-summary">
+                <span class="sev-badge sev-critical" id="sev-critical">0 kritiske</span>
+                <span class="sev-badge sev-high" id="sev-high">0 høj</span>
+                <span class="sev-badge sev-medium" id="sev-medium">0 medium</span>
+                <span class="sev-badge sev-low" id="sev-low">0 lav</span>
+                <span class="sev-total" id="sev-total">0 findings i alt</span>
+            </div>
+
+            <!-- Categories -->
+            <h3 class="section-title">Kategorier</h3>
+            <div id="categories-container"></div>
+
+            <!-- Actions -->
+            <div class="actions">
+                <button id="reset-btn" class="btn btn-secondary">Ny analyse</button>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="error-section" class="error-section hidden">
+            <p id="error-text"></p>
+            <button id="error-reset-btn" class="btn btn-secondary">Prøv igen</button>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const progressSection = document.getElementById('progress-section');
+        const resultsSection = document.getElementById('results-section');
+        const errorSection = document.getElementById('error-section');
+
+        // Drag & drop
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault(); uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => { if (fileInput.files[0]) uploadFile(fileInput.files[0]); });
+
+        function fmt(amount, currency) {
+            currency = currency || 'DKK';
+            return `${currency} ${amount.toLocaleString('da-DK', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+
+        async function uploadFile(file) {
+            showSection('progress');
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const response = await fetch('/analyze', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (!response.ok) { showError(data.detail || data.error || 'Ukendt fejl'); return; }
+                showResults(data);
+            } catch (err) {
+                showError('Kunne ikke forbinde til serveren. Prøv igen.');
+            }
+        }
+
+        function showResults(data) {
+            const a = data.analytics;
+
+            // Score
+            const score = a.overall_score;
+            const scoreCircle = document.getElementById('score-circle');
+            document.getElementById('score-number').textContent = score;
+            scoreCircle.className = 'score-circle ' + (score >= 80 ? 'score-good' : score >= 50 ? 'score-warning' : 'score-bad');
+            document.getElementById('score-summary').textContent =
+                `${a.total_findings} findings fundet på tværs af ${a.categories.filter(c => c.findings_count > 0).length} kategorier`;
+
+            // Impact
+            const econ = a.impact_summary.economic;
+            const interest = a.impact_summary.interest_risk;
+            const comp = a.impact_summary.compliance;
+            const cur = econ.currency || 'DKK';
+
+            document.getElementById('econ-negative').textContent = fmt(econ.negative_amount, cur);
+            document.getElementById('econ-positive').textContent = fmt(econ.positive_amount, cur);
+            document.getElementById('econ-net').textContent = fmt(econ.net_amount, cur);
+            document.getElementById('econ-net').className = econ.net_amount >= 0 ? 'net-positive' : 'net-negative';
+            document.getElementById('econ-count').textContent = `${econ.total_findings} findings`;
+
+            document.getElementById('interest-negative').textContent = fmt(interest.negative_amount, cur);
+            document.getElementById('interest-positive').textContent = fmt(interest.positive_amount, cur);
+            document.getElementById('interest-net').textContent = fmt(interest.net_amount, cur);
+            document.getElementById('interest-net').className = interest.net_amount >= 0 ? 'net-positive' : 'net-negative';
+            document.getElementById('interest-count').textContent = `${interest.total_findings} findings`;
+
+            const compBars = document.getElementById('compliance-bars');
+            compBars.innerHTML = `
+                ${comp.critical_count ? `<span class="sev-badge sev-critical">${comp.critical_count} kritiske</span>` : ''}
+                ${comp.high_count ? `<span class="sev-badge sev-high">${comp.high_count} høj</span>` : ''}
+                ${comp.medium_count ? `<span class="sev-badge sev-medium">${comp.medium_count} medium</span>` : ''}
+                ${comp.low_count ? `<span class="sev-badge sev-low">${comp.low_count} lav</span>` : ''}
+                ${comp.total_findings === 0 ? '<span class="no-findings">Ingen findings</span>' : ''}
+            `;
+            document.getElementById('compliance-count').textContent = `${comp.total_findings} findings`;
+
+            // Severity
+            const sev = a.severity_summary;
+            document.getElementById('sev-critical').textContent = `${sev.critical} kritiske`;
+            document.getElementById('sev-high').textContent = `${sev.high} høj`;
+            document.getElementById('sev-medium').textContent = `${sev.medium} medium`;
+            document.getElementById('sev-low').textContent = `${sev.low} lav`;
+            document.getElementById('sev-total').textContent = `${a.total_findings} findings i alt`;
+
+            // Categories
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+            for (const cat of a.categories) {
+                const scoreClass = cat.score >= 80 ? 'cat-good' : cat.score >= 50 ? 'cat-warning' : 'cat-bad';
+                const div = document.createElement('div');
+                div.className = 'category-card';
+                div.innerHTML = `
+                    <div class="cat-header" onclick="this.parentElement.classList.toggle('expanded')">
+                        <div class="cat-score-mini ${scoreClass}">${cat.score}</div>
+                        <div class="cat-info">
+                            <span class="cat-name">${cat.name}</span>
+                            <span class="cat-meta">${cat.total_tests} tests · ${cat.findings_count} findings</span>
+                        </div>
+                        <div class="cat-severity">
+                            ${cat.critical_count ? `<span class="sev-dot sev-critical-dot">${cat.critical_count}</span>` : ''}
+                            ${cat.high_count ? `<span class="sev-dot sev-high-dot">${cat.high_count}</span>` : ''}
+                            ${cat.medium_count ? `<span class="sev-dot sev-medium-dot">${cat.medium_count}</span>` : ''}
+                            ${cat.low_count ? `<span class="sev-dot sev-low-dot">${cat.low_count}</span>` : ''}
+                        </div>
+                        <span class="cat-toggle">▼</span>
+                    </div>
+                    <div class="cat-body">
+                        ${cat.findings.length === 0 ? '<p class="no-findings-text">✅ Ingen findings — alle tests bestået</p>' : ''}
+                        ${cat.findings.map(f => `
+                            <div class="finding finding-${f.severity}">
+                                <div class="finding-header">
+                                    <span class="finding-severity sev-${f.severity}">${f.severity.toUpperCase()}</span>
+                                    <span class="finding-direction">${f.direction === 'negative' ? '⬇️' : f.direction === 'positive' ? '⬆️' : '➡️'}</span>
+                                    <span class="finding-test">Test ${f.test_id}: ${f.test_name}</span>
+                                </div>
+                                <p class="finding-desc">${f.description}</p>
+                                ${f.estimated_amount ? `<p class="finding-amount ${f.direction === 'positive' ? 'amt-positive' : 'amt-negative'}">${fmt(f.estimated_amount, cur)}</p>` : ''}
+                                ${f.fix_suggestion ? `
+                                <div class="fix-suggestion">
+                                    <div class="fix-header" onclick="this.parentElement.classList.toggle('fix-expanded')">
+                                        <span class="fix-icon">💡</span>
+                                        <span class="fix-label">Vis løsningsforslag</span>
+                                        <span class="fix-toggle">▼</span>
+                                    </div>
+                                    <div class="fix-body">
+                                        <p class="fix-text">${f.fix_suggestion}</p>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                ${f.transactions && f.transactions.length > 0 ? `
+                                <div class="transactions-toggle" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                                    📋 Vis ${f.transactions.length} berørte transaktioner
+                                </div>
+                                <div class="transactions-table hidden">
+                                    <table>
+                                        <thead><tr>
+                                            <th>ID</th><th>Dato</th><th>Konto</th><th>Beløb</th><th>Moms</th><th>Problem</th>
+                                        </tr></thead>
+                                        <tbody>
+                                            ${f.transactions.map(t => `
+                                                <tr>
+                                                    <td><code>${t.transaction_id || '-'}</code></td>
+                                                    <td>${t.date || '-'}</td>
+                                                    <td>${t.account_id || '-'}</td>
+                                                    <td>${t.amount ? fmt(t.amount, cur) : '-'}</td>
+                                                    <td>${t.vat_recorded != null ? fmt(t.vat_recorded, cur) : '-'}</td>
+                                                    <td class="highlight">${t.highlighted_field || '-'}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+
+            showSection('results');
+        }
+
+        function showError(message) {
+            document.getElementById('error-text').textContent = message;
+            showSection('error');
+        }
+
+        function showSection(section) {
+            uploadArea.classList.toggle('hidden', section !== 'upload');
+            progressSection.classList.toggle('hidden', section !== 'progress');
+            resultsSection.classList.toggle('hidden', section !== 'results');
+            errorSection.classList.toggle('hidden', section !== 'error');
+        }
+
+        function reset() { fileInput.value = ''; showSection('upload'); }
+        document.getElementById('reset-btn').addEventListener('click', reset);
+        document.getElementById('error-reset-btn').addEventListener('click', reset);
+    </script>
+</body>
+</html>
