@@ -5,7 +5,6 @@ med findings klassificeret efter impact-type, retning og sværhedsgrad.
 """
 
 from typing import Optional
-from analytics.parser import parse_saft_file
 from analytics.models import make_finding
 
 # Import test-kategorier
