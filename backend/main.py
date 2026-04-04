@@ -5,6 +5,7 @@ Momsanalyse fra Excel/CSV data — 103 automatiserede tests.
 """
 
 import os
+import re
 import uuid
 import secrets
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
@@ -22,11 +23,16 @@ app = FastAPI(
 )
 security = HTTPBasic()
 
-# Brugere med adgang
-USERS = {
-    "admin": "balai2025",
-    "Fabian": "Salvatore",
-}
+# Brugere med adgang — læses fra miljøvariabel AUTH_USERS (format: "user1:pass1,user2:pass2")
+_auth_raw = os.environ.get("AUTH_USERS", "admin:balai2025,Fabian:Salvatore")
+USERS = {}
+for _pair in _auth_raw.split(","):
+    _pair = _pair.strip()
+    if ":" in _pair:
+        _u, _p = _pair.split(":", 1)
+        USERS[_u.strip()] = _p.strip()
+
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "50")) * 1024 * 1024
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
@@ -42,9 +48,12 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
         )
     return credentials.username
 
+_cors_origins = os.environ.get(
+    "CORS_ORIGINS", "https://vat.balai.dk,http://localhost:3000"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in _cors_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,14 +70,46 @@ ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv"}
 
 def _save_upload(file: UploadFile) -> str:
     """Gem uploadet fil og returnér filsti."""
-    ext = os.path.splitext(file.filename or "")[1].lower()
+    original_name = file.filename or "upload"
+    # Sanitize: strip path separators, keep only safe characters
+    safe_name = os.path.basename(original_name)
+    safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
+
+    ext = os.path.splitext(safe_name)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(400, f"Filtype '{ext}' er ikke understøttet. Brug: {', '.join(ALLOWED_EXTENSIONS)}")
 
-    job_id = str(uuid.uuid4())[:8]
-    file_path = os.path.join(UPLOAD_DIR, f"{job_id}_{file.filename}")
+    # Use UUID-based filename to prevent any path traversal
+    job_id = str(uuid.uuid4())
+    safe_filename = f"{job_id}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+
+    # Verify resolved path is inside UPLOAD_DIR
+    if not os.path.realpath(file_path).startswith(os.path.realpath(UPLOAD_DIR)):
+        raise HTTPException(400, "Ugyldig filsti")
+
+    # Stream file in chunks with size validation
+    total_size = 0
+    chunk_size = 1024 * 1024  # 1 MB chunks
     with open(file_path, "wb") as f:
-        f.write(file.file.read())
+        while True:
+            chunk = file.file.read(chunk_size)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_UPLOAD_BYTES:
+                f.close()
+                os.remove(file_path)
+                raise HTTPException(
+                    413,
+                    f"Filen er for stor. Maksimal filstørrelse er {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+                )
+            f.write(chunk)
+
+    if total_size == 0:
+        os.remove(file_path)
+        raise HTTPException(400, "Filen er tom. Upload venligst en fil med indhold.")
+
     return file_path
 
 

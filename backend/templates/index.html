@@ -121,6 +121,17 @@
         const resultsSection = document.getElementById('results-section');
         const errorSection = document.getElementById('error-section');
 
+        // XSS protection: escape HTML special characters
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // Drag & drop
         uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
         uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
@@ -132,7 +143,7 @@
 
         function fmt(amount, currency) {
             currency = currency || 'DKK';
-            return `${currency} ${amount.toLocaleString('da-DK', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            return `${escapeHtml(currency)} ${amount.toLocaleString('da-DK', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
 
         async function uploadFile(file) {
@@ -180,10 +191,10 @@
 
             const compBars = document.getElementById('compliance-bars');
             compBars.innerHTML = `
-                ${comp.critical_count ? `<span class="sev-badge sev-critical">${comp.critical_count} kritiske</span>` : ''}
-                ${comp.high_count ? `<span class="sev-badge sev-high">${comp.high_count} høj</span>` : ''}
-                ${comp.medium_count ? `<span class="sev-badge sev-medium">${comp.medium_count} medium</span>` : ''}
-                ${comp.low_count ? `<span class="sev-badge sev-low">${comp.low_count} lav</span>` : ''}
+                ${comp.critical_count ? `<span class="sev-badge sev-critical">${escapeHtml(comp.critical_count)} kritiske</span>` : ''}
+                ${comp.high_count ? `<span class="sev-badge sev-high">${escapeHtml(comp.high_count)} høj</span>` : ''}
+                ${comp.medium_count ? `<span class="sev-badge sev-medium">${escapeHtml(comp.medium_count)} medium</span>` : ''}
+                ${comp.low_count ? `<span class="sev-badge sev-low">${escapeHtml(comp.low_count)} lav</span>` : ''}
                 ${comp.total_findings === 0 ? '<span class="no-findings">Ingen findings</span>' : ''}
             `;
             document.getElementById('compliance-count').textContent = `${comp.total_findings} findings`;
@@ -205,29 +216,29 @@
                 div.className = 'category-card';
                 div.innerHTML = `
                     <div class="cat-header" onclick="this.parentElement.classList.toggle('expanded')">
-                        <div class="cat-score-mini ${scoreClass}">${cat.score}</div>
+                        <div class="cat-score-mini ${scoreClass}">${escapeHtml(cat.score)}</div>
                         <div class="cat-info">
-                            <span class="cat-name">${cat.name}</span>
-                            <span class="cat-meta">${cat.total_tests} tests · ${cat.findings_count} findings</span>
+                            <span class="cat-name">${escapeHtml(cat.name)}</span>
+                            <span class="cat-meta">${escapeHtml(cat.total_tests)} tests · ${escapeHtml(cat.findings_count)} findings</span>
                         </div>
                         <div class="cat-severity">
-                            ${cat.critical_count ? `<span class="sev-dot sev-critical-dot">${cat.critical_count}</span>` : ''}
-                            ${cat.high_count ? `<span class="sev-dot sev-high-dot">${cat.high_count}</span>` : ''}
-                            ${cat.medium_count ? `<span class="sev-dot sev-medium-dot">${cat.medium_count}</span>` : ''}
-                            ${cat.low_count ? `<span class="sev-dot sev-low-dot">${cat.low_count}</span>` : ''}
+                            ${cat.critical_count ? `<span class="sev-dot sev-critical-dot">${escapeHtml(cat.critical_count)}</span>` : ''}
+                            ${cat.high_count ? `<span class="sev-dot sev-high-dot">${escapeHtml(cat.high_count)}</span>` : ''}
+                            ${cat.medium_count ? `<span class="sev-dot sev-medium-dot">${escapeHtml(cat.medium_count)}</span>` : ''}
+                            ${cat.low_count ? `<span class="sev-dot sev-low-dot">${escapeHtml(cat.low_count)}</span>` : ''}
                         </div>
                         <span class="cat-toggle">▼</span>
                     </div>
                     <div class="cat-body">
-                        ${cat.findings.length === 0 ? '<p class="no-findings-text">✅ Ingen findings — alle tests bestået</p>' : ''}
+                        ${cat.findings.length === 0 ? '<p class="no-findings-text">Ingen findings — alle tests bestået</p>' : ''}
                         ${cat.findings.map(f => `
-                            <div class="finding finding-${f.severity}">
+                            <div class="finding finding-${escapeHtml(f.severity)}">
                                 <div class="finding-header">
-                                    <span class="finding-severity sev-${f.severity}">${f.severity.toUpperCase()}</span>
+                                    <span class="finding-severity sev-${escapeHtml(f.severity)}">${escapeHtml(f.severity.toUpperCase())}</span>
                                     <span class="finding-direction">${f.direction === 'negative' ? '⬇️' : f.direction === 'positive' ? '⬆️' : '➡️'}</span>
-                                    <span class="finding-test">Test ${f.test_id}: ${f.test_name}</span>
+                                    <span class="finding-test">Test ${escapeHtml(f.test_id)}: ${escapeHtml(f.test_name)}</span>
                                 </div>
-                                <p class="finding-desc">${f.description}</p>
+                                <p class="finding-desc">${escapeHtml(f.description)}</p>
                                 ${f.estimated_amount ? `<p class="finding-amount ${f.direction === 'positive' ? 'amt-positive' : 'amt-negative'}">${fmt(f.estimated_amount, cur)}</p>` : ''}
                                 ${f.fix_suggestion ? `
                                 <div class="fix-suggestion">
@@ -237,13 +248,13 @@
                                         <span class="fix-toggle">▼</span>
                                     </div>
                                     <div class="fix-body">
-                                        <p class="fix-text">${f.fix_suggestion}</p>
+                                        <p class="fix-text">${escapeHtml(f.fix_suggestion)}</p>
                                     </div>
                                 </div>
                                 ` : ''}
                                 ${f.transactions && f.transactions.length > 0 ? `
                                 <div class="transactions-toggle" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                                    📋 Vis ${f.transactions.length} berørte transaktioner
+                                    Vis ${escapeHtml(f.transactions.length)} berørte transaktioner
                                 </div>
                                 <div class="transactions-table hidden">
                                     <table>
@@ -253,12 +264,12 @@
                                         <tbody>
                                             ${f.transactions.map(t => `
                                                 <tr>
-                                                    <td><code>${t.transaction_id || '-'}</code></td>
-                                                    <td>${t.date || '-'}</td>
-                                                    <td>${t.account_id || '-'}</td>
+                                                    <td><code>${escapeHtml(t.transaction_id || '-')}</code></td>
+                                                    <td>${escapeHtml(t.date || '-')}</td>
+                                                    <td>${escapeHtml(t.account_id || '-')}</td>
                                                     <td>${t.amount ? fmt(t.amount, cur) : '-'}</td>
                                                     <td>${t.vat_recorded != null ? fmt(t.vat_recorded, cur) : '-'}</td>
-                                                    <td class="highlight">${t.highlighted_field || '-'}</td>
+                                                    <td class="highlight">${escapeHtml(t.highlighted_field || '-')}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
