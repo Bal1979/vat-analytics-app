@@ -5,12 +5,24 @@ så analytics engine kan genbruge alle 103 tests.
 
 Understøtter fleksibel kolonne-mapping: brugeren behøver ikke have præcise
 kolonnenavne — parseren forsøger at auto-detektere baseret på almindelige navne.
+
+Understøtter store filer (op til 2 GB):
+- CSV: chunked parsing via pandas read_csv(chunksize=...)
+- Excel: openpyxl read_only=True for streaming af store filer
+- Automatisk valg: < 50 MB bruger standard metode, >= 50 MB bruger chunked/streaming
 """
 
+import os
 import pandas as pd
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Callable
+from openpyxl import load_workbook
+
+
+# Størrelses-grænse for chunked parsing (50 MB)
+LARGE_FILE_THRESHOLD = 50 * 1024 * 1024
+CSV_CHUNK_SIZE = 10000
 
 
 # Kolonnenavn-aliaser for auto-detektion
@@ -124,6 +136,24 @@ def _detect_columns(df):
     return mapping
 
 
+def _detect_columns_from_names(column_names):
+    """
+    Auto-detektér kolonner fra en liste af kolonnenavne (bruges til streaming).
+    Returnerer dict: standard_field_name -> actual_column_name
+    """
+    mapping = {}
+    normalized = {_normalize_column_name(col): col for col in column_names}
+
+    for field, aliases in COLUMN_ALIASES.items():
+        for alias in aliases:
+            norm_alias = _normalize_column_name(alias)
+            if norm_alias in normalized:
+                mapping[field] = normalized[norm_alias]
+                break
+
+    return mapping
+
+
 def _safe_float(value, default=0.0):
     """Konvertér en værdi til float sikkert."""
     if pd.isna(value) or value is None:
@@ -164,9 +194,358 @@ def _safe_date(value):
     return str(value).strip()[:10]
 
 
-def parse_excel(file_path: str, sheet_name: Optional[str] = None):
+def _get_row_value(row, col_map, field):
+    """Hent værdi fra en row (dict eller tuple) via col_map."""
+    col_name = col_map.get(field)
+    if col_name is None:
+        return None
+    if isinstance(row, dict):
+        return row.get(col_name)
+    # For namedtuple from itertuples
+    safe_col = col_name.replace(" ", "_")
+    return getattr(row, safe_col, None) if hasattr(row, safe_col) else None
+
+
+def _process_row(row, idx, col_map, is_tuple=False):
+    """
+    Processér en enkelt række til en transaktion + samle-data.
+    Returnerer (txn, account_info, supplier_info, customer_info, vat_info)
+    """
+    if is_tuple:
+        # For itertuples: row is a namedtuple, access via attribute
+        def get_val(field):
+            col_name = col_map.get(field)
+            if col_name is None:
+                return None
+            # itertuples replaces spaces with underscores and prepends _ to numeric names
+            try:
+                return getattr(row, col_name, None)
+            except AttributeError:
+                return None
+    else:
+        # For dict rows (from chunked CSV or openpyxl)
+        def get_val(field):
+            col_name = col_map.get(field)
+            if col_name is None:
+                return None
+            if isinstance(row, dict):
+                return row.get(col_name)
+            return row.get(col_name) if hasattr(row, 'get') else None
+
+    # Bestem beløb (debit/credit eller samlet amount)
+    debit = _safe_float(get_val("debit")) if "debit" in col_map else 0.0
+    credit = _safe_float(get_val("credit")) if "credit" in col_map else 0.0
+
+    if "amount" in col_map and debit == 0 and credit == 0:
+        amount = _safe_float(get_val("amount"))
+        if amount >= 0:
+            debit = amount
+        else:
+            credit = abs(amount)
+
+    # Transaktions-ID
+    txn_id = _safe_str(get_val("transaction_id")) or f"ROW-{idx + 2}"
+
+    # Dato
+    date_val = get_val("date") if "date" in col_map else None
+    date_str = _safe_date(date_val)
+
+    # Konto
+    account_id = _safe_str(get_val("account_id"))
+    account_desc = _safe_str(get_val("account_description"))
+
+    # Moms
+    vat_amount = _safe_float(get_val("vat_amount")) if "vat_amount" in col_map else None
+    vat_code = _safe_str(get_val("vat_code")) if "vat_code" in col_map else ""
+    vat_rate = _safe_float(get_val("vat_rate")) if "vat_rate" in col_map else None
+
+    # Leverandør / Kunde
+    supplier_id = _safe_str(get_val("supplier_id")) if "supplier_id" in col_map else ""
+    supplier_name = _safe_str(get_val("supplier_name")) if "supplier_name" in col_map else ""
+    customer_id = _safe_str(get_val("customer_id")) if "customer_id" in col_map else ""
+    customer_name = _safe_str(get_val("customer_name")) if "customer_name" in col_map else ""
+
+    txn = {
+        "transaction_id": txn_id,
+        "date": date_str,
+        "account_id": account_id,
+        "account_description": account_desc,
+        "description": _safe_str(get_val("description")),
+        "debit_amount": debit,
+        "credit_amount": credit,
+        "vat_amount": vat_amount,
+        "vat_code": vat_code,
+        "vat_rate": vat_rate,
+        "journal_id": _safe_str(get_val("journal_id")) or "IMPORT",
+        "invoice_number": _safe_str(get_val("invoice_number")),
+        "supplier_id": supplier_id,
+        "supplier_name": supplier_name,
+        "customer_id": customer_id,
+        "customer_name": customer_name,
+        "currency": _safe_str(get_val("currency")) or "DKK",
+        "country": _safe_str(get_val("country")),
+        "vat_number": _safe_str(get_val("vat_number")),
+        "period": _safe_str(get_val("period")),
+        "year": _safe_str(get_val("year")),
+    }
+
+    account_info = None
+    if account_id:
+        account_info = {
+            "account_id": account_id,
+            "description": account_desc,
+            "account_type": "",
+            "opening_balance": 0.0,
+            "closing_balance": 0.0,
+        }
+
+    supplier_info = None
+    if supplier_id:
+        supplier_info = {
+            "supplier_id": supplier_id,
+            "name": supplier_name,
+            "vat_number": _safe_str(get_val("vat_number")) if supplier_id else "",
+            "country": _safe_str(get_val("country")),
+        }
+
+    customer_info = None
+    if customer_id:
+        customer_info = {
+            "customer_id": customer_id,
+            "name": customer_name,
+            "vat_number": "",
+            "country": "",
+        }
+
+    vat_info = None
+    if vat_code:
+        vat_info = {
+            "tax_code": vat_code,
+            "description": f"Momskode {vat_code}",
+            "rate": vat_rate if vat_rate is not None else 0.0,
+        }
+
+    return txn, account_info, supplier_info, customer_info, vat_info
+
+
+def _read_csv_detect_params(file_path):
+    """Detektér CSV separator og encoding ved at læse en lille prøve."""
+    for sep in [";", ",", "\t"]:
+        for encoding in ["utf-8", "latin-1", "cp1252"]:
+            try:
+                df = pd.read_csv(file_path, sep=sep, encoding=encoding, nrows=5)
+                if len(df.columns) > 1:
+                    return sep, encoding
+            except Exception:
+                continue
+    # Fallback
+    return ",", "utf-8"
+
+
+def _parse_csv_chunked(file_path, progress_callback=None):
+    """
+    Parsér en stor CSV fil i chunks af CSV_CHUNK_SIZE rækker.
+    Bruger pandas read_csv med chunksize parameter.
+    """
+    sep, encoding = _read_csv_detect_params(file_path)
+
+    # Først: tæl totale rækker for progress (hurtig scan)
+    total_rows = 0
+    with open(file_path, "r", encoding=encoding, errors="replace") as f:
+        for _ in f:
+            total_rows += 1
+    total_rows = max(total_rows - 1, 0)  # Minus header
+
+    if total_rows == 0:
+        return {
+            "header": {},
+            "accounts": [],
+            "tax_table": [],
+            "transactions": [],
+            "suppliers": [],
+            "customers": [],
+            "parse_info": {"error": "Filen er tom", "rows": 0, "columns": 0},
+        }
+
+    transactions = []
+    accounts_seen = {}
+    suppliers_seen = {}
+    customers_seen = {}
+    vat_codes_seen = {}
+    col_map = None
+    columns_list = None
+    rows_processed = 0
+
+    reader = pd.read_csv(
+        file_path, sep=sep, encoding=encoding, chunksize=CSV_CHUNK_SIZE
+    )
+
+    for chunk in reader:
+        if col_map is None:
+            col_map = _detect_columns(chunk)
+            columns_list = list(chunk.columns)
+
+        for row_tuple in chunk.itertuples(index=False):
+            row_dict = {col: getattr(row_tuple, col, None)
+                        for col in chunk.columns}
+            txn, acct, supp, cust, vat = _process_row(
+                row_dict, rows_processed, col_map, is_tuple=False
+            )
+            transactions.append(txn)
+
+            if acct and acct["account_id"] not in accounts_seen:
+                accounts_seen[acct["account_id"]] = acct
+            if supp and supp["supplier_id"] not in suppliers_seen:
+                suppliers_seen[supp["supplier_id"]] = supp
+            if cust and cust["customer_id"] not in customers_seen:
+                customers_seen[cust["customer_id"]] = cust
+            if vat and vat["tax_code"] not in vat_codes_seen:
+                vat_codes_seen[vat["tax_code"]] = vat
+
+            rows_processed += 1
+
+        if progress_callback and total_rows > 0:
+            pct = min(int((rows_processed / total_rows) * 100), 100)
+            progress_callback(pct, rows_processed, total_rows)
+
+    parse_info = {
+        "rows": rows_processed,
+        "columns": len(columns_list) if columns_list else 0,
+        "detected_columns": col_map or {},
+        "unmapped_columns": [
+            col for col in (columns_list or [])
+            if col not in (col_map or {}).values()
+        ],
+        "source_type": "csv",
+        "parsing_mode": "chunked",
+    }
+
+    return _build_result(transactions, accounts_seen, suppliers_seen,
+                         customers_seen, vat_codes_seen, parse_info)
+
+
+def _parse_excel_streaming(file_path, sheet_name=None, progress_callback=None):
+    """
+    Parsér en stor Excel fil med openpyxl read_only=True mode.
+    Streamer rækker uden at loade hele filen i hukommelsen.
+    """
+    wb = load_workbook(file_path, read_only=True, data_only=True)
+
+    if sheet_name:
+        ws = wb[sheet_name]
+    else:
+        ws = wb.active
+
+    # Læs header (første række)
+    rows_iter = ws.iter_rows(values_only=True)
+    try:
+        header_row = next(rows_iter)
+    except StopIteration:
+        wb.close()
+        return {
+            "header": {},
+            "accounts": [],
+            "tax_table": [],
+            "transactions": [],
+            "suppliers": [],
+            "customers": [],
+            "parse_info": {"error": "Filen er tom", "rows": 0, "columns": 0},
+        }
+
+    column_names = [str(h) if h is not None else f"col_{i}"
+                    for i, h in enumerate(header_row)]
+    col_map = _detect_columns_from_names(column_names)
+
+    # Estimér total rækker (openpyxl max_row kan være upræcis i read_only)
+    total_rows = ws.max_row - 1 if ws.max_row else 0
+
+    transactions = []
+    accounts_seen = {}
+    suppliers_seen = {}
+    customers_seen = {}
+    vat_codes_seen = {}
+    rows_processed = 0
+
+    for row_values in rows_iter:
+        row_dict = {column_names[i]: v for i, v in enumerate(row_values)
+                    if i < len(column_names)}
+
+        txn, acct, supp, cust, vat = _process_row(
+            row_dict, rows_processed, col_map, is_tuple=False
+        )
+        transactions.append(txn)
+
+        if acct and acct["account_id"] not in accounts_seen:
+            accounts_seen[acct["account_id"]] = acct
+        if supp and supp["supplier_id"] not in suppliers_seen:
+            suppliers_seen[supp["supplier_id"]] = supp
+        if cust and cust["customer_id"] not in customers_seen:
+            customers_seen[cust["customer_id"]] = cust
+        if vat and vat["tax_code"] not in vat_codes_seen:
+            vat_codes_seen[vat["tax_code"]] = vat
+
+        rows_processed += 1
+
+        if progress_callback and rows_processed % 10000 == 0 and total_rows > 0:
+            pct = min(int((rows_processed / total_rows) * 100), 100)
+            progress_callback(pct, rows_processed, total_rows)
+
+    wb.close()
+
+    if progress_callback and total_rows > 0:
+        progress_callback(100, rows_processed, total_rows)
+
+    parse_info = {
+        "rows": rows_processed,
+        "columns": len(column_names),
+        "detected_columns": col_map,
+        "unmapped_columns": [
+            col for col in column_names if col not in col_map.values()
+        ],
+        "source_type": "excel",
+        "parsing_mode": "streaming",
+    }
+
+    return _build_result(transactions, accounts_seen, suppliers_seen,
+                         customers_seen, vat_codes_seen, parse_info)
+
+
+def _build_result(transactions, accounts_seen, suppliers_seen,
+                  customers_seen, vat_codes_seen, parse_info):
+    """Byg det endelige resultat-dict med header udledt fra data."""
+    header = {
+        "company_name": "",
+        "registration_number": "",
+        "currency": "DKK",
+        "period_start": "",
+        "period_end": "",
+        "source": "Excel/CSV import",
+    }
+
+    dates = [t["date"] for t in transactions if t["date"]]
+    if dates:
+        sorted_dates = sorted(dates)
+        header["period_start"] = sorted_dates[0]
+        header["period_end"] = sorted_dates[-1]
+
+    return {
+        "header": header,
+        "accounts": list(accounts_seen.values()),
+        "tax_table": list(vat_codes_seen.values()),
+        "transactions": transactions,
+        "suppliers": list(suppliers_seen.values()),
+        "customers": list(customers_seen.values()),
+        "parse_info": parse_info,
+    }
+
+
+def parse_excel(file_path: str, sheet_name: Optional[str] = None,
+                progress_callback: Optional[Callable] = None):
     """
     Parser en Excel/CSV fil og returnerer data i standardformatet.
+
+    For store filer (>= 50 MB) bruges chunked/streaming parsing automatisk.
+    progress_callback(percent, rows_done, total_rows) kaldes løbende for store filer.
 
     Returnerer samme struktur som SAF-T parseren:
     {
@@ -179,9 +558,24 @@ def parse_excel(file_path: str, sheet_name: Optional[str] = None):
         "parse_info": {...}  # Info om parsing-processen
     }
     """
-    # Læs fil
-    if file_path.endswith(".csv"):
+    file_size = os.path.getsize(file_path)
+    is_large = file_size >= LARGE_FILE_THRESHOLD
+    is_csv = file_path.lower().endswith((".csv", ".tsv"))
+
+    # Store filer: brug chunked/streaming parsing
+    if is_large:
+        if is_csv:
+            return _parse_csv_chunked(file_path, progress_callback=progress_callback)
+        else:
+            return _parse_excel_streaming(
+                file_path, sheet_name=sheet_name,
+                progress_callback=progress_callback
+            )
+
+    # Små filer: brug standard metode (hurtigere for små filer)
+    if is_csv:
         # Prøv forskellige separatorer og encodings
+        df = None
         for sep in [";", ",", "\t"]:
             for encoding in ["utf-8", "latin-1", "cp1252"]:
                 try:
@@ -196,7 +590,7 @@ def parse_excel(file_path: str, sheet_name: Optional[str] = None):
     else:
         df = pd.read_excel(file_path, sheet_name=sheet_name or 0)
 
-    if df.empty:
+    if df is None or df.empty:
         return {
             "header": {},
             "accounts": [],
@@ -218,137 +612,47 @@ def parse_excel(file_path: str, sheet_name: Optional[str] = None):
             col for col in df.columns
             if col not in col_map.values()
         ],
-        "source_type": "csv" if file_path.endswith(".csv") else "excel",
+        "source_type": "csv" if is_csv else "excel",
+        "parsing_mode": "standard",
     }
 
-    # Byg transaktioner
+    # Byg transaktioner med itertuples() for bedre performance
     transactions = []
     accounts_seen = {}
     suppliers_seen = {}
     customers_seen = {}
     vat_codes_seen = {}
 
-    for idx, row in df.iterrows():
-        # Bestem beløb (debit/credit eller samlet amount)
-        debit = _safe_float(row.get(col_map.get("debit"))) if "debit" in col_map else 0.0
-        credit = _safe_float(row.get(col_map.get("credit"))) if "credit" in col_map else 0.0
+    total_rows = len(df)
+    for idx, row_tuple in enumerate(df.itertuples(index=False)):
+        # Konvertér til dict for ensartet processering
+        row_dict = {col: getattr(row_tuple, col, None) if hasattr(row_tuple, col)
+                    else row_tuple[i]
+                    for i, col in enumerate(df.columns)}
 
-        if "amount" in col_map and debit == 0 and credit == 0:
-            amount = _safe_float(row.get(col_map.get("amount")))
-            if amount >= 0:
-                debit = amount
-            else:
-                credit = abs(amount)
-
-        # Transaktions-ID
-        txn_id = _safe_str(row.get(col_map.get("transaction_id"))) or f"ROW-{idx + 2}"
-
-        # Dato
-        date_val = row.get(col_map.get("date")) if "date" in col_map else None
-        date_str = _safe_date(date_val)
-
-        # Konto
-        account_id = _safe_str(row.get(col_map.get("account_id")))
-        account_desc = _safe_str(row.get(col_map.get("account_description")))
-
-        # Moms
-        vat_amount = _safe_float(row.get(col_map.get("vat_amount"))) if "vat_amount" in col_map else None
-        vat_code = _safe_str(row.get(col_map.get("vat_code"))) if "vat_code" in col_map else ""
-        vat_rate = _safe_float(row.get(col_map.get("vat_rate"))) if "vat_rate" in col_map else None
-
-        # Leverandør / Kunde
-        supplier_id = _safe_str(row.get(col_map.get("supplier_id"))) if "supplier_id" in col_map else ""
-        supplier_name = _safe_str(row.get(col_map.get("supplier_name"))) if "supplier_name" in col_map else ""
-        customer_id = _safe_str(row.get(col_map.get("customer_id"))) if "customer_id" in col_map else ""
-        customer_name = _safe_str(row.get(col_map.get("customer_name"))) if "customer_name" in col_map else ""
-
-        txn = {
-            "transaction_id": txn_id,
-            "date": date_str,
-            "account_id": account_id,
-            "account_description": account_desc,
-            "description": _safe_str(row.get(col_map.get("description"))),
-            "debit_amount": debit,
-            "credit_amount": credit,
-            "vat_amount": vat_amount,
-            "vat_code": vat_code,
-            "vat_rate": vat_rate,
-            "journal_id": _safe_str(row.get(col_map.get("journal_id"))) or "IMPORT",
-            "invoice_number": _safe_str(row.get(col_map.get("invoice_number"))),
-            "supplier_id": supplier_id,
-            "supplier_name": supplier_name,
-            "customer_id": customer_id,
-            "customer_name": customer_name,
-            "currency": _safe_str(row.get(col_map.get("currency"))) or "DKK",
-            "country": _safe_str(row.get(col_map.get("country"))),
-            "vat_number": _safe_str(row.get(col_map.get("vat_number"))),
-            "period": _safe_str(row.get(col_map.get("period"))),
-            "year": _safe_str(row.get(col_map.get("year"))),
-        }
+        txn, acct, supp, cust, vat = _process_row(
+            row_dict, idx, col_map, is_tuple=False
+        )
         transactions.append(txn)
 
-        # Saml unikke konti
-        if account_id and account_id not in accounts_seen:
-            accounts_seen[account_id] = {
-                "account_id": account_id,
-                "description": account_desc,
-                "account_type": "",
-                "opening_balance": 0.0,
-                "closing_balance": 0.0,
-            }
+        if acct and acct["account_id"] not in accounts_seen:
+            accounts_seen[acct["account_id"]] = acct
+        if supp and supp["supplier_id"] not in suppliers_seen:
+            suppliers_seen[supp["supplier_id"]] = supp
+        if cust and cust["customer_id"] not in customers_seen:
+            customers_seen[cust["customer_id"]] = cust
+        if vat and vat["tax_code"] not in vat_codes_seen:
+            vat_codes_seen[vat["tax_code"]] = vat
 
-        # Saml unikke leverandører
-        if supplier_id and supplier_id not in suppliers_seen:
-            suppliers_seen[supplier_id] = {
-                "supplier_id": supplier_id,
-                "name": supplier_name,
-                "vat_number": _safe_str(row.get(col_map.get("vat_number"))) if supplier_id else "",
-                "country": _safe_str(row.get(col_map.get("country"))),
-            }
+        if progress_callback and idx % 10000 == 0 and total_rows > 0:
+            pct = min(int((idx / total_rows) * 100), 100)
+            progress_callback(pct, idx, total_rows)
 
-        # Saml unikke kunder
-        if customer_id and customer_id not in customers_seen:
-            customers_seen[customer_id] = {
-                "customer_id": customer_id,
-                "name": customer_name,
-                "vat_number": "",
-                "country": "",
-            }
+    if progress_callback:
+        progress_callback(100, total_rows, total_rows)
 
-        # Saml unikke momskoder
-        if vat_code and vat_code not in vat_codes_seen:
-            vat_codes_seen[vat_code] = {
-                "tax_code": vat_code,
-                "description": f"Momskode {vat_code}",
-                "rate": vat_rate if vat_rate is not None else 0.0,
-            }
-
-    # Byg header fra tilgængelig data
-    header = {
-        "company_name": "",
-        "registration_number": "",
-        "currency": "DKK",
-        "period_start": "",
-        "period_end": "",
-        "source": "Excel/CSV import",
-    }
-
-    # Forsøg at udlede periode fra data
-    dates = [t["date"] for t in transactions if t["date"]]
-    if dates:
-        sorted_dates = sorted(dates)
-        header["period_start"] = sorted_dates[0]
-        header["period_end"] = sorted_dates[-1]
-
-    return {
-        "header": header,
-        "accounts": list(accounts_seen.values()),
-        "tax_table": list(vat_codes_seen.values()),
-        "transactions": transactions,
-        "suppliers": list(suppliers_seen.values()),
-        "customers": list(customers_seen.values()),
-        "parse_info": parse_info,
-    }
+    return _build_result(transactions, accounts_seen, suppliers_seen,
+                         customers_seen, vat_codes_seen, parse_info)
 
 
 def get_column_mapping_preview(file_path: str, sheet_name: Optional[str] = None):

@@ -5,6 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VAT Analytics</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Progress bar styles */
+        .progress-bar-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 16px auto;
+            background: #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 24px;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #2e7d32);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+            min-width: 0%;
+        }
+        .progress-bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            text-shadow: 0 0 4px rgba(255,255,255,0.8);
+        }
+        .progress-detail {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+        .progress-file-info {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -22,13 +62,21 @@
                 Vælg fil
                 <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" hidden>
             </label>
-            <p class="upload-formats">Understøtter .xlsx, .xls, .csv og .tsv filer</p>
+            <p class="upload-formats">Understøtter .xlsx, .xls, .csv og .tsv filer (op til 2 GB)</p>
         </div>
 
         <!-- Progress -->
         <div id="progress-section" class="progress-section hidden">
             <div class="spinner"></div>
             <p id="progress-text">Analyserer momsdata...</p>
+            <div id="progress-bar-wrapper" class="hidden">
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
+                    <span class="progress-bar-text" id="progress-bar-text">0%</span>
+                </div>
+                <p class="progress-detail" id="progress-detail"></p>
+                <p class="progress-file-info" id="progress-file-info"></p>
+            </div>
             <p class="progress-hint">Kører 103 tests på tværs af 12 kategorier</p>
         </div>
 
@@ -121,6 +169,8 @@
         const resultsSection = document.getElementById('results-section');
         const errorSection = document.getElementById('error-section');
 
+        let pollInterval = null;
+
         // XSS protection: escape HTML special characters
         function escapeHtml(str) {
             if (str == null) return '';
@@ -130,6 +180,13 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+            if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return bytes + ' bytes';
         }
 
         // Drag & drop
@@ -146,14 +203,119 @@
             return `${escapeHtml(currency)} ${amount.toLocaleString('da-DK', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
 
+        function updateProgressBar(percent, detail, fileInfo) {
+            const wrapper = document.getElementById('progress-bar-wrapper');
+            const fill = document.getElementById('progress-bar-fill');
+            const text = document.getElementById('progress-bar-text');
+            const detailEl = document.getElementById('progress-detail');
+            const fileInfoEl = document.getElementById('progress-file-info');
+
+            wrapper.classList.remove('hidden');
+            fill.style.width = percent + '%';
+            text.textContent = percent + '%';
+            if (detail) detailEl.textContent = detail;
+            if (fileInfo) fileInfoEl.textContent = fileInfo;
+        }
+
+        function hideProgressBar() {
+            document.getElementById('progress-bar-wrapper').classList.add('hidden');
+        }
+
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+
+        async function pollJobStatus(jobId, fileSize) {
+            const statusTexts = {
+                'queued': 'Fil modtaget, venter på processering...',
+                'parsing': 'Parser data fra filen...',
+                'analyzing': 'Kører 103 momsanalyser...',
+            };
+
+            pollInterval = setInterval(async () => {
+                try {
+                    const resp = await fetch('/status/' + encodeURIComponent(jobId));
+                    if (!resp.ok) {
+                        const err = await resp.json();
+                        stopPolling();
+                        showError(err.detail || 'Fejl ved statuscheck');
+                        return;
+                    }
+                    const status = await resp.json();
+
+                    // Opdatér progress
+                    const progressText = document.getElementById('progress-text');
+                    progressText.textContent = statusTexts[status.status] || 'Arbejder...';
+
+                    if (status.status === 'parsing' || status.status === 'analyzing') {
+                        let detail = '';
+                        if (status.rows_processed > 0 && status.total_rows > 0) {
+                            detail = escapeHtml(status.rows_processed.toLocaleString('da-DK'))
+                                + ' af ' + escapeHtml(status.total_rows.toLocaleString('da-DK'))
+                                + ' rækker behandlet';
+                        }
+                        let fileInfo = 'Filstørrelse: ' + formatFileSize(status.file_size);
+                        updateProgressBar(status.progress, detail, fileInfo);
+                    }
+
+                    if (status.status === 'done') {
+                        stopPolling();
+                        updateProgressBar(100, 'Henter resultater...', '');
+                        // Hent resultat
+                        const resultResp = await fetch('/result/' + encodeURIComponent(jobId));
+                        if (!resultResp.ok) {
+                            const err = await resultResp.json();
+                            showError(err.detail || 'Fejl ved hentning af resultater');
+                            return;
+                        }
+                        const data = await resultResp.json();
+                        showResults(data);
+                    }
+
+                    if (status.status === 'error') {
+                        stopPolling();
+                        showError(status.error || 'Ukendt fejl under analyse');
+                    }
+
+                } catch (err) {
+                    // Netværksfejl — prøv igen ved næste interval
+                    console.error('Poll error:', err);
+                }
+            }, 2000); // Poll hvert 2. sekund
+        }
+
         async function uploadFile(file) {
             showSection('progress');
+            hideProgressBar();
+            stopPolling();
+
+            const progressText = document.getElementById('progress-text');
+            progressText.textContent = 'Uploader ' + escapeHtml(file.name)
+                + ' (' + formatFileSize(file.size) + ')...';
+
             const formData = new FormData();
             formData.append('file', file);
             try {
                 const response = await fetch('/analyze', { method: 'POST', body: formData });
                 const data = await response.json();
-                if (!response.ok) { showError(data.detail || data.error || 'Ukendt fejl'); return; }
+
+                if (!response.ok) {
+                    showError(data.detail || data.error || 'Ukendt fejl');
+                    return;
+                }
+
+                // Tjek om det er et asynkront job (stor fil)
+                if (data.job_id) {
+                    progressText.textContent = data.message || 'Stor fil — analyse kører i baggrunden...';
+                    updateProgressBar(0, 'Venter på processering...', 'Filstørrelse: ' + formatFileSize(data.file_size));
+                    pollJobStatus(data.job_id, data.file_size);
+                    return;
+                }
+
+                // Synkront resultat (lille fil)
                 showResults(data);
             } catch (err) {
                 showError('Kunne ikke forbinde til serveren. Prøv igen.');
@@ -287,6 +449,7 @@
         }
 
         function showError(message) {
+            stopPolling();
             document.getElementById('error-text').textContent = message;
             showSection('error');
         }
@@ -298,7 +461,12 @@
             errorSection.classList.toggle('hidden', section !== 'error');
         }
 
-        function reset() { fileInput.value = ''; showSection('upload'); }
+        function reset() {
+            stopPolling();
+            hideProgressBar();
+            fileInput.value = '';
+            showSection('upload');
+        }
         document.getElementById('reset-btn').addEventListener('click', reset);
         document.getElementById('error-reset-btn').addEventListener('click', reset);
     </script>

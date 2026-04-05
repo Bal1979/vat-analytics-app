@@ -2,24 +2,32 @@
 """
 VAT Analytics API
 Momsanalyse fra Excel/CSV data — 103 automatiserede tests.
+
+Understøtter store filer op til 2 GB med asynkron job-processering:
+- Filer < 50 MB: synkron analyse (returnerer resultat direkte)
+- Filer >= 50 MB: background thread, returnerer job_id med polling-endpoints
 """
 
 import os
 import re
 import uuid
+import shutil
 import secrets
+import threading
+import traceback
+from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from parsers.excel_parser import parse_excel, get_column_mapping_preview
+from parsers.excel_parser import parse_excel, get_column_mapping_preview, LARGE_FILE_THRESHOLD
 from analytics.engine import run_analytics
 
 app = FastAPI(
     title="VAT Analytics API",
     description="Momsanalyse fra Excel/CSV data — 103 automatiserede tests baseret på Skattestyrelsens kontrolmetoder",
-    version="0.1.0",
+    version="0.2.0",
 )
 security = HTTPBasic()
 
@@ -32,7 +40,11 @@ for _pair in _auth_raw.split(","):
         _u, _p = _pair.split(":", 1)
         USERS[_u.strip()] = _p.strip()
 
-MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "50")) * 1024 * 1024
+# Maks upload: 2 GB
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "2048")) * 1024 * 1024
+
+# Job tracking for asynkrone analyser
+jobs = {}
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
@@ -48,14 +60,16 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
         )
     return credentials.username
 
+
+# CORS: eksplicitte origins fra miljøvariabel
 _cors_origins = os.environ.get(
     "CORS_ORIGINS", "https://vat.balai.dk,http://localhost:3000"
 ).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _cors_origins],
+    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -68,8 +82,10 @@ app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__
 ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv"}
 
 
-def _save_upload(file: UploadFile) -> str:
-    """Gem uploadet fil og returnér filsti."""
+def _save_upload(file: UploadFile) -> tuple:
+    """
+    Gem uploadet fil via streaming (aldrig hele filen i hukommelse) og returnér (filsti, filstørrelse).
+    """
     original_name = file.filename or "upload"
     # Sanitize: strip path separators, keep only safe characters
     safe_name = os.path.basename(original_name)
@@ -88,29 +104,25 @@ def _save_upload(file: UploadFile) -> str:
     if not os.path.realpath(file_path).startswith(os.path.realpath(UPLOAD_DIR)):
         raise HTTPException(400, "Ugyldig filsti")
 
-    # Stream file in chunks with size validation
+    # Stream file in chunks with size validation (1 MB chunks)
     total_size = 0
-    chunk_size = 1024 * 1024  # 1 MB chunks
     with open(file_path, "wb") as f:
-        while True:
-            chunk = file.file.read(chunk_size)
-            if not chunk:
-                break
-            total_size += len(chunk)
-            if total_size > MAX_UPLOAD_BYTES:
-                f.close()
-                os.remove(file_path)
-                raise HTTPException(
-                    413,
-                    f"Filen er for stor. Maksimal filstørrelse er {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
-                )
-            f.write(chunk)
+        shutil.copyfileobj(file.file, f, length=1024 * 1024)
+
+    total_size = os.path.getsize(file_path)
+
+    if total_size > MAX_UPLOAD_BYTES:
+        os.remove(file_path)
+        raise HTTPException(
+            413,
+            f"Filen er for stor. Maksimal filstørrelse er {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
 
     if total_size == 0:
         os.remove(file_path)
         raise HTTPException(400, "Filen er tom. Upload venligst en fil med indhold.")
 
-    return file_path
+    return file_path, total_size
 
 
 def _cleanup(file_path: str):
@@ -119,9 +131,50 @@ def _cleanup(file_path: str):
         os.remove(file_path)
 
 
+def _run_analysis_job(job_id: str, file_path: str, filename: str, file_size: int):
+    """
+    Kør analyse i en background thread. Opdaterer jobs dict med progress.
+    """
+    try:
+        jobs[job_id]["status"] = "parsing"
+
+        def progress_cb(percent, rows_done, total_rows):
+            jobs[job_id]["progress"] = percent
+            jobs[job_id]["rows_processed"] = rows_done
+            jobs[job_id]["total_rows"] = total_rows
+
+        parsed_data = parse_excel(file_path, progress_callback=progress_cb)
+
+        if parsed_data.get("parse_info", {}).get("error"):
+            jobs[job_id]["status"] = "error"
+            jobs[job_id]["error"] = parsed_data["parse_info"]["error"]
+            return
+
+        jobs[job_id]["status"] = "analyzing"
+        jobs[job_id]["progress"] = 100  # Parsing done
+
+        results = run_analytics(parsed_data)
+
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["result"] = {
+            "filename": filename,
+            "parse_info": parsed_data["parse_info"],
+            "header": parsed_data["header"],
+            "analytics": results,
+        }
+
+    except Exception as e:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["error"] = f"Fejl ved analyse: {str(e)}"
+        jobs[job_id]["traceback"] = traceback.format_exc()
+    finally:
+        _cleanup(file_path)
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "VAT Analytics", "version": "0.1.0"}
+    return {"status": "ok", "service": "VAT Analytics", "version": "0.2.0"}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -138,7 +191,7 @@ async def preview_file(file: UploadFile = File(...), username: str = Depends(ver
     Upload en fil og få en preview af kolonner + auto-detekteret mapping.
     Brugeren kan derefter bekræfte/rette mappingen før analyse.
     """
-    file_path = _save_upload(file)
+    file_path, _ = _save_upload(file)
     try:
         preview = get_column_mapping_preview(file_path)
         return JSONResponse({
@@ -155,17 +208,48 @@ async def preview_file(file: UploadFile = File(...), username: str = Depends(ver
 async def analyze(file: UploadFile = File(...), username: str = Depends(verify_credentials)):
     """
     Upload en Excel/CSV fil og kør alle 103 momsanalyser.
-    Returnerer scores, findings og drill-down data.
+
+    For filer < 50 MB: synkron analyse, returnerer resultat direkte.
+    For filer >= 50 MB: starter background job, returnerer job_id til polling.
     """
-    file_path = _save_upload(file)
+    file_path, file_size = _save_upload(file)
+
+    # Store filer: asynkron processering
+    if file_size >= LARGE_FILE_THRESHOLD:
+        job_id = str(uuid.uuid4())
+        jobs[job_id] = {
+            "status": "queued",
+            "progress": 0,
+            "rows_processed": 0,
+            "total_rows": 0,
+            "filename": file.filename,
+            "file_size": file_size,
+            "created_at": datetime.utcnow().isoformat(),
+            "result": None,
+            "error": None,
+        }
+
+        thread = threading.Thread(
+            target=_run_analysis_job,
+            args=(job_id, file_path, file.filename, file_size),
+            daemon=True,
+        )
+        thread.start()
+
+        return JSONResponse({
+            "job_id": job_id,
+            "status": "queued",
+            "file_size": file_size,
+            "message": f"Stor fil ({file_size / (1024*1024):.1f} MB) — analyse kører i baggrunden.",
+        })
+
+    # Små filer: synkron analyse (uændret adfærd)
     try:
-        # Parse Excel/CSV til standardformat
         parsed_data = parse_excel(file_path)
 
         if parsed_data.get("parse_info", {}).get("error"):
             raise HTTPException(400, parsed_data["parse_info"]["error"])
 
-        # Kør analytics engine (samme som SAF-T Analytics)
         results = run_analytics(parsed_data)
 
         return JSONResponse({
@@ -181,6 +265,52 @@ async def analyze(file: UploadFile = File(...), username: str = Depends(verify_c
         raise HTTPException(500, f"Fejl ved analyse: {str(e)}")
     finally:
         _cleanup(file_path)
+
+
+@app.get("/status/{job_id}")
+def job_status(job_id: str, username: str = Depends(verify_credentials)):
+    """
+    Returnér status og progress for et asynkront analyse-job.
+    """
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job ikke fundet")
+
+    return JSONResponse({
+        "job_id": job_id,
+        "status": job["status"],
+        "progress": job["progress"],
+        "rows_processed": job["rows_processed"],
+        "total_rows": job["total_rows"],
+        "filename": job["filename"],
+        "file_size": job["file_size"],
+        "error": job["error"],
+    })
+
+
+@app.get("/result/{job_id}")
+def job_result(job_id: str, username: str = Depends(verify_credentials)):
+    """
+    Returnér resultatet af et færdigt analyse-job.
+    """
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job ikke fundet")
+
+    if job["status"] == "error":
+        raise HTTPException(500, job["error"])
+
+    if job["status"] != "done":
+        raise HTTPException(
+            202,
+            f"Analyse er stadig i gang (status: {job['status']}, progress: {job['progress']}%)",
+        )
+
+    result = job["result"]
+
+    # Ryd op i job-data for at frigøre hukommelse (behold metadata)
+    # Resultatet returneres én gang, derefter fjernes det store data-objekt
+    return JSONResponse(result)
 
 
 if __name__ == "__main__":
