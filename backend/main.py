@@ -22,6 +22,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from parsers.excel_parser import parse_excel, get_column_mapping_preview, LARGE_FILE_THRESHOLD
+from parsers.data_adapter import adapt_excel_to_saft
 from analytics.engine import run_analytics
 
 app = FastAPI(
@@ -153,14 +154,16 @@ def _run_analysis_job(job_id: str, file_path: str, filename: str, file_size: int
         jobs[job_id]["status"] = "analyzing"
         jobs[job_id]["progress"] = 100  # Parsing done
 
-        results = run_analytics(parsed_data)
+        # Adapt flat Excel data to SAF-T structure expected by analytics engine
+        adapted_data = adapt_excel_to_saft(parsed_data)
+        results = run_analytics(adapted_data)
 
         jobs[job_id]["status"] = "done"
         jobs[job_id]["progress"] = 100
         jobs[job_id]["result"] = {
             "filename": filename,
-            "parse_info": parsed_data["parse_info"],
-            "header": parsed_data["header"],
+            "parse_info": adapted_data["parse_info"],
+            "header": adapted_data["header"],
             "analytics": results,
         }
 
@@ -250,12 +253,14 @@ async def analyze(file: UploadFile = File(...), username: str = Depends(verify_c
         if parsed_data.get("parse_info", {}).get("error"):
             raise HTTPException(400, parsed_data["parse_info"]["error"])
 
-        results = run_analytics(parsed_data)
+        # Adapt flat Excel data to SAF-T structure expected by analytics engine
+        adapted_data = adapt_excel_to_saft(parsed_data)
+        results = run_analytics(adapted_data)
 
         return JSONResponse({
             "filename": file.filename,
-            "parse_info": parsed_data["parse_info"],
-            "header": parsed_data["header"],
+            "parse_info": adapted_data["parse_info"],
+            "header": adapted_data["header"],
             "analytics": results,
         })
 

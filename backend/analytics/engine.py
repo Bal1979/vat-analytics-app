@@ -99,7 +99,7 @@ def build_report(data: dict, findings: list) -> dict:
 
     return {
         "overall_score": overall_score,
-        "summary": data["summary"],
+        "summary": data.get("summary", {}),
         "impact_summary": {
             "economic": {
                 "total_findings": len(economic),
