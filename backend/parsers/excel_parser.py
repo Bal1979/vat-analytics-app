@@ -13,11 +13,14 @@ Understøtter store filer (op til 2 GB):
 """
 
 import os
+import logging
 import pandas as pd
 import re
 from datetime import datetime
 from typing import Optional, Callable
 from openpyxl import load_workbook
+
+logger = logging.getLogger(__name__)
 
 
 # Størrelses-grænse for chunked parsing (50 MB)
@@ -133,6 +136,7 @@ def _detect_columns(df):
                 mapping[field] = normalized[norm_alias]
                 break
 
+    logger.info("Column mapping results: %d fields mapped out of %d columns", len(mapping), len(df.columns))
     return mapping
 
 
@@ -513,6 +517,8 @@ def _parse_excel_streaming(file_path, sheet_name=None, progress_callback=None):
 def _build_result(transactions, accounts_seen, suppliers_seen,
                   customers_seen, vat_codes_seen, parse_info):
     """Byg det endelige resultat-dict med header udledt fra data."""
+    logger.info("Parsed %d rows, %d accounts, %d suppliers, %d customers",
+                len(transactions), len(accounts_seen), len(suppliers_seen), len(customers_seen))
     header = {
         "company_name": "",
         "registration_number": "",
@@ -561,6 +567,8 @@ def parse_excel(file_path: str, sheet_name: Optional[str] = None,
     file_size = os.path.getsize(file_path)
     is_large = file_size >= LARGE_FILE_THRESHOLD
     is_csv = file_path.lower().endswith((".csv", ".tsv"))
+    file_type = "CSV/TSV" if is_csv else "Excel"
+    logger.info("Detected file type: %s (%.2f MB, large=%s)", file_type, file_size / (1024 * 1024), is_large)
 
     # Store filer: brug chunked/streaming parsing
     if is_large:

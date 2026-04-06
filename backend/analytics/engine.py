@@ -4,8 +4,11 @@ Kører alle 103 momsanalysetests og returnerer struktureret rapport
 med findings klassificeret efter impact-type, retning og sværhedsgrad.
 """
 
+import logging
 from typing import Optional
 from analytics.models import make_finding
+
+logger = logging.getLogger(__name__)
 
 # Import test-kategorier
 from analytics.categories.cat01_transaction_integrity import run_transaction_integrity_tests
@@ -40,13 +43,22 @@ def run_all_tests(data: dict) -> dict:
     all_findings = []
 
     # Kør implementerede kategorier
-    all_findings.extend(run_transaction_integrity_tests(data))
-    all_findings.extend(run_duplicate_detection_tests(data))
+    logger.info("Running transaction integrity tests (cat01)")
+    cat01_findings = run_transaction_integrity_tests(data)
+    logger.info("Transaction integrity tests: %d findings", len(cat01_findings))
+    all_findings.extend(cat01_findings)
+
+    logger.info("Running duplicate detection tests (cat02)")
+    cat02_findings = run_duplicate_detection_tests(data)
+    logger.info("Duplicate detection tests: %d findings", len(cat02_findings))
+    all_findings.extend(cat02_findings)
 
     # TODO: Tilføj flere kategorier her efterhånden
     # all_findings.extend(run_vat_rate_tests(data))
     # all_findings.extend(run_cross_border_tests(data))
     # ...
+
+    logger.info("All tests complete: %d total findings", len(all_findings))
 
     # Byg rapport
     report = build_report(data, all_findings)

@@ -13,9 +13,13 @@ import re
 import uuid
 import shutil
 import secrets
+import logging
 import threading
 import traceback
 from datetime import datetime
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger(__name__)
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -111,6 +115,7 @@ def _save_upload(file: UploadFile) -> tuple:
         shutil.copyfileobj(file.file, f, length=1024 * 1024)
 
     total_size = os.path.getsize(file_path)
+    logger.info("File uploaded: %s (%.2f MB)", safe_name, total_size / (1024 * 1024))
 
     if total_size > MAX_UPLOAD_BYTES:
         os.remove(file_path)
@@ -138,17 +143,21 @@ def _run_analysis_job(job_id: str, file_path: str, filename: str, file_size: int
     """
     try:
         jobs[job_id]["status"] = "parsing"
+        logger.info("Job %s: created for file '%s' (%.2f MB)", job_id, filename, file_size / (1024 * 1024))
 
         def progress_cb(percent, rows_done, total_rows):
             jobs[job_id]["progress"] = percent
             jobs[job_id]["rows_processed"] = rows_done
             jobs[job_id]["total_rows"] = total_rows
 
+        logger.info("Job %s: parsing started", job_id)
         parsed_data = parse_excel(file_path, progress_callback=progress_cb)
+        logger.info("Job %s: parsing finished", job_id)
 
         if parsed_data.get("parse_info", {}).get("error"):
             jobs[job_id]["status"] = "error"
             jobs[job_id]["error"] = parsed_data["parse_info"]["error"]
+            logger.error("Job %s: parse error — %s", job_id, parsed_data["parse_info"]["error"])
             return
 
         jobs[job_id]["status"] = "analyzing"
@@ -156,7 +165,9 @@ def _run_analysis_job(job_id: str, file_path: str, filename: str, file_size: int
 
         # Adapt flat Excel data to SAF-T structure expected by analytics engine
         adapted_data = adapt_excel_to_saft(parsed_data)
+        logger.info("Job %s: analysis started", job_id)
         results = run_analytics(adapted_data)
+        logger.info("Job %s: analysis finished", job_id)
 
         jobs[job_id]["status"] = "done"
         jobs[job_id]["progress"] = 100
@@ -171,6 +182,7 @@ def _run_analysis_job(job_id: str, file_path: str, filename: str, file_size: int
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = f"Fejl ved analyse: {str(e)}"
         jobs[job_id]["traceback"] = traceback.format_exc()
+        logger.error("Job %s: error — %s", job_id, str(e))
     finally:
         _cleanup(file_path)
 
@@ -248,14 +260,19 @@ async def analyze(file: UploadFile = File(...), username: str = Depends(verify_c
 
     # Små filer: synkron analyse (uændret adfærd)
     try:
+        logger.info("Sync analysis: parsing started for '%s'", file.filename)
         parsed_data = parse_excel(file_path)
+        logger.info("Sync analysis: parsing finished for '%s'", file.filename)
 
         if parsed_data.get("parse_info", {}).get("error"):
+            logger.error("Sync analysis: parse error — %s", parsed_data["parse_info"]["error"])
             raise HTTPException(400, parsed_data["parse_info"]["error"])
 
         # Adapt flat Excel data to SAF-T structure expected by analytics engine
         adapted_data = adapt_excel_to_saft(parsed_data)
+        logger.info("Sync analysis: analysis started for '%s'", file.filename)
         results = run_analytics(adapted_data)
+        logger.info("Sync analysis: analysis finished for '%s'", file.filename)
 
         return JSONResponse({
             "filename": file.filename,
@@ -267,6 +284,7 @@ async def analyze(file: UploadFile = File(...), username: str = Depends(verify_c
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Sync analysis: error — %s", str(e))
         raise HTTPException(500, f"Fejl ved analyse: {str(e)}")
     finally:
         _cleanup(file_path)
