@@ -253,6 +253,12 @@ Samme fælde rammer VAT analytics, hvis den deployes som Data Extract:
 - **SECRET_KEY** sat (ellers brudte sessions ved >1 worker).
 - **EU-region** for volumenet (det følger servicens region) — auth/audit er personoplysninger.
 - Pas på flere Railway-projekter: VIES og Data Extract er separate services — ret kun den rigtige.
+- **Lad Procfile styre starten** — undgå `startCommand`-override i `railway.json`; det omgår
+  Nixpacks' venv-aktivering, så start-kommandoen (gunicorn/uvicorn/python) ikke er på PATH
+  (`command not found`).
+- **Hold Node-artefakter ude af git** (`package.json`, `package-lock.json`, `node_modules/`
+  fra fx docx-generatoren) — en enkelt `package.json` i repo-roden får Nixpacks til at
+  fejldetektere en Node-app og springe Python-deps over (samme fælde ramte Data Extract).
 
 ### 6.5 Separat spor: oversætter-værktøjet
 Stress-testen (§4.4) bekræftede behovet for et nedstrøms **oversætter-/mapping-værktøj**: tag
