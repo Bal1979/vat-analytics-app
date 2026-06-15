@@ -1,0 +1,1935 @@
+{
+  "catalog_version": "1.0.0",
+  "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 103 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
+  "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
+  "antal_kontroller": 103,
+  "kategorier": [
+    {
+      "id": 1,
+      "navn": "Transaktionsintegritet & Datakvalitet",
+      "test_range": [
+        1,
+        10
+      ]
+    },
+    {
+      "id": 2,
+      "navn": "Dubletdetektion",
+      "test_range": [
+        11,
+        18
+      ]
+    },
+    {
+      "id": 3,
+      "navn": "Momssats-validering",
+      "test_range": [
+        19,
+        26
+      ]
+    },
+    {
+      "id": 4,
+      "navn": "Grænseoverskridende & EU-compliance",
+      "test_range": [
+        27,
+        38
+      ]
+    },
+    {
+      "id": 5,
+      "navn": "Timing & Periodetest",
+      "test_range": [
+        39,
+        46
+      ]
+    },
+    {
+      "id": 6,
+      "navn": "Leverandør- & Kundevalidering",
+      "test_range": [
+        47,
+        54
+      ]
+    },
+    {
+      "id": 7,
+      "navn": "Beløbs- & Tærskeltest",
+      "test_range": [
+        55,
+        62
+      ]
+    },
+    {
+      "id": 8,
+      "navn": "Statistisk Anomalidetektion",
+      "test_range": [
+        63,
+        69
+      ]
+    },
+    {
+      "id": 9,
+      "navn": "Reverse Charge & Selvangivelse",
+      "test_range": [
+        70,
+        75
+      ]
+    },
+    {
+      "id": 10,
+      "navn": "Indgående/Udgående Moms Afstemning",
+      "test_range": [
+        76,
+        83
+      ]
+    },
+    {
+      "id": 11,
+      "navn": "Svindeldetektion & Karrusel/MTIC",
+      "test_range": [
+        84,
+        93
+      ]
+    },
+    {
+      "id": 12,
+      "navn": "E-handel, Digitale Ydelser & Særordninger",
+      "test_range": [
+        94,
+        103
+      ]
+    }
+  ],
+  "regler": [
+    {
+      "id": "VATA-001",
+      "test_id": 1,
+      "navn": "Moms-genberegning",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "dynamisk"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_01_vat_recalculation",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-002",
+      "test_id": 2,
+      "navn": "Momskode-validering",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_02_tax_code_validation",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-003",
+      "test_id": 3,
+      "navn": "Momsafrunding",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "compliance",
+        "economic"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_03_vat_rounding",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-004",
+      "test_id": 4,
+      "navn": "Faktura-feltfuldstændighed",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_04_invoice_field_completeness",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-005",
+      "test_id": 5,
+      "navn": "Dato/periode-konsistens",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_05_date_consistency",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-006",
+      "test_id": 6,
+      "navn": "Negative linjebeløb",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_06_negative_amounts",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-007",
+      "test_id": 7,
+      "navn": "Nul-værdi transaktioner",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high",
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_07_zero_value_transactions",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-008",
+      "test_id": 8,
+      "navn": "Valutakurs-konsistens",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_08_currency_consistency",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-009",
+      "test_id": 9,
+      "navn": "Leveringstidspunkt",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_09_tax_point",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-010",
+      "test_id": 10,
+      "navn": "Transaktionsbalance",
+      "kategori_id": 1,
+      "kategori": "Transaktionsintegritet & Datakvalitet",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "critical"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat01_transaction_integrity.py",
+      "funktion": "test_10_document_type",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-011",
+      "test_id": 11,
+      "navn": "Eksakt dubletfaktura",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "critical"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_11_exact_duplicate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-012",
+      "test_id": 12,
+      "navn": "Fuzzy dubletfaktura",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_12_fuzzy_duplicate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-013",
+      "test_id": 13,
+      "navn": "Samme beløb, samme leverandør",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_13_same_amount_same_vendor",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-014",
+      "test_id": 14,
+      "navn": "Genbrugt fakturanummer",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_14_normalized_invoice_number",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-015",
+      "test_id": 15,
+      "navn": "Dobbeltbetalingsdetektion",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_15_duplicate_payment",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-016",
+      "test_id": 16,
+      "navn": "Kreditnota-dubletter",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_16_credit_note_duplicate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-017",
+      "test_id": 17,
+      "navn": "Tværgående enheds-dubletter",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_17_cross_entity_duplicate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-018",
+      "test_id": 18,
+      "navn": "Sekventielle transaktionsnumre",
+      "kategori_id": 2,
+      "kategori": "Dubletdetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high",
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat02_duplicate_detection.py",
+      "funktion": "test_18_sequential_gaps",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-019",
+      "test_id": 19,
+      "navn": "Ugyldig momssats",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_19_invalid_rate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-020",
+      "test_id": 20,
+      "navn": "Sats afviger fra momstabel",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_20_rate_vs_taxtable",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-021",
+      "test_id": 21,
+      "navn": "Reduceret/udenlandsk momssats",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_21_reduced_rate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-022",
+      "test_id": 22,
+      "navn": "Manglende salgsmoms",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_22_missing_output_vat",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-023",
+      "test_id": 23,
+      "navn": "Inkonsistent sats pr. momskode",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_23_rate_consistency_per_code",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-024",
+      "test_id": 24,
+      "navn": "Implicit sats ugyldig",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_24_implied_rate",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-025",
+      "test_id": 25,
+      "navn": "Nulsats på indenlandsk handel",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_25_zero_rate_domestic",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-026",
+      "test_id": 26,
+      "navn": "Momsbeløb uden momskode",
+      "kategori_id": 3,
+      "kategori": "Momssats-validering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat03_vat_rate_validation.py",
+      "funktion": "test_26_missing_tax_code",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-027",
+      "test_id": 27,
+      "navn": "EU-handel uden momsnummer",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_27_eu_trade_no_vat_number",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-028",
+      "test_id": 28,
+      "navn": "Ugyldigt momsnummer-format",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_28_invalid_eu_vat_format",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-029",
+      "test_id": 29,
+      "navn": "EU-erhvervelse uden reverse charge",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_29_eu_acquisition_no_reverse_charge",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-030",
+      "test_id": 30,
+      "navn": "Eksport med moms pålagt",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_30_export_with_vat",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-031",
+      "test_id": 31,
+      "navn": "EU-salg med dansk moms",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_31_eu_sale_with_dk_vat",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-032",
+      "test_id": 32,
+      "navn": "Manglende landekode på udenlandsk part",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_32_missing_country_on_foreign",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-033",
+      "test_id": 33,
+      "navn": "Valuta/land-uoverensstemmelse",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_33_currency_country_mismatch",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-034",
+      "test_id": 34,
+      "navn": "Dansk momsnummer på udenlandsk part",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_34_dk_vat_on_foreign_party",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-035",
+      "test_id": 35,
+      "navn": "Momsnr-præfiks matcher ikke land",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_35_vat_prefix_vs_country",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-036",
+      "test_id": 36,
+      "navn": "test_36_triangulation",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_36_triangulation",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-037",
+      "test_id": 37,
+      "navn": "VIES-verifikation anbefales",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_37_vies_verification",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-038",
+      "test_id": 38,
+      "navn": "Import uden dokumentation",
+      "kategori_id": 4,
+      "kategori": "Grænseoverskridende & EU-compliance",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat04_cross_border_eu.py",
+      "funktion": "test_38_import_without_docs",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-039",
+      "test_id": 39,
+      "navn": "Bogføring efter periodeslut",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_39_after_period_end",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-040",
+      "test_id": 40,
+      "navn": "Bogføring før periodestart",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_40_before_period_start",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-041",
+      "test_id": 41,
+      "navn": "Weekend-bogføring",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_41_weekend_postings",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-042",
+      "test_id": 42,
+      "navn": "Ophobning ved periodeslut",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_42_period_end_clustering",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-043",
+      "test_id": 43,
+      "navn": "Fremtidig dato",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_43_future_dates",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-044",
+      "test_id": 44,
+      "navn": "Salg på kvartalsgrænse",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_44_period_boundary",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-045",
+      "test_id": 45,
+      "navn": "Sekvens/dato-inkonsistens",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_45_sequence_vs_date",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-046",
+      "test_id": 46,
+      "navn": "test_46_invoice_posting_lag",
+      "kategori_id": 5,
+      "kategori": "Timing & Periodetest",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat05_timing_period.py",
+      "funktion": "test_46_invoice_posting_lag",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-047",
+      "test_id": 47,
+      "navn": "Manglende leverandørnavn",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_47_missing_party_name",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-048",
+      "test_id": 48,
+      "navn": "Dublerede leverandører",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_48_duplicate_suppliers",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-049",
+      "test_id": 49,
+      "navn": "Manglende CVR på dansk leverandør",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_49_missing_cvr_dk_supplier",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-050",
+      "test_id": 50,
+      "navn": "Ugyldigt CVR-nummer",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_50_invalid_cvr_format",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-051",
+      "test_id": 51,
+      "navn": "Engangsleverandør, højt beløb",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_51_one_off_supplier",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-052",
+      "test_id": 52,
+      "navn": "Stor kunde uden momsnummer",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_52_customer_without_vat",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-053",
+      "test_id": 53,
+      "navn": "Samme momsnr på flere parter",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_53_shared_identity",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-054",
+      "test_id": 54,
+      "navn": "Part i begge roller",
+      "kategori_id": 6,
+      "kategori": "Leverandør- & Kundevalidering",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat06_party_validation.py",
+      "funktion": "test_54_party_in_both_roles",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-055",
+      "test_id": 55,
+      "navn": "Rundt beløb",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_55_round_amounts",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-056",
+      "test_id": 56,
+      "navn": "Beløb lige under grænse",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_56_just_below_threshold",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-057",
+      "test_id": 57,
+      "navn": "Kontant over grænsen",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_57_cash_limit",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-058",
+      "test_id": 58,
+      "navn": "Usædvanligt stort beløb",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_58_unusually_large",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-059",
+      "test_id": 59,
+      "navn": "Stort momsbeløb uden bilag",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_59_large_vat_no_document",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-060",
+      "test_id": 60,
+      "navn": "Negativt momsbeløb",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_60_negative_vat",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-061",
+      "test_id": 61,
+      "navn": "Konto-beløb outlier",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_61_account_outlier",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-062",
+      "test_id": 62,
+      "navn": "Mulig strukturering",
+      "kategori_id": 7,
+      "kategori": "Beløbs- & Tærskeltest",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat07_amount_threshold.py",
+      "funktion": "test_62_structuring",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-063",
+      "test_id": 63,
+      "navn": "Benford-afvigelse (første ciffer)",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_63_benford_first_digit",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-064",
+      "test_id": 64,
+      "navn": "Mange runde beløb",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_64_round_number_bias",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-065",
+      "test_id": 65,
+      "navn": "Sjælden momskode",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_65_rare_tax_code",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-066",
+      "test_id": 66,
+      "navn": "Gentaget beskrivelse",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_66_duplicate_descriptions",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-067",
+      "test_id": 67,
+      "navn": "Posteringsspike",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_67_timeseries_spike",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-068",
+      "test_id": 68,
+      "navn": "Sjældent brugt konto",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_68_rare_account",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-069",
+      "test_id": 69,
+      "navn": "Skæv øre-fordeling",
+      "kategori_id": 8,
+      "kategori": "Statistisk Anomalidetektion",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat08_statistical_anomaly.py",
+      "funktion": "test_69_last_digit_uniformity",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-070",
+      "test_id": 70,
+      "navn": "EU-køb uden reverse charge-markering",
+      "kategori_id": 9,
+      "kategori": "Reverse Charge & Selvangivelse",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat09_reverse_charge.py",
+      "funktion": "test_70_eu_service_no_rc",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-071",
+      "test_id": 71,
+      "navn": "Reverse charge på indenlandsk handel",
+      "kategori_id": 9,
+      "kategori": "Reverse Charge & Selvangivelse",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat09_reverse_charge.py",
+      "funktion": "test_71_rc_on_domestic",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-072",
+      "test_id": 72,
+      "navn": "RC-vare med moms i stedet for omvendt betalingspligt",
+      "kategori_id": 9,
+      "kategori": "Reverse Charge & Selvangivelse",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat09_reverse_charge.py",
+      "funktion": "test_72_domestic_rc_goods",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-073",
+      "test_id": 73,
+      "navn": "Asymmetrisk reverse charge",
+      "kategori_id": 9,
+      "kategori": "Reverse Charge & Selvangivelse",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat09_reverse_charge.py",
+      "funktion": "test_73_asymmetric_rc",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-074",
+      "test_id": 74,
+      "navn": "Byggeydelse uden omvendt betalingspligt",
+      "kategori_id": 9,
+      "kategori": "Reverse Charge & Selvangivelse",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat09_reverse_charge.py",
+      "funktion": "test_74_construction_rc",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-075",
+      "test_id": 75,
+      "navn": "Reverse charge uden modparts-momsnr",
+      "kategori_id": 9,
+      "kategori": "Reverse Charge & Selvangivelse",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat09_reverse_charge.py",
+      "funktion": "test_75_rc_missing_documentation",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-076",
+      "test_id": 76,
+      "navn": "Højt købsmoms/salgsmoms-forhold",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_76_input_output_ratio",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-077",
+      "test_id": 77,
+      "navn": "Momskonto afstemmer ikke",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_77_vat_account_reconciliation",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-078",
+      "test_id": 78,
+      "navn": "Negativt momstilsvar",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_78_negative_vat_liability",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-079",
+      "test_id": 79,
+      "navn": "Købsmoms uden grundlag",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_79_input_vat_no_purchase",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-080",
+      "test_id": 80,
+      "navn": "Indtægt uden momsbehandling",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_80_revenue_without_output_vat",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-081",
+      "test_id": 81,
+      "navn": "Stor andel momsfri omsætning",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_81_zero_rated_share",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-082",
+      "test_id": 82,
+      "navn": "test_82_period_declaration",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_82_period_declaration",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-083",
+      "test_id": 83,
+      "navn": "test_83_partial_deduction",
+      "kategori_id": 10,
+      "kategori": "Indgående/Udgående Moms Afstemning",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat10_vat_reconciliation.py",
+      "funktion": "test_83_partial_deduction",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-084",
+      "test_id": 84,
+      "navn": "Missing trader-indikator",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "critical"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_84_missing_trader",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-085",
+      "test_id": 85,
+      "navn": "test_85_carousel_pattern",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_85_carousel_pattern",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-086",
+      "test_id": 86,
+      "navn": "Hurtig gennemstrømning",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_86_rapid_throughput",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-087",
+      "test_id": 87,
+      "navn": "Højrisikovare",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_87_high_risk_goods",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-088",
+      "test_id": 88,
+      "navn": "Nul-margin på højrisikovare",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_88_zero_margin",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-089",
+      "test_id": 89,
+      "navn": "Nystartet høj-volumen leverandør",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_89_new_high_volume_party",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-090",
+      "test_id": 90,
+      "navn": "test_90_payment_pattern",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_90_payment_pattern",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-091",
+      "test_id": 91,
+      "navn": "Mellemregnings-/gennemstrømningskonto",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_91_clearing_account_abuse",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-092",
+      "test_id": 92,
+      "navn": "Falsk faktura-indikator",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_92_false_invoice",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-093",
+      "test_id": 93,
+      "navn": "Identisk beløb hos mange parter",
+      "kategori_id": 11,
+      "kategori": "Svindeldetektion & Karrusel/MTIC",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat11_fraud_mtic.py",
+      "funktion": "test_93_identical_amounts_across_parties",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-094",
+      "test_id": 94,
+      "navn": "EU-forbrugersalg (OSS)",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_94_eu_b2c_oss",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-095",
+      "test_id": 95,
+      "navn": "Fjernsalgstærskel overskredet",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "high"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_95_distance_selling_threshold",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-096",
+      "test_id": 96,
+      "navn": "Digital ydelse med dansk moms til EU-forbruger",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_96_digital_service_eu_consumer",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-097",
+      "test_id": 97,
+      "navn": "Dansk moms på EU-forbrugersalg",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_97_dk_vat_on_eu_consumer",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-098",
+      "test_id": 98,
+      "navn": "Lavværdiimport uden importmoms (IOSS)",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_98_ioss_low_value",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-099",
+      "test_id": 99,
+      "navn": "test_99_platform_liability",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [],
+      "severity": [],
+      "status": "inaktiv_kraever_kildedata",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_99_platform_liability",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-100",
+      "test_id": 100,
+      "navn": "Elektronisk ydelse uden momskode",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_100_electronic_services",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-101",
+      "test_id": 101,
+      "navn": "Teleydelse uden momskode",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_101_telecom_broadcasting",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-102",
+      "test_id": 102,
+      "navn": "Rejseydelse med fuld moms",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_102_travel_margin",
+      "kilde": "",
+      "test": ""
+    },
+    {
+      "id": "VATA-103",
+      "test_id": 103,
+      "navn": "Brugtmoms-vare med fuld moms",
+      "kategori_id": 12,
+      "kategori": "E-handel, Digitale Ydelser & Særordninger",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "modul": "analytics/categories/cat12_ecommerce_special.py",
+      "funktion": "test_103_used_goods_margin",
+      "kilde": "",
+      "test": ""
+    }
+  ]
+}
