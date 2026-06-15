@@ -17,7 +17,8 @@ def run_duplicate_detection_tests(data: dict) -> list:
     findings.extend(test_13_same_amount_same_vendor(data))
     findings.extend(test_14_normalized_invoice_number(data))
     findings.extend(test_15_duplicate_payment(data))
-    # Test 16-18 kræver mere avanceret data (kreditnotaer, tværgående enheder, sekventielle numre)
+    findings.extend(test_16_credit_note_duplicate(data))
+    findings.extend(test_17_cross_entity_duplicate(data))
     findings.extend(test_18_sequential_gaps(data))
     return findings
 
@@ -227,12 +228,56 @@ def test_13_same_amount_same_vendor(data: dict) -> list:
 
 def test_14_normalized_invoice_number(data: dict) -> list:
     """
-    Normalisér alle fakturanumre (strip special chars, uppercase, no leading zeros)
-    og kør dubletcheck igen.
-    (Overlapper med test 12 men kører uafhængigt af leverandør)
+    Normalisér alle fakturanumre og find genbrug af samme dokumentnummer
+    — uafhængigt af leverandør. Samme normaliserede fakturanummer brugt på
+    flere posteringer kan indikere dublet eller forkert nummerering.
     """
-    # Denne test er implementeret som del af test 12 (fuzzy duplicate)
-    return []
+    findings = []
+
+    norm_groups = defaultdict(list)
+    for txn in data["transactions"]:
+        for line in txn["lines"]:
+            doc = line["source_document_id"]
+            if not doc:
+                continue
+            norm = _normalize_id(doc)
+            if not norm or norm == "0":
+                continue
+            party = line["supplier_id"] or line["customer_id"] or ""
+            norm_groups[norm].append({
+                "transaction_id": txn["transaction_id"],
+                "journal_id": txn["journal_id"],
+                "date": txn["date"],
+                "account_id": line["account_id"],
+                "description": txn["description"],
+                "amount": line["debit_amount"] + line["credit_amount"],
+                "original_doc_id": doc,
+                "party": party,
+                "highlighted_field": "source_document_id",
+            })
+
+    for norm, entries in norm_groups.items():
+        # Kun interessant hvis dokumentnummeret optræder på mere end én postering
+        if len(entries) < 2:
+            continue
+        # Spring over hvis det er præcis samme part+beløb+dato (fanges af test 11/12)
+        signatures = {(e["party"], round(e["amount"], 2), e["date"]) for e in entries}
+        if len(signatures) < 2:
+            continue
+        findings.append(make_finding(
+            test_id=14,
+            test_name="Genbrugt fakturanummer",
+            impact_type="compliance",
+            direction="neutral",
+            severity="medium",
+            description=f"Fakturanummer '{norm}' (normaliseret) er brugt på {len(entries)} "
+                        f"posteringer med forskellige beløb/parter/datoer.",
+            fix_suggestion="Undersøg om samme fakturanummer er genbrugt fejlagtigt, "
+                           "eller om to forskellige bilag har fået samme nummer.",
+            transactions=entries,
+        ))
+
+    return findings
 
 
 # === TEST 15: Dobbelbetalingsdetektion ===
@@ -292,6 +337,117 @@ def test_15_duplicate_payment(data: dict) -> list:
                     estimated_amount=amount,
                     transactions=[dated[i-1][1], dated[i][1]],
                 ))
+
+    return findings
+
+
+# === TEST 16: Kreditnota-dubletter ===
+
+def test_16_credit_note_duplicate(data: dict) -> list:
+    """
+    Find duplikerede kreditnotaer: posteringer der ligner kreditnotaer
+    (negativt beløb eller beskrivelse med "kreditnota") og optræder flere
+    gange med samme part, beløb og dokument.
+    """
+    findings = []
+
+    seen = defaultdict(list)
+    for txn in data["transactions"]:
+        desc = (txn["description"] or "").lower()
+        is_credit_note_text = "kreditnota" in desc or "credit note" in desc or "kreditnotaer" in desc
+        for line in txn["lines"]:
+            amount = line["debit_amount"] + line["credit_amount"]
+            is_negative = line["debit_amount"] < 0 or line["credit_amount"] < 0
+            if not (is_credit_note_text or is_negative):
+                continue
+            party = line["supplier_id"] or line["customer_id"] or ""
+            if not party:
+                continue
+            key = (party, round(abs(amount), 2), line["source_document_id"], txn["date"])
+            seen[key].append({
+                "transaction_id": txn["transaction_id"],
+                "journal_id": txn["journal_id"],
+                "date": txn["date"],
+                "account_id": line["account_id"],
+                "description": txn["description"],
+                "amount": amount,
+                "party": party,
+                "source_document_id": line["source_document_id"],
+                "highlighted_field": "amount",
+            })
+
+    for key, entries in seen.items():
+        if len(entries) > 1:
+            findings.append(make_finding(
+                test_id=16,
+                test_name="Kreditnota-dubletter",
+                impact_type="economic",
+                direction="negative",
+                severity="high",
+                description=f"{len(entries)} ens kreditnota-posteringer for part '{key[0]}' "
+                            f"med beløb {key[1]:.2f}, dokument '{key[2]}', dato {key[3]}. "
+                            f"Mulig dobbeltkreditering.",
+                fix_suggestion="Undersøg om samme kreditnota er bogført mere end én gang. "
+                               "Dobbelte kreditnotaer reducerer momstilsvaret fejlagtigt.",
+                estimated_amount=key[1] * (len(entries) - 1),
+                transactions=entries,
+            ))
+
+    return findings
+
+
+# === TEST 17: Tværgående enheds-dubletter ===
+
+def test_17_cross_entity_duplicate(data: dict) -> list:
+    """
+    Find samme faktura bogført mod forskellige leverandører/kunder:
+    identisk (normaliseret) dokumentnummer + beløb, men forskellige parts-IDer.
+    Indikerer at ét bilag er konteret på flere kreditor-/debitorkonti.
+    """
+    findings = []
+
+    groups = defaultdict(list)
+    for txn in data["transactions"]:
+        for line in txn["lines"]:
+            doc = line["source_document_id"]
+            if not doc:
+                continue
+            norm = _normalize_id(doc)
+            if not norm or norm == "0":
+                continue
+            amount = round(line["debit_amount"] + line["credit_amount"], 2)
+            party = line["supplier_id"] or line["customer_id"] or ""
+            if not party:
+                continue
+            groups[(norm, amount)].append({
+                "transaction_id": txn["transaction_id"],
+                "journal_id": txn["journal_id"],
+                "date": txn["date"],
+                "account_id": line["account_id"],
+                "description": txn["description"],
+                "amount": amount,
+                "party": party,
+                "original_doc_id": doc,
+                "highlighted_field": "party",
+            })
+
+    for (norm, amount), entries in groups.items():
+        parties = {e["party"] for e in entries}
+        if len(entries) > 1 and len(parties) > 1:
+            findings.append(make_finding(
+                test_id=17,
+                test_name="Tværgående enheds-dubletter",
+                impact_type="economic",
+                direction="negative",
+                severity="high",
+                description=f"Fakturanummer '{norm}' med beløb {amount:.2f} er bogført mod "
+                            f"{len(parties)} forskellige parter: {', '.join(sorted(parties))}. "
+                            f"Mulig dobbeltbogføring på tværs af konti.",
+                fix_suggestion="Kontrollér om samme bilag er konteret på flere kreditor-/"
+                               "debitorkonti. Fjern den overflødige postering.",
+                estimated_amount=amount * (len(entries) - 1),
+                transactions=entries,
+            ))
 
     return findings
 

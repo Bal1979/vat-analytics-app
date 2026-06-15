@@ -3,12 +3,27 @@ Shared test fixtures for VAT Analytics tests.
 """
 
 import os
+import sys
+import tempfile
+
 import pytest
 import openpyxl
 
-
 TEST_DIR = os.path.dirname(__file__)
+BACKEND_ROOT = os.path.dirname(TEST_DIR)
 TEST_DATA_PATH = os.path.join(TEST_DIR, "test_data.xlsx")
+
+# Gør backend-roden importérbar (main, auth, audit_log) når pytest kører fra repo-roden.
+sys.path.insert(0, BACKEND_ROOT)
+
+# Peg auth-/audit-databaserne mod en midlertidig mappe ALLEREDE ved import, så
+# import-tids-initialisering af main.py aldrig skriver i repoet. Sæt også en fast
+# SECRET_KEY + tillad cookies over http (TestClient), før main importeres.
+_TMP = tempfile.mkdtemp(prefix="vatanalytics-test-")
+os.environ.setdefault("AUTH_DB_PATH", os.path.join(_TMP, "auth.db"))
+os.environ.setdefault("AUDIT_DB_PATH", os.path.join(_TMP, "audit.db"))
+os.environ.setdefault("SECRET_KEY", "test-secret-key-fixed")
+os.environ.setdefault("SESSION_COOKIE_SECURE", "0")
 
 
 def _create_test_excel():
@@ -90,3 +105,21 @@ def english_columns_excel(tmp_path):
     ])
     wb.save(path)
     return path
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    """FastAPI TestClient med en frisk auth-/audit-db pr. test (ingen følgning af
+    redirects, så vi kan assert'e status-koderne)."""
+    monkeypatch.setenv("AUTH_DB_PATH", str(tmp_path / "auth.db"))
+    monkeypatch.setenv("AUDIT_DB_PATH", str(tmp_path / "audit.db"))
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "0")
+
+    import auth
+    import audit_log
+    auth.init_db()
+    audit_log.init_audit_db()
+
+    from fastapi.testclient import TestClient
+    from main import app
+    return TestClient(app, follow_redirects=False)

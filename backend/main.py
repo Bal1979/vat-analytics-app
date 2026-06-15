@@ -12,7 +12,6 @@ import os
 import re
 import uuid
 import shutil
-import secrets
 import logging
 import threading
 import traceback
@@ -20,59 +19,70 @@ from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from parsers.excel_parser import parse_excel, get_column_mapping_preview, LARGE_FILE_THRESHOLD
 from parsers.data_adapter import adapt_excel_to_saft
 from analytics.engine import run_analytics
+import auth
+import audit_log
 
 app = FastAPI(
     title="VAT Analytics API",
     description="Momsanalyse fra Excel/CSV data — 103 automatiserede tests baseret på Skattestyrelsens kontrolmetoder",
     version="0.2.0",
 )
-security = HTTPBasic()
-
-# Brugere med adgang — læses fra miljøvariabel AUTH_USERS (format: "user1:pass1,user2:pass2").
-# Ingen default-credentials i koden: appen nægter at starte uden eksplicit konfiguration.
-_auth_raw = os.environ.get("AUTH_USERS", "")
-USERS = {}
-for _pair in _auth_raw.split(","):
-    _pair = _pair.strip()
-    if ":" in _pair:
-        _u, _p = _pair.split(":", 1)
-        if _u.strip() and _p.strip():
-            USERS[_u.strip()] = _p.strip()
-
-if not USERS:
-    raise RuntimeError(
-        "AUTH_USERS er ikke konfigureret. Sæt miljøvariablen AUTH_USERS "
-        '(format: "bruger1:kode1,bruger2:kode2") før appen startes. '
-        "Der findes bevidst ingen default-credentials i koden."
-    )
-
 # Maks upload: 2 GB
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "2048")) * 1024 * 1024
 
 # Job tracking for asynkrone analyser
 jobs = {}
 
+# --- Session-baseret auth (porteret fra SAF-T/VIES/Data Extract) ---
+# Ingen credentials i kode/miljø: adgang fås via /setup (første gang) og
+# invitationslinks. SECRET_KEY kræves i produktion (ellers brydes sessions
+# ved >1 worker / genstart).
+_SESSION_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1") != "0"
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=auth.secret_key(),
+    https_only=_SESSION_SECURE,
+    same_site="lax",
+    max_age=auth.SESSION_LIFETIME_HOURS * 3600,
+)
+auth.init_auth(app)
 
-def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-    """Verificér brugernavn og password."""
-    correct_password = USERS.get(credentials.username)
-    if not correct_password or not secrets.compare_digest(
-        credentials.password.encode("utf-8"), correct_password.encode("utf-8")
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Forkert brugernavn eller adgangskode",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
+
+# --- HTTP-sikkerhedsheaders (defense-in-depth) ---
+# Stram CSP: ingen CDN'er, ingen 'unsafe-*'. Alt JS/CSS er self-hosted i
+# /static (auth.css, style.css, app.js, admin.js).
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "img-src 'self' data:; "
+    "font-src 'self' data:; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "frame-ancestors 'none'; "
+    "form-action 'self'"
+)
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("Content-Security-Policy", _CSP)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
 
 
 # CORS: eksplicitte origins fra miljøvariabel
@@ -202,20 +212,21 @@ def health():
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(username: str = Depends(verify_credentials)):
-    """Serve frontend."""
-    template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
-    with open(template_path, "r") as f:
-        return f.read()
+def index(request: Request, user=Depends(auth.require_login)):
+    """Serve frontend (kræver login)."""
+    return auth.templates.TemplateResponse(
+        request, "index.html", {"csrf": auth.csrf_token(request)}
+    )
 
 
 @app.post("/preview")
-async def preview_file(file: UploadFile = File(...), username: str = Depends(verify_credentials)):
+async def preview_file(request: Request, file: UploadFile = File(...),
+                       user=Depends(auth.require_login), _=Depends(auth.verify_csrf)):
     """
     Upload en fil og få en preview af kolonner + auto-detekteret mapping.
     Brugeren kan derefter bekræfte/rette mappingen før analyse.
     """
-    file_path, _ = _save_upload(file)
+    file_path, _f = _save_upload(file)
     try:
         preview = get_column_mapping_preview(file_path)
         return JSONResponse({
@@ -229,7 +240,8 @@ async def preview_file(file: UploadFile = File(...), username: str = Depends(ver
 
 
 @app.post("/analyze")
-async def analyze(file: UploadFile = File(...), username: str = Depends(verify_credentials)):
+async def analyze(request: Request, file: UploadFile = File(...),
+                  user=Depends(auth.require_login), _=Depends(auth.verify_csrf)):
     """
     Upload en Excel/CSV fil og kør alle 103 momsanalyser.
 
@@ -237,6 +249,10 @@ async def analyze(file: UploadFile = File(...), username: str = Depends(verify_c
     For filer >= 50 MB: starter background job, returnerer job_id til polling.
     """
     file_path, file_size = _save_upload(file)
+
+    # Revisionslog: KUN metadata (hvem/hvornår/filstørrelse) — aldrig momsdata.
+    audit_log.log("analysis.run", actor=user["username"],
+                  detail=f"{file_size} bytes", ip=auth._client_ip(request))
 
     # Store filer: asynkron processering
     if file_size >= LARGE_FILE_THRESHOLD:
@@ -300,7 +316,7 @@ async def analyze(file: UploadFile = File(...), username: str = Depends(verify_c
 
 
 @app.get("/status/{job_id}")
-def job_status(job_id: str, username: str = Depends(verify_credentials)):
+def job_status(job_id: str, user=Depends(auth.require_login)):
     """
     Returnér status og progress for et asynkront analyse-job.
     """
@@ -321,7 +337,7 @@ def job_status(job_id: str, username: str = Depends(verify_credentials)):
 
 
 @app.get("/result/{job_id}")
-def job_result(job_id: str, username: str = Depends(verify_credentials)):
+def job_result(job_id: str, user=Depends(auth.require_login)):
     """
     Returnér resultatet af et færdigt analyse-job.
     """

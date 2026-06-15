@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}VAT Analytics{% endblock %}</title>
+  <link rel="stylesheet" href="/static/auth.css">
+</head>
+<body>
+  <div class="auth-wrap {% block wrap_class %}{% endblock %}">
+    <div class="brand">BAL AI · VAT Analytics</div>
+    {% block content %}{% endblock %}
+    <footer>VAT Analytics · adgangsstyring</footer>
+  </div>
+</body>
+</html>

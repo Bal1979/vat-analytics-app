@@ -145,3 +145,42 @@ h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 8px; }
     .score-banner { flex-direction: column; text-align: center; }
     .severity-summary { justify-content: center; }
 }
+
+/* === Progress bar (flyttet fra inline <style> i index.html, så CSP er stram) === */
+.progress-bar-container {
+    width: 100%;
+    max-width: 400px;
+    margin: 16px auto;
+    background: #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 24px;
+    position: relative;
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #4caf50, #2e7d32);
+    border-radius: 8px;
+    transition: width 0.3s ease;
+}
+.progress-bar-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+    text-shadow: 0 0 4px rgba(255,255,255,0.8);
+}
+.progress-detail {
+    font-size: 13px;
+    color: #666;
+    margin-top: 8px;
+}
+.progress-file-info {
+    font-size: 12px;
+    color: #999;
+    margin-top: 4px;
+}

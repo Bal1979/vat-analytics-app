@@ -1,0 +1,5 @@
+# Test- og udviklingsafhængigheder (adskilt fra runtime requirements.txt).
+# CI installerer begge: pip install -r requirements.txt -r requirements-dev.txt
+pytest==8.3.4
+pip-audit==2.7.3
+httpx==0.27.2

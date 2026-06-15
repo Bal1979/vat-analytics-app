@@ -85,6 +85,8 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
             "customer_id": txn.get("customer_id", "") or "",
             "customer_name": txn.get("customer_name", "") or "",
             "source_document_id": txn.get("invoice_number", "") or "",
+            "country": txn.get("country", "") or "",
+            "vat_number": txn.get("vat_number", "") or "",
         }
 
         # Derive period and period_year from the date if not already present

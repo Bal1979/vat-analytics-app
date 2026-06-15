@@ -128,22 +128,77 @@ def test_02_tax_code_validation(data: dict) -> list:
 
 def test_03_vat_rounding(data: dict) -> list:
     """
-    Tjek at momsafrunding er inden for tolerance (max 0.50 DKK per transaktion).
+    Momsafrunding: to kontroller.
+    1) Momsbeløb der ikke er afrundet til hele ører (mere end 2 decimaler).
+    2) Systematisk afrundings-drift: summen af små afvigelser (under test 1's
+       0,50-grænse) pr. periode — en konsekvent skævhed indikerer fejl i
+       afrundingsmetoden (altid op/ned frem for korrekt afrunding).
     """
     findings = []
+    period_drift = {}  # periode -> [sum_diff, antal, eksempler]
 
     for txn in data["transactions"]:
-        total_line_vat = 0
-        total_line_base = 0
-
         for line in txn["lines"]:
-            total_line_vat += line["tax_amount"]
-            total_line_base += line["tax_base"]
+            vat = line["tax_amount"]
+            base = line["tax_base"]
+            rate = line["tax_percentage"]
 
-        if total_line_base > 0 and total_line_vat > 0:
-            # Beregn document-level moms
-            # (dette er en simpel check — ideelt skal vi kende den samlede sats)
-            pass  # Kræver mere kompleks SAF-T data med document totals
+            # 1) Øre-præcision
+            if vat and round(vat, 2) != vat:
+                findings.append(make_finding(
+                    test_id=3,
+                    test_name="Momsafrunding",
+                    impact_type="compliance",
+                    direction="neutral",
+                    severity="low",
+                    description=f"Momsbeløb {vat} på linje {line['record_id']} i transaktion "
+                                f"{txn['transaction_id']} er ikke afrundet til hele ører.",
+                    fix_suggestion="Afrund momsbeløb til 2 decimaler (hele ører).",
+                    transactions=[{
+                        "transaction_id": txn["transaction_id"],
+                        "journal_id": txn["journal_id"],
+                        "date": txn["date"],
+                        "account_id": line["account_id"],
+                        "tax_amount": vat,
+                        "highlighted_field": "tax_amount",
+                    }],
+                ))
+
+            # 2) Akkumulér små afvigelser pr. periode
+            if base and rate and vat:
+                expected = round(base * rate / 100, 2)
+                diff = round(vat - expected, 2)
+                if 0 < abs(diff) <= 0.50:
+                    key = f"{txn['period']}/{txn['period_year']}"
+                    entry = period_drift.setdefault(key, [0.0, 0, []])
+                    entry[0] += diff
+                    entry[1] += 1
+                    if len(entry[2]) < 5:
+                        entry[2].append({
+                            "transaction_id": txn["transaction_id"],
+                            "journal_id": txn["journal_id"],
+                            "date": txn["date"],
+                            "tax_amount": vat,
+                            "tax_expected": expected,
+                            "difference": diff,
+                            "highlighted_field": "tax_amount",
+                        })
+
+    for period, (drift, count, examples) in period_drift.items():
+        if count >= 3 and abs(drift) > 1.0:
+            findings.append(make_finding(
+                test_id=3,
+                test_name="Momsafrunding",
+                impact_type="economic",
+                direction="negative" if drift > 0 else "positive",
+                severity="low",
+                description=f"Systematisk afrundings-drift i periode {period}: "
+                            f"{count} linjer med samlet skævhed {drift:.2f} DKK i samme retning.",
+                fix_suggestion="Tjek bogføringssystemets afrundingsmetode. Konsekvent "
+                               "op- eller nedrunding kan akkumulere til en momsfejl.",
+                estimated_amount=abs(round(drift, 2)),
+                transactions=examples,
+            ))
 
     return findings
 

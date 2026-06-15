@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 # Import test-kategorier
 from analytics.categories.cat01_transaction_integrity import run_transaction_integrity_tests
 from analytics.categories.cat02_duplicate_detection import run_duplicate_detection_tests
+from analytics.categories.cat03_vat_rate_validation import run_vat_rate_tests
+from analytics.categories.cat04_cross_border_eu import run_cross_border_tests
+from analytics.categories.cat05_timing_period import run_timing_tests
+from analytics.categories.cat06_party_validation import run_party_tests
+from analytics.categories.cat07_amount_threshold import run_amount_tests
+from analytics.categories.cat08_statistical_anomaly import run_statistical_tests
+from analytics.categories.cat09_reverse_charge import run_reverse_charge_tests
+from analytics.categories.cat10_vat_reconciliation import run_reconciliation_tests
+from analytics.categories.cat11_fraud_mtic import run_fraud_tests
+from analytics.categories.cat12_ecommerce_special import run_ecommerce_tests
 
 
 # === KATEGORI-DEFINITIONER ===
@@ -53,10 +63,22 @@ def run_all_tests(data: dict) -> dict:
     logger.info("Duplicate detection tests: %d findings", len(cat02_findings))
     all_findings.extend(cat02_findings)
 
-    # TODO: Tilføj flere kategorier her efterhånden
-    # all_findings.extend(run_vat_rate_tests(data))
-    # all_findings.extend(run_cross_border_tests(data))
-    # ...
+    for label, runner in (
+        ("vat rate validation (cat03)", run_vat_rate_tests),
+        ("cross-border & EU (cat04)", run_cross_border_tests),
+        ("timing & period (cat05)", run_timing_tests),
+        ("party validation (cat06)", run_party_tests),
+        ("amount & threshold (cat07)", run_amount_tests),
+        ("statistical anomaly (cat08)", run_statistical_tests),
+        ("reverse charge (cat09)", run_reverse_charge_tests),
+        ("vat reconciliation (cat10)", run_reconciliation_tests),
+        ("fraud & MTIC (cat11)", run_fraud_tests),
+        ("e-commerce & special schemes (cat12)", run_ecommerce_tests),
+    ):
+        logger.info("Running %s", label)
+        cat_findings = runner(data)
+        logger.info("%s: %d findings", label, len(cat_findings))
+        all_findings.extend(cat_findings)
 
     logger.info("All tests complete: %d total findings", len(all_findings))
 
