@@ -36,14 +36,23 @@ app = FastAPI(
 )
 security = HTTPBasic()
 
-# Brugere med adgang — læses fra miljøvariabel AUTH_USERS (format: "user1:pass1,user2:pass2")
-_auth_raw = os.environ.get("AUTH_USERS", "admin:balai2025,Fabian:Salvatore")
+# Brugere med adgang — læses fra miljøvariabel AUTH_USERS (format: "user1:pass1,user2:pass2").
+# Ingen default-credentials i koden: appen nægter at starte uden eksplicit konfiguration.
+_auth_raw = os.environ.get("AUTH_USERS", "")
 USERS = {}
 for _pair in _auth_raw.split(","):
     _pair = _pair.strip()
     if ":" in _pair:
         _u, _p = _pair.split(":", 1)
-        USERS[_u.strip()] = _p.strip()
+        if _u.strip() and _p.strip():
+            USERS[_u.strip()] = _p.strip()
+
+if not USERS:
+    raise RuntimeError(
+        "AUTH_USERS er ikke konfigureret. Sæt miljøvariablen AUTH_USERS "
+        '(format: "bruger1:kode1,bruger2:kode2") før appen startes. '
+        "Der findes bevidst ingen default-credentials i koden."
+    )
 
 # Maks upload: 2 GB
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "2048")) * 1024 * 1024
