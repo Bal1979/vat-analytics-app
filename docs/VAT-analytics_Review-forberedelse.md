@@ -93,6 +93,14 @@ sandsynligvis todelt: (a) at kontrollerne er korrekte og falsk-alarm-fri, og
   **rigtige** credentials, ikke placeholders → fjern fra koden, tjek git-historik
   for læk, portér SAF-T's session-auth. Samme mønster som Data Extract
   (`admin:change-me-before-deploy`) — men her med reelt udseende passwords.
+- 🔴 **Kerne-koden er ikke i git (untracked)** — observeret 2026-06-15: 10 af de 12
+  kontrolfiler (`cat03`–`cat12`) + `vat_rules.py` er **untracked**, og `cat01`,
+  `cat02`, `engine.py`, `parsers/data_adapter.py` har ucommittede ændringer (ligner
+  linter-formatering). Motoren er reelt **ikke versionsstyret** — går arbejdsmappen
+  tabt, er kontrollerne væk. **FØRSTE skridt i reviewet:** bring koden under fuld
+  versionsstyring (commit motoren bevidst, tag stilling til de modified filer, tilføj
+  en ordentlig `.gitignore`) FØR der bygges ovenpå. Brug ikke `git add -A` blindt —
+  gennemgå hvad der er hvad (linter-støj vs. reel kode).
 - 🔴 **Ingen CI fundet** (ingen `.github/workflows`). Hele gated-validerings-baren
   mangler (pytest + pip-audit + valideringssuite).
 - 🟡 **Ingen splittede deps** (kun `requirements.txt`), intet `railway.json`,
