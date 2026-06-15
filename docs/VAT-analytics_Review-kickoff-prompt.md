@@ -57,7 +57,7 @@ Validator, VIES Validator og Data Extract. Jeg vil have VAT Analytics kørt efte
 5. **Stress-test på RIGTIGE klientdata** før vi tror vi er færdige — ret driftsfund ved
    roden. Hvis værktøjet er deployet (Railway): tjek persistent volumen monteret `/data`
    + `AUTH_DB_PATH`/`AUDIT_DB_PATH` + `SECRET_KEY` + EU-region (Data Extract havde præcis
-   den fælde: uden volumen nulstilles brugerdatabasen ved hver redeploy). Tjek også build/start: lad Procfile styre starten (ikke `startCommand`-override i `railway.json`, det omgår venv-PATH → `command not found`), og hold Node-artefakter (`package.json`/`-lock`, `node_modules`) gitignored, ellers fejldetekterer Nixpacks en Node-app og springer Python/gunicorn over.
+   den fælde: uden volumen nulstilles brugerdatabasen ved hver redeploy). Tjek også build/runtime: hold Node-artefakter (`package.json`/`-lock`, `node_modules`) gitignored — en stray `package.json` i repo-roden får Nixpacks til at fejldetektere en Node-app og bygge uden Python/gunicorn (`command not found`). En `startCommand` i `railway.json` er derimod fin (VIES kører sådan).
 
 **RESULTAT-FILOSOFI:** RØD = action krævet (ingen falske alarmer; VIES gik fra 37 røde
 til 4 reelle), vær konservativ mod falske negativer, og giv en prioriteret action-liste
