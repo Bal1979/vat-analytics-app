@@ -163,7 +163,8 @@ def build_report(cat):
     L.append(f"- Præcis kilde udfyldt: **{len(med_kilde)} / {len(cat['regler'])}** "
              f"(resten viser kategoriens retsområde indtil den fagansvarlige pinner paragraffen)")
     L.append(f"- Dækkende valideringstest udfyldt: **{len(med_test)} / {len(cat['regler'])}** "
-             f"(udfyldes i Fase C — valideringssuiten)")
+             f"(valideringssuiten dækker alle {len(aktive)} aktive kontroller; de "
+             f"{len(inaktive)} uden test er de inaktive)")
     L.append("")
     L.append("## Sporbarhedsmatrix (kontrol → kilde → modul → test)")
     L.append("")

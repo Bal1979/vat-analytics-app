@@ -621,4 +621,99 @@ SCENARIOS = [
         "defect": mk_data([mk_txn(mk_line(debit_amount=50000.0, supplier_id=f"L{i}"), transaction_id=f"I-{i}")
                            for i in range(4)]),
     },
+
+    # === cat10: Ind-/udgående moms-afstemning (resten: 76, 77, 78, 81) ===
+    {
+        "test_id": 76, "navn": "Højt købsmoms/salgsmoms-forhold",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0), transaction_id="P"),
+            mk_txn(mk_line(credit_amount=1000.0, tax_amount=250.0), transaction_id="S"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=10000.0, tax_amount=1000.0), transaction_id="P"),
+            mk_txn(mk_line(credit_amount=1000.0, tax_amount=100.0), transaction_id="S"),
+        ]),
+    },
+    {
+        "test_id": 77, "navn": "Momskonto afstemmer ikke",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0)),
+                         accounts=[{"account_id": "7010", "description": "Momsafregning",
+                                    "account_type": "", "opening_balance": 0.0, "closing_balance": -250.0}]),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0)),
+                          accounts=[{"account_id": "7010", "description": "Momsafregning",
+                                     "account_type": "", "opening_balance": 0.0, "closing_balance": 9999.0}]),
+    },
+    {
+        "test_id": 78, "navn": "Negativt momstilsvar",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0), transaction_id="P"),
+            mk_txn(mk_line(credit_amount=2000.0, tax_amount=500.0), transaction_id="S"),
+        ]),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0))),
+    },
+    {
+        "test_id": 81, "navn": "Stor andel momsfri omsætning",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=20000.0, tax_code="U25", tax_percentage=25.0,
+                                        tax_base=20000.0, tax_amount=5000.0))),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=20000.0, tax_code="N0", tax_percentage=0.0))),
+    },
+
+    # === cat12: E-handel, digitale ydelser & særordninger (94-98, 100-103; 99 inaktiv) ===
+    {
+        "test_id": 94, "navn": "EU-forbrugersalg (OSS)",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=20000.0, country="DE", vat_number=_DE_VAT))),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=20000.0, country="DE", vat_number=""))),
+    },
+    {
+        "test_id": 95, "navn": "Fjernsalgstærskel overskredet",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=20000.0, country="DE", vat_number=""))),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=80000.0, country="DE", vat_number=""))),
+    },
+    {
+        "test_id": 96, "navn": "Digital ydelse med dansk moms til EU-forbruger",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, country="DE", vat_number="",
+                                        tax_percentage=0.0), description="Software licens")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, country="DE", vat_number="",
+                                         tax_percentage=25.0), description="Software licens")),
+    },
+    {
+        "test_id": 97, "navn": "Dansk moms på EU-forbrugersalg",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, country="DE", vat_number="",
+                                        tax_percentage=0.0, tax_amount=0.0), description="Varesalg")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, country="DE", vat_number="",
+                                         tax_percentage=25.0, tax_amount=2500.0), description="Varesalg")),
+    },
+    {
+        "test_id": 98, "navn": "Lavværdiimport uden importmoms (IOSS)",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="US", tax_amount=0.0),
+                                description="Postering")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="US", tax_amount=0.0),
+                                 description="Import fra tredjeland")),
+    },
+    {
+        "test_id": 100, "navn": "Elektronisk ydelse uden momskode",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_code="U25"),
+                                description="Software abonnement")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_code=""),
+                                 description="Software abonnement")),
+    },
+    {
+        "test_id": 101, "navn": "Teleydelse uden momskode",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_code="U25"), description="Teleydelse")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_code=""), description="Teleydelse")),
+    },
+    {
+        "test_id": 102, "navn": "Rejseydelse med fuld moms",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_percentage=0.0, tax_amount=0.0),
+                                description="Pakkerejse til Spanien")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_percentage=25.0, tax_amount=2500.0),
+                                 description="Pakkerejse til Spanien")),
+    },
+    {
+        "test_id": 103, "navn": "Brugtmoms-vare med fuld moms",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_percentage=0.0, tax_amount=0.0),
+                                description="Salg af brugt udstyr")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_percentage=25.0, tax_amount=2500.0),
+                                 description="Salg af brugt udstyr")),
+    },
 ]

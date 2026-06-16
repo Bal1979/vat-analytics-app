@@ -2,7 +2,7 @@
 
 > Auto-genereret af `python -m validation.run_validation` · 2026-06-16
 
-✅ **BESTÅET** — 85/85 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 98/98 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -81,8 +81,12 @@
 | 73 | Asymmetrisk reverse charge | ja | ja | ✅ |
 | 74 | Byggeydelse uden omvendt betalingspligt | ja | ja | ✅ |
 | 75 | Reverse charge uden modparts-momsnr | ja | ja | ✅ |
+| 76 | Højt købsmoms/salgsmoms-forhold | ja | ja | ✅ |
+| 77 | Momskonto afstemmer ikke | ja | ja | ✅ |
+| 78 | Negativt momstilsvar | ja | ja | ✅ |
 | 79 | Købsmoms uden grundlag | ja | ja | ✅ |
 | 80 | Indtægt uden momsbehandling | ja | ja | ✅ |
+| 81 | Stor andel momsfri omsætning | ja | ja | ✅ |
 | 84 | Missing trader-indikator | ja | ja | ✅ |
 | 86 | Hurtig gennemstrømning | ja | ja | ✅ |
 | 87 | Højrisikovare | ja | ja | ✅ |
@@ -91,6 +95,15 @@
 | 91 | Mellemregnings-/gennemstrømningskonto | ja | ja | ✅ |
 | 92 | Falsk faktura-indikator | ja | ja | ✅ |
 | 93 | Identisk beløb hos mange parter | ja | ja | ✅ |
+| 94 | EU-forbrugersalg (OSS) | ja | ja | ✅ |
+| 95 | Fjernsalgstærskel overskredet | ja | ja | ✅ |
+| 96 | Digital ydelse med dansk moms til EU-forbruger | ja | ja | ✅ |
+| 97 | Dansk moms på EU-forbrugersalg | ja | ja | ✅ |
+| 98 | Lavværdiimport uden importmoms (IOSS) | ja | ja | ✅ |
+| 100 | Elektronisk ydelse uden momskode | ja | ja | ✅ |
+| 101 | Teleydelse uden momskode | ja | ja | ✅ |
+| 102 | Rejseydelse med fuld moms | ja | ja | ✅ |
+| 103 | Brugtmoms-vare med fuld moms | ja | ja | ✅ |
 
-Dækning: **85** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **98** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 

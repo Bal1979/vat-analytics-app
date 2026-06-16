@@ -118,7 +118,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_01_vat_recalculation",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -138,7 +138,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_02_tax_code_validation",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -159,7 +159,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_03_vat_rounding",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -179,7 +179,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_04_invoice_field_completeness",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -199,7 +199,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_05_date_consistency",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -219,7 +219,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_06_negative_amounts",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -240,7 +240,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_07_zero_value_transactions",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -260,7 +260,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_08_currency_consistency",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -280,7 +280,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_09_tax_point",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -300,7 +300,7 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_10_document_type",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -320,7 +320,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_11_exact_duplicate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -340,7 +340,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_12_fuzzy_duplicate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -360,7 +360,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_13_same_amount_same_vendor",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -380,7 +380,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_14_normalized_invoice_number",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -400,7 +400,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_15_duplicate_payment",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -420,7 +420,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_16_credit_note_duplicate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -440,7 +440,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_17_cross_entity_duplicate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -461,7 +461,7 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_18_sequential_gaps",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -481,7 +481,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_19_invalid_rate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -501,7 +501,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_20_rate_vs_taxtable",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -521,7 +521,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_21_reduced_rate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -541,7 +541,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_22_missing_output_vat",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -561,7 +561,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_23_rate_consistency_per_code",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -581,7 +581,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_24_implied_rate",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -601,7 +601,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_25_zero_rate_domestic",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -621,7 +621,7 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_26_missing_tax_code",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -641,7 +641,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_27_eu_trade_no_vat_number",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -661,7 +661,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_28_invalid_eu_vat_format",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -681,7 +681,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_29_eu_acquisition_no_reverse_charge",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -701,7 +701,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_30_export_with_vat",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -721,7 +721,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_31_eu_sale_with_dk_vat",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -741,7 +741,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_32_missing_country_on_foreign",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -761,7 +761,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_33_currency_country_mismatch",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -781,7 +781,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_34_dk_vat_on_foreign_party",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -801,7 +801,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_35_vat_prefix_vs_country",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -823,7 +823,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_36_triangulation",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "ship_from_country / ship_to_country (vareflow)",
       "scope_beslutning": "AKTIVERET (Fase D): place-of-supply/trekantshandel. Fyrer når ship_from/ship_to findes i importen; flade udtræk uden vareflow giver fortsat ingen findings."
     },
@@ -843,7 +843,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_37_vies_verification",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -863,7 +863,7 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_38_import_without_docs",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -883,7 +883,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_39_after_period_end",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -903,7 +903,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_40_before_period_start",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -923,7 +923,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_41_weekend_postings",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -943,7 +943,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_42_period_end_clustering",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -963,7 +963,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_43_future_dates",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -983,7 +983,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_44_period_boundary",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1003,7 +1003,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_45_sequence_vs_date",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1023,7 +1023,7 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_46_invoice_posting_lag",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "to datoer: bogføringsdato + fakturadato",
       "scope_beslutning": "AKTIVERET (Fase D): faktura/bogførings-lag. Fyrer når både document_date (faktura) og date (bogføring) findes; ellers springes pænt over."
     },
@@ -1043,7 +1043,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_47_missing_party_name",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1063,7 +1063,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_48_duplicate_suppliers",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1083,7 +1083,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_49_missing_cvr_dk_supplier",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1103,7 +1103,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_50_invalid_cvr_format",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1123,7 +1123,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_51_one_off_supplier",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1143,7 +1143,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_52_customer_without_vat",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1163,7 +1163,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_53_shared_identity",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1183,7 +1183,7 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_54_party_in_both_roles",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1203,7 +1203,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_55_round_amounts",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1223,7 +1223,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_56_just_below_threshold",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1243,7 +1243,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_57_cash_limit",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1263,7 +1263,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_58_unusually_large",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1283,7 +1283,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_59_large_vat_no_document",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1303,7 +1303,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_60_negative_vat",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1323,7 +1323,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_61_account_outlier",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1343,7 +1343,7 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_62_structuring",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1363,7 +1363,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_63_benford_first_digit",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1383,7 +1383,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_64_round_number_bias",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1403,7 +1403,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_65_rare_tax_code",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1423,7 +1423,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_66_duplicate_descriptions",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1443,7 +1443,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_67_timeseries_spike",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1463,7 +1463,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_68_rare_account",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1483,7 +1483,7 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_69_last_digit_uniformity",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1503,7 +1503,7 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_70_eu_service_no_rc",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1523,7 +1523,7 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_71_rc_on_domestic",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1543,7 +1543,7 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_72_domestic_rc_goods",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1563,7 +1563,7 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_73_asymmetric_rc",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1583,7 +1583,7 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_74_construction_rc",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1603,7 +1603,7 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_75_rc_missing_documentation",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1623,7 +1623,7 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_76_input_output_ratio",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1643,7 +1643,7 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_77_vat_account_reconciliation",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1663,7 +1663,7 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_78_negative_vat_liability",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1683,7 +1683,7 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_79_input_vat_no_purchase",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1703,7 +1703,7 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_80_revenue_without_output_vat",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1723,7 +1723,7 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_81_zero_rated_share",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1775,7 +1775,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_84_missing_trader",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1811,7 +1811,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_86_rapid_throughput",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1831,7 +1831,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_87_high_risk_goods",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1851,7 +1851,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_88_zero_margin",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1871,7 +1871,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_89_new_high_volume_party",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1907,7 +1907,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_91_clearing_account_abuse",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1927,7 +1927,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_92_false_invoice",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1947,7 +1947,7 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_93_identical_amounts_across_parties",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1967,7 +1967,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_94_eu_b2c_oss",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -1987,7 +1987,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_95_distance_selling_threshold",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2007,7 +2007,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_96_digital_service_eu_consumer",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2027,7 +2027,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_97_dk_vat_on_eu_consumer",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2047,7 +2047,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_98_ioss_low_value",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2083,7 +2083,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_100_electronic_services",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2103,7 +2103,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_101_telecom_broadcasting",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2123,7 +2123,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_102_travel_margin",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     },
@@ -2143,7 +2143,7 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_103_used_goods_margin",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",
       "scope_beslutning": ""
     }

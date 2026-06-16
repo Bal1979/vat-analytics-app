@@ -24,11 +24,13 @@ import ast
 import json
 import os
 import re
+import sys
 
 CATALOG_VERSION = "1.0.0"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)
+sys.path.insert(0, _BACKEND)  # så validation.scenarios kan importeres uanset cwd
 _CATEGORIES_DIR = os.path.join(_BACKEND, "analytics", "categories")
 _OUT = os.path.join(_BACKEND, "catalog", "rules.json")
 _NOTES = os.path.join(_BACKEND, "catalog", "rule_notes.json")
@@ -99,9 +101,20 @@ def _load_notes():
     return data.get("noter", {})
 
 
+def _scenario_ids():
+    """test_id'er der har et valideringsscenarie (ren/defekt) i valideringssuiten."""
+    try:
+        from validation.scenarios import SCENARIOS
+        return {s["test_id"] for s in SCENARIOS}
+    except Exception:  # noqa: BLE001 — generatoren må ikke vælte hvis suiten ikke kan importeres
+        return set()
+
+
 def build():
     rules = []
     notes = _load_notes()
+    covered = _scenario_ids()
+    _VALIDATION_TEST = "tests/test_validation_suite.py + validation/scenarios.py"
     for fname in sorted(os.listdir(_CATEGORIES_DIR)):
         if not fname.startswith("cat") or not fname.endswith(".py"):
             continue
@@ -138,7 +151,7 @@ def build():
                 "modul": module,
                 "funktion": node.name,
                 "kilde": note.get("kilde", ""),          # autoritativ retskilde — udfyldes i Fase B
-                "test": note.get("test", ""),             # dækkende valideringstest — udfyldes i Fase C
+                "test": note.get("test") or (_VALIDATION_TEST if tid in covered else ""),
                 "afhaenger_af": note.get("afhaenger_af", ""),
                 "scope_beslutning": note.get("scope_beslutning", ""),
             })
