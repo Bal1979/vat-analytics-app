@@ -2,7 +2,7 @@
 
 > Auto-genereret af `python -m validation.run_validation` · 2026-06-16
 
-✅ **BESTÅET** — 54/54 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 70/70 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -52,6 +52,22 @@
 | 44 | Salg på kvartalsgrænse | ja | ja | ✅ |
 | 45 | Sekvens/dato-inkonsistens | ja | ja | ✅ |
 | 46 | Stort lag mellem faktura- og bogføringsdato | ja | ja | ✅ |
+| 47 | Manglende parts-navn | ja | ja | ✅ |
+| 48 | Dublerede leverandører | ja | ja | ✅ |
+| 49 | Manglende CVR på dansk leverandør | ja | ja | ✅ |
+| 50 | Ugyldigt CVR-nummer | ja | ja | ✅ |
+| 51 | Engangsleverandør, højt beløb | ja | ja | ✅ |
+| 52 | Stor kunde uden momsnummer | ja | ja | ✅ |
+| 53 | Samme momsnr på flere parter | ja | ja | ✅ |
+| 54 | Part i begge roller | ja | ja | ✅ |
+| 55 | Rundt beløb | ja | ja | ✅ |
+| 56 | Beløb lige under grænse | ja | ja | ✅ |
+| 57 | Kontant over grænsen | ja | ja | ✅ |
+| 58 | Usædvanligt stort beløb (outlier) | ja | ja | ✅ |
+| 59 | Stort momsbeløb uden bilag | ja | ja | ✅ |
+| 60 | Negativt momsbeløb | ja | ja | ✅ |
+| 61 | Konto-beløb outlier | ja | ja | ✅ |
+| 62 | Mulig strukturering | ja | ja | ✅ |
 | 70 | EU-køb uden reverse charge-markering | ja | ja | ✅ |
 | 71 | Reverse charge på indenlandsk handel | ja | ja | ✅ |
 | 72 | RC-vare med moms i stedet for omvendt betalingspligt | ja | ja | ✅ |
@@ -61,5 +77,5 @@
 | 79 | Købsmoms uden grundlag | ja | ja | ✅ |
 | 80 | Indtægt uden momsbehandling | ja | ja | ✅ |
 
-Dækning: **54** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **70** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 

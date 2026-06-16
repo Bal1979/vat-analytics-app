@@ -386,4 +386,120 @@ SCENARIOS = [
             mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-3", date="2024-01-01"),
         ]),
     },
+
+    # === cat06: Leverandør- & kundevalidering (47-54) ===
+    {
+        "test_id": 47, "navn": "Manglende parts-navn",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name=""))),
+    },
+    {
+        "test_id": 48, "navn": "Dublerede leverandører",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS"),
+                                transaction_id="T-1")),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS"), transaction_id="T-1"),
+            mk_txn(mk_line(debit_amount=1000.0, supplier_id="L2", supplier_name="ABC ApS"), transaction_id="T-2"),
+        ]),
+    },
+    {
+        "test_id": 49, "navn": "Manglende CVR på dansk leverandør",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS",
+                                        country="DK", vat_number="DK12345674"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS",
+                                         country="DK", vat_number=""))),
+    },
+    {
+        "test_id": 50, "navn": "Ugyldigt CVR-nummer",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS",
+                                        country="DK", vat_number="DK12345674"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS",
+                                         country="DK", vat_number="DK12345678"))),
+    },
+    {
+        "test_id": 51, "navn": "Engangsleverandør, højt beløb",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=60000.0, supplier_id="L1", supplier_name="ABC ApS"))),
+    },
+    {
+        "test_id": 52, "navn": "Stor kunde uden momsnummer",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=120000.0, customer_id="K1", customer_name="Kunde A/S",
+                                        vat_number="DE123456789"))),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=120000.0, customer_id="K1", customer_name="Kunde A/S",
+                                         vat_number=""))),
+    },
+    {
+        "test_id": 53, "navn": "Samme momsnr på flere parter",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS",
+                                        vat_number="DK12345674"))),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, supplier_id="L1", supplier_name="ABC ApS",
+                           vat_number="DK12345674"), transaction_id="T-1"),
+            mk_txn(mk_line(debit_amount=1000.0, supplier_id="L2", supplier_name="ABC2 ApS",
+                           vat_number="DK12345674"), transaction_id="T-2"),
+        ]),
+    },
+    {
+        "test_id": 54, "navn": "Part i begge roller",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, supplier_id="P1", supplier_name="ABC ApS"), transaction_id="T-1"),
+            mk_txn(mk_line(credit_amount=1000.0, customer_id="P2", customer_name="XYZ A/S"), transaction_id="T-2"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, supplier_id="P1", supplier_name="ABC ApS"), transaction_id="T-1"),
+            mk_txn(mk_line(credit_amount=1000.0, customer_id="P1", customer_name="ABC ApS"), transaction_id="T-2"),
+        ]),
+    },
+
+    # === cat07: Beløbs- & tærskeltest (55-62) ===
+    {
+        "test_id": 55, "navn": "Rundt beløb",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=50123.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=50000.0))),
+    },
+    {
+        "test_id": 56, "navn": "Beløb lige under grænse",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=45123.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=49321.0))),
+    },
+    {
+        "test_id": 57, "navn": "Kontant over grænsen",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=25000.0), description="Bankoverførsel")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=25000.0), description="Kontant betaling")),
+    },
+    {
+        "test_id": 58, "navn": "Usædvanligt stort beløb (outlier)",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"S-{i}") for i in range(5)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"S-{i}") for i in range(20)]
+                          + [mk_txn(mk_line(debit_amount=100000.0), transaction_id="BIG")]),
+    },
+    {
+        "test_id": 59, "navn": "Stort momsbeløb uden bilag",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=24000.0, tax_amount=6000.0, source_document_id="F-1"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=24000.0, tax_amount=6000.0, source_document_id=""))),
+    },
+    {
+        "test_id": 60, "navn": "Negativt momsbeløb",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=-500.0), description="Kreditnota")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=-500.0), description="Postering")),
+    },
+    {
+        "test_id": 61, "navn": "Konto-beløb outlier",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.0, account_id="4000"), transaction_id=f"A-{i}")
+                          for i in range(5)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0, account_id="4000"), transaction_id=f"A-{i}")
+                           for i in range(20)]
+                          + [mk_txn(mk_line(debit_amount=100000.0, account_id="4000"), transaction_id="A-BIG")]),
+    },
+    {
+        "test_id": 62, "navn": "Mulig strukturering",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=3000.0, supplier_id="L1"), transaction_id="T-1", date="2024-03-15"),
+            mk_txn(mk_line(debit_amount=3000.0, supplier_id="L1"), transaction_id="T-2", date="2024-03-15"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=6000.0, supplier_id="L1"), transaction_id="T-1", date="2024-03-15"),
+            mk_txn(mk_line(debit_amount=6000.0, supplier_id="L1"), transaction_id="T-2", date="2024-03-15"),
+        ]),
+    },
 ]
