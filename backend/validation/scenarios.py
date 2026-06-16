@@ -219,4 +219,88 @@ SCENARIOS = [
                                         tax_percentage=25.0, tax_base=10000.0, tax_amount=2500.0))),
         "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, country="DK", tax_code="", tax_amount=0.0))),
     },
+
+    # === cat03: Momssats-validering (19-26) ===
+    {
+        "test_id": 19, "navn": "Ugyldig momssats",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="X", tax_percentage=25.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="X", tax_percentage=12.0))),
+    },
+    {
+        "test_id": 20, "navn": "Sats afviger fra momstabel",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_percentage=25.0)), tax_table=_I25),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_percentage=10.0)), tax_table=_I25),
+    },
+    {
+        "test_id": 21, "navn": "Reduceret/udenlandsk momssats",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="X", tax_percentage=25.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="X", tax_percentage=19.0, tax_amount=190.0))),
+    },
+    {
+        "test_id": 22, "navn": "Manglende salgsmoms",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_code="U25", tax_percentage=25.0, tax_amount=2500.0))),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_code="U25", tax_percentage=25.0, tax_amount=0.0))),
+    },
+    {
+        "test_id": 23, "navn": "Inkonsistent sats pr. momskode",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_percentage=25.0), transaction_id="T-1"),
+            mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_percentage=25.0), transaction_id="T-2"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_percentage=25.0), transaction_id="T-1"),
+            mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_percentage=0.0), transaction_id="T-2"),
+        ]),
+    },
+    {
+        "test_id": 24, "navn": "Implicit sats ugyldig",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_base=1000.0, tax_amount=250.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_base=1000.0, tax_amount=120.0))),
+    },
+    {
+        "test_id": 25, "navn": "Nulsats på indenlandsk handel",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="N0", tax_percentage=25.0, tax_base=1000.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="N0", tax_percentage=0.0, tax_base=1000.0, country=""))),
+    },
+    {
+        "test_id": 26, "navn": "Momsbeløb uden momskode",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="I25", tax_amount=250.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="", tax_amount=250.0))),
+    },
+
+    # === cat09: Reverse charge & selvangivelse (70-75) ===
+    {
+        "test_id": 70, "navn": "EU-køb uden reverse charge-markering",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="RC25", tax_amount=0.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="", tax_amount=0.0))),
+    },
+    {
+        "test_id": 71, "navn": "Reverse charge på indenlandsk handel",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="I25"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="RC25"))),
+    },
+    {
+        "test_id": 72, "navn": "RC-vare med moms i stedet for omvendt betalingspligt",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="RC25", tax_amount=250.0),
+                                description="Køb af mobiltelefoner")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="I25", tax_amount=250.0),
+                                 description="Køb af mobiltelefoner")),
+    },
+    {
+        "test_id": 73, "navn": "Asymmetrisk reverse charge",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="I25"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="RC25"))),
+    },
+    {
+        "test_id": 74, "navn": "Byggeydelse uden omvendt betalingspligt",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="RC25", tax_amount=250.0),
+                                description="Byggeydelse og montage")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="I25", tax_amount=250.0),
+                                 description="Byggeydelse og montage")),
+    },
+    {
+        "test_id": 75, "navn": "Reverse charge uden modparts-momsnr",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="RC25", vat_number=_DE_VAT))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="RC25", vat_number=""))),
+    },
 ]
