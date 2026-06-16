@@ -1,0 +1,12 @@
+{
+  "name": "vat-analytics-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Docx-generator til VAT Analytics' godkendelses-dokumentationspakke (kun build-tooling; ikke en del af runtime).",
+  "scripts": {
+    "docs": "node backend/tools/build_approval_docs.js"
+  },
+  "dependencies": {
+    "docx": "^8.5.0"
+  }
+}
