@@ -30,6 +30,20 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
   til EU som VAT Analytics (slet US-volumen → sæt EU → genopret volumen). Noteret i
   playbook'ens drifts-afsnit.
 
+## Internt løft tilbage (kan bygges af os — rækkefølge)
+1. **Aggregat-korrekthed (NÆSTE OP):** `engine.build_report` summerer `estimated_amount`
+   på tværs af kontroller; samme transaktion kan udløse flere → mulig dobbelttælling i
+   økonomiske totaler. Dedupliker pr. transaktion ELLER dokumentér metode; gør til testet invariant.
+2. **Jobs-oprydning:** in-memory `jobs`-dict ryddes aldrig (kommentar siger ellers) → hukommelse vokser. Tilføj TTL/oprydning.
+3. **Katalog-drift-gate i CI:** assert committet `rules.json` == genereret (fanger forældet katalog).
+4. **Materialitet konfigurerbar:** severity-vægte/tærskler er hardcodede i `engine.py`; gør engagement-styrede.
+
+## Internt, men kræver beslutning/input
+- **Features 82 + 83** (besluttet) — afklar UI-form før build. 90 parkeret.
+- **`kilde`-pinning** pr. kontrol — Claude laver kategori-udkast; fagansvarlig bekræfter paragraffer.
+- **Next.js-scaffold** (`~/Projects/vat-analytics`) — byg som frontend ELLER arkivér (reel UI = backend `index.html`).
+- **Git-historik-scrubbing** af lækkede creds — destruktivt, kræver Bals go.
+
 ## Senere faser
-- **Fase E:** godkendelses-dokumentationspakke (4 docx) efter SAF-T-skabelon.
+- **Fase E:** ✅ godkendelses-dokumentationspakke (4 docx + README/CHANGELOG) — færdig.
 - **Fase F:** stress-test på rigtige klientdata; tæl røde → reelle (jf. VIES 37→4).
