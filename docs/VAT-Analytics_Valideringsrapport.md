@@ -2,7 +2,7 @@
 
 > Auto-genereret af `python -m validation.run_validation` · 2026-06-16
 
-✅ **BESTÅET** — 70/70 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 85/85 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -68,6 +68,13 @@
 | 60 | Negativt momsbeløb | ja | ja | ✅ |
 | 61 | Konto-beløb outlier | ja | ja | ✅ |
 | 62 | Mulig strukturering | ja | ja | ✅ |
+| 63 | Benford-afvigelse (første ciffer) | ja | ja | ✅ |
+| 64 | Mange runde beløb | ja | ja | ✅ |
+| 65 | Sjælden momskode | ja | ja | ✅ |
+| 66 | Gentaget beskrivelse | ja | ja | ✅ |
+| 67 | Posteringsspike | ja | ja | ✅ |
+| 68 | Sjældent brugt konto | ja | ja | ✅ |
+| 69 | Skæv øre-fordeling | ja | ja | ✅ |
 | 70 | EU-køb uden reverse charge-markering | ja | ja | ✅ |
 | 71 | Reverse charge på indenlandsk handel | ja | ja | ✅ |
 | 72 | RC-vare med moms i stedet for omvendt betalingspligt | ja | ja | ✅ |
@@ -76,6 +83,14 @@
 | 75 | Reverse charge uden modparts-momsnr | ja | ja | ✅ |
 | 79 | Købsmoms uden grundlag | ja | ja | ✅ |
 | 80 | Indtægt uden momsbehandling | ja | ja | ✅ |
+| 84 | Missing trader-indikator | ja | ja | ✅ |
+| 86 | Hurtig gennemstrømning | ja | ja | ✅ |
+| 87 | Højrisikovare | ja | ja | ✅ |
+| 88 | Nul-margin på højrisikovare | ja | ja | ✅ |
+| 89 | Nystartet høj-volumen leverandør | ja | ja | ✅ |
+| 91 | Mellemregnings-/gennemstrømningskonto | ja | ja | ✅ |
+| 92 | Falsk faktura-indikator | ja | ja | ✅ |
+| 93 | Identisk beløb hos mange parter | ja | ja | ✅ |
 
-Dækning: **70** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **85** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 

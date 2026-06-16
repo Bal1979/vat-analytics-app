@@ -502,4 +502,123 @@ SCENARIOS = [
             mk_txn(mk_line(debit_amount=6000.0, supplier_id="L1"), transaction_id="T-2", date="2024-03-15"),
         ]),
     },
+
+    # === cat08: Statistisk anomalidetektion (63-69) — kræver store datasæt ===
+    {
+        "test_id": 63, "navn": "Benford-afvigelse (første ciffer)",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=90.0), transaction_id=f"B-{i}") for i in range(40)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=90.0), transaction_id=f"B-{i}") for i in range(60)]),
+    },
+    {
+        "test_id": 64, "navn": "Mange runde beløb",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=50123.0), transaction_id=f"R-{i}") for i in range(30)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=50000.0), transaction_id=f"R-{i}") for i in range(30)]),
+    },
+    {
+        "test_id": 65, "navn": "Sjælden momskode",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.0, tax_code="I25"), transaction_id=f"C-{i}")
+                          for i in range(151)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0, tax_code="I25"), transaction_id=f"C-{i}")
+                           for i in range(150)]
+                          + [mk_txn(mk_line(debit_amount=1000.0, tax_code="RARE"), transaction_id="C-RARE")]),
+    },
+    {
+        "test_id": 66, "navn": "Gentaget beskrivelse",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"D-{i}",
+                                 description=f"Postering nr {i}") for i in range(20)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"D-{i}",
+                                  description="Diverse omkostninger") for i in range(20)]),
+    },
+    {
+        "test_id": 67, "navn": "Posteringsspike",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"E-{i}",
+                                 date=f"2024-01-{i:02d}") for i in range(1, 13)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"E-{i}",
+                                  date=f"2024-01-{i:02d}") for i in range(1, 21)]
+                          + [mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"SP-{j}",
+                                    date="2024-02-01") for j in range(20)]),
+    },
+    {
+        "test_id": 68, "navn": "Sjældent brugt konto",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.0, account_id="4000"), transaction_id=f"F-{i}")
+                          for i in range(51)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0, account_id="4000"), transaction_id=f"F-{i}")
+                           for i in range(50)]
+                          + [mk_txn(mk_line(debit_amount=30000.0, account_id="9999"), transaction_id="F-RARE")]),
+    },
+    {
+        "test_id": 69, "navn": "Skæv øre-fordeling",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=1000.37), transaction_id=f"G-{i}") for i in range(50)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"G-{i}") for i in range(50)]),
+    },
+
+    # === cat11: Svindel & karrusel/MTIC (84, 86-89, 91-93; 85/90 inaktive) ===
+    {
+        "test_id": 84, "navn": "Missing trader-indikator",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", vat_number="DK12345674"),
+                                description="Postering")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=60000.0, country="DE", vat_number=""),
+                                 description="Køb af mobiltelefoner")),
+    },
+    {
+        "test_id": 86, "navn": "Hurtig gennemstrømning",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=50000.0), transaction_id="P-1", date="2024-03-01"),
+            mk_txn(mk_line(credit_amount=50000.0), transaction_id="S-1", date="2024-04-15"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=50000.0), transaction_id="P-1", date="2024-03-01"),
+            mk_txn(mk_line(credit_amount=50000.0), transaction_id="S-1", date="2024-03-05"),
+        ]),
+    },
+    {
+        "test_id": 87, "navn": "Højrisikovare",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=30000.0), description="Køb af kontorartikler")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=30000.0), description="Køb af mobiltelefoner")),
+    },
+    {
+        "test_id": 88, "navn": "Nul-margin på højrisikovare",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=50000.0), transaction_id="P-1", description="Køb af mobiltelefoner"),
+            mk_txn(mk_line(credit_amount=60000.0), transaction_id="S-1", description="Salg af mobiltelefoner"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=50000.0), transaction_id="P-1", description="Køb af mobiltelefoner"),
+            mk_txn(mk_line(credit_amount=50000.0), transaction_id="S-1", description="Salg af mobiltelefoner"),
+        ]),
+    },
+    {
+        "test_id": 89, "navn": "Nystartet høj-volumen leverandør",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=70000.0, supplier_id="L1"), transaction_id="N-1", date="2024-01-01"),
+            mk_txn(mk_line(debit_amount=70000.0, supplier_id="L1"), transaction_id="N-2", date="2024-06-01"),
+            mk_txn(mk_line(debit_amount=70000.0, supplier_id="L1"), transaction_id="N-3", date="2024-12-01"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=70000.0, supplier_id="L1"), transaction_id="N-1", date="2024-03-01"),
+            mk_txn(mk_line(debit_amount=70000.0, supplier_id="L1"), transaction_id="N-2", date="2024-03-10"),
+            mk_txn(mk_line(debit_amount=70000.0, supplier_id="L1"), transaction_id="N-3", date="2024-03-20"),
+        ]),
+    },
+    {
+        "test_id": 91, "navn": "Mellemregnings-/gennemstrømningskonto",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=20000.0, account_id="9999"),
+                                 transaction_id=f"M-{i}", description="Postering") for i in range(3)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=20000.0, account_id="9999"),
+                                  transaction_id=f"M-{i}", description="Mellemregning") for i in range(3)]),
+    },
+    {
+        "test_id": 92, "navn": "Falsk faktura-indikator",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=20000.0, tax_amount=3000.0, source_document_id="F-1",
+                                        supplier_id="L1", supplier_name="ABC ApS"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=20000.0, tax_amount=3000.0, source_document_id="",
+                                         supplier_id="L1", supplier_name="ABC ApS"))),
+    },
+    {
+        "test_id": 93, "navn": "Identisk beløb hos mange parter",
+        "clean": mk_data([mk_txn(mk_line(debit_amount=50000.0, supplier_id="L1"), transaction_id=f"I-{i}")
+                          for i in range(4)]),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=50000.0, supplier_id=f"L{i}"), transaction_id=f"I-{i}")
+                           for i in range(4)]),
+    },
 ]
