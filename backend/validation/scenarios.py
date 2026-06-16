@@ -303,4 +303,87 @@ SCENARIOS = [
         "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="RC25", vat_number=_DE_VAT))),
         "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="RC25", vat_number=""))),
     },
+
+    # === cat04: Grænseoverskridende (resten: 28, 32-35, 37, 38) ===
+    {
+        "test_id": 28, "navn": "Ugyldigt momsnummer-format",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number=_DE_VAT))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number="DE12"))),
+    },
+    {
+        "test_id": 32, "navn": "Manglende landekode på udenlandsk part",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", vat_number=_DE_VAT))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="", vat_number=_DE_VAT))),
+    },
+    {
+        "test_id": 33, "navn": "Valuta/land-uoverensstemmelse",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", currency="DKK"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", currency="EUR"))),
+    },
+    {
+        "test_id": 34, "navn": "Dansk momsnummer på udenlandsk part",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number=_DE_VAT))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number="DK12345678"))),
+    },
+    {
+        "test_id": 35, "navn": "Momsnr-præfiks matcher ikke land",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number=_DE_VAT))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number="SE123456789012"))),
+    },
+    {
+        "test_id": 37, "navn": "VIES-verifikation anbefales",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", vat_number=""))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", vat_number=_DE_VAT))),
+    },
+    {
+        "test_id": 38, "navn": "Import fra tredjeland uden dokumentation",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="US", tax_amount=0.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="US", tax_amount=250.0))),
+    },
+
+    # === cat05: Timing & periode (39-45) ===
+    {
+        "test_id": 39, "navn": "Bogføring efter periodeslut",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2024-06-15")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2025-01-15")),
+    },
+    {
+        "test_id": 40, "navn": "Bogføring før periodestart",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2024-06-15")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2023-12-15")),
+    },
+    {
+        "test_id": 41, "navn": "Weekend-bogføring",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2024-03-15")),   # fredag
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2024-03-16")),  # lørdag
+    },
+    {
+        "test_id": 42, "navn": "Ophobning ved periodeslut",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2024-03-31")),
+        "defect": mk_data([mk_txn(mk_line(debit_amount=1000.0), transaction_id=f"T-{i}", date="2024-03-31")
+                           for i in range(5)]),
+    },
+    {
+        "test_id": 43, "navn": "Fremtidig dato",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2024-06-15")),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0), date="2027-01-01")),
+    },
+    {
+        "test_id": 44, "navn": "Salg på kvartalsgrænse",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=1000.0), date="2024-05-15")),
+        "defect": mk_data(mk_txn(mk_line(credit_amount=1000.0), date="2024-03-31")),
+    },
+    {
+        "test_id": 45, "navn": "Sekvens/dato-inkonsistens",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-1", date="2024-01-01"),
+            mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-2", date="2024-02-01"),
+            mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-3", date="2024-03-01"),
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-1", date="2024-03-01"),
+            mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-2", date="2024-02-01"),
+            mk_txn(mk_line(debit_amount=1000.0), transaction_id="T-3", date="2024-01-01"),
+        ]),
+    },
 ]

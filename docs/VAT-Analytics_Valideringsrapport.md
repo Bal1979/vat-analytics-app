@@ -2,7 +2,7 @@
 
 > Auto-genereret af `python -m validation.run_validation` · 2026-06-16
 
-✅ **BESTÅET** — 40/40 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 54/54 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -33,10 +33,24 @@
 | 25 | Nulsats på indenlandsk handel | ja | ja | ✅ |
 | 26 | Momsbeløb uden momskode | ja | ja | ✅ |
 | 27 | EU-handel uden momsnummer | ja | ja | ✅ |
+| 28 | Ugyldigt momsnummer-format | ja | ja | ✅ |
 | 29 | EU-erhvervelse med moms pålagt (manglende reverse charge) | ja | ja | ✅ |
 | 30 | Eksport til tredjeland med moms pålagt | ja | ja | ✅ |
 | 31 | EU B2B-salg med dansk moms | ja | ja | ✅ |
+| 32 | Manglende landekode på udenlandsk part | ja | ja | ✅ |
+| 33 | Valuta/land-uoverensstemmelse | ja | ja | ✅ |
+| 34 | Dansk momsnummer på udenlandsk part | ja | ja | ✅ |
+| 35 | Momsnr-præfiks matcher ikke land | ja | ja | ✅ |
 | 36 | Indenlandsk leverance nulsat som udlandssalg | ja | ja | ✅ |
+| 37 | VIES-verifikation anbefales | ja | ja | ✅ |
+| 38 | Import fra tredjeland uden dokumentation | ja | ja | ✅ |
+| 39 | Bogføring efter periodeslut | ja | ja | ✅ |
+| 40 | Bogføring før periodestart | ja | ja | ✅ |
+| 41 | Weekend-bogføring | ja | ja | ✅ |
+| 42 | Ophobning ved periodeslut | ja | ja | ✅ |
+| 43 | Fremtidig dato | ja | ja | ✅ |
+| 44 | Salg på kvartalsgrænse | ja | ja | ✅ |
+| 45 | Sekvens/dato-inkonsistens | ja | ja | ✅ |
 | 46 | Stort lag mellem faktura- og bogføringsdato | ja | ja | ✅ |
 | 70 | EU-køb uden reverse charge-markering | ja | ja | ✅ |
 | 71 | Reverse charge på indenlandsk handel | ja | ja | ✅ |
@@ -47,5 +61,5 @@
 | 79 | Købsmoms uden grundlag | ja | ja | ✅ |
 | 80 | Indtægt uden momsbehandling | ja | ja | ✅ |
 
-Dækning: **40** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **54** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 
