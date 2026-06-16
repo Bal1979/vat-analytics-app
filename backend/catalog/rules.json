@@ -118,7 +118,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_01_vat_recalculation",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-002",
@@ -136,7 +138,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_02_tax_code_validation",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-003",
@@ -155,7 +159,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_03_vat_rounding",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-004",
@@ -173,7 +179,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_04_invoice_field_completeness",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-005",
@@ -191,7 +199,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_05_date_consistency",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-006",
@@ -209,7 +219,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_06_negative_amounts",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-007",
@@ -228,7 +240,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_07_zero_value_transactions",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-008",
@@ -246,7 +260,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_08_currency_consistency",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-009",
@@ -264,7 +280,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_09_tax_point",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-010",
@@ -282,7 +300,9 @@
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_10_document_type",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-011",
@@ -300,7 +320,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_11_exact_duplicate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-012",
@@ -318,7 +340,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_12_fuzzy_duplicate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-013",
@@ -336,7 +360,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_13_same_amount_same_vendor",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-014",
@@ -354,7 +380,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_14_normalized_invoice_number",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-015",
@@ -372,7 +400,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_15_duplicate_payment",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-016",
@@ -390,7 +420,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_16_credit_note_duplicate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-017",
@@ -408,7 +440,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_17_cross_entity_duplicate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-018",
@@ -427,7 +461,9 @@
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_18_sequential_gaps",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-019",
@@ -445,7 +481,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_19_invalid_rate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-020",
@@ -463,7 +501,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_20_rate_vs_taxtable",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-021",
@@ -481,7 +521,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_21_reduced_rate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-022",
@@ -499,7 +541,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_22_missing_output_vat",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-023",
@@ -517,7 +561,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_23_rate_consistency_per_code",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-024",
@@ -535,7 +581,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_24_implied_rate",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-025",
@@ -553,7 +601,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_25_zero_rate_domestic",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-026",
@@ -571,7 +621,9 @@
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_26_missing_tax_code",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-027",
@@ -589,7 +641,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_27_eu_trade_no_vat_number",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-028",
@@ -607,7 +661,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_28_invalid_eu_vat_format",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-029",
@@ -625,7 +681,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_29_eu_acquisition_no_reverse_charge",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-030",
@@ -643,7 +701,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_30_export_with_vat",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-031",
@@ -661,7 +721,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_31_eu_sale_with_dk_vat",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-032",
@@ -679,7 +741,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_32_missing_country_on_foreign",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-033",
@@ -697,7 +761,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_33_currency_country_mismatch",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-034",
@@ -715,7 +781,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_34_dk_vat_on_foreign_party",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-035",
@@ -733,21 +801,31 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_35_vat_prefix_vs_country",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-036",
       "test_id": 36,
-      "navn": "test_36_triangulation",
+      "navn": "Indenlandsk leverance nulsat som udlandssalg",
       "kategori_id": 4,
       "kategori": "Grænseoverskridende & EU-compliance",
-      "impact_type": [],
-      "severity": [],
-      "status": "inaktiv_kraever_kildedata",
+      "impact_type": [
+        "compliance",
+        "economic"
+      ],
+      "severity": [
+        "high",
+        "medium"
+      ],
+      "status": "aktiv",
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_36_triangulation",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "ship_from_country / ship_to_country (vareflow)",
+      "scope_beslutning": "AKTIVERET (Fase D): place-of-supply/trekantshandel. Fyrer når ship_from/ship_to findes i importen; flade udtræk uden vareflow giver fortsat ingen findings."
     },
     {
       "id": "VATA-037",
@@ -765,7 +843,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_37_vies_verification",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-038",
@@ -783,7 +863,9 @@
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_38_import_without_docs",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-039",
@@ -801,7 +883,9 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_39_after_period_end",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-040",
@@ -819,7 +903,9 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_40_before_period_start",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-041",
@@ -837,7 +923,9 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_41_weekend_postings",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-042",
@@ -855,7 +943,9 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_42_period_end_clustering",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-043",
@@ -873,7 +963,9 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_43_future_dates",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-044",
@@ -891,7 +983,9 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_44_period_boundary",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-045",
@@ -909,21 +1003,29 @@
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_45_sequence_vs_date",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-046",
       "test_id": 46,
-      "navn": "test_46_invoice_posting_lag",
+      "navn": "Stort lag mellem faktura- og bogføringsdato",
       "kategori_id": 5,
       "kategori": "Timing & Periodetest",
-      "impact_type": [],
-      "severity": [],
-      "status": "inaktiv_kraever_kildedata",
+      "impact_type": [
+        "interest_risk"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_46_invoice_posting_lag",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "to datoer: bogføringsdato + fakturadato",
+      "scope_beslutning": "AKTIVERET (Fase D): faktura/bogførings-lag. Fyrer når både document_date (faktura) og date (bogføring) findes; ellers springes pænt over."
     },
     {
       "id": "VATA-047",
@@ -941,7 +1043,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_47_missing_party_name",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-048",
@@ -959,7 +1063,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_48_duplicate_suppliers",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-049",
@@ -977,7 +1083,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_49_missing_cvr_dk_supplier",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-050",
@@ -995,7 +1103,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_50_invalid_cvr_format",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-051",
@@ -1013,7 +1123,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_51_one_off_supplier",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-052",
@@ -1031,7 +1143,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_52_customer_without_vat",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-053",
@@ -1049,7 +1163,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_53_shared_identity",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-054",
@@ -1067,7 +1183,9 @@
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_54_party_in_both_roles",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-055",
@@ -1085,7 +1203,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_55_round_amounts",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-056",
@@ -1103,7 +1223,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_56_just_below_threshold",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-057",
@@ -1121,7 +1243,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_57_cash_limit",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-058",
@@ -1139,7 +1263,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_58_unusually_large",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-059",
@@ -1157,7 +1283,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_59_large_vat_no_document",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-060",
@@ -1175,7 +1303,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_60_negative_vat",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-061",
@@ -1193,7 +1323,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_61_account_outlier",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-062",
@@ -1211,7 +1343,9 @@
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_62_structuring",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-063",
@@ -1229,7 +1363,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_63_benford_first_digit",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-064",
@@ -1247,7 +1383,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_64_round_number_bias",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-065",
@@ -1265,7 +1403,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_65_rare_tax_code",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-066",
@@ -1283,7 +1423,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_66_duplicate_descriptions",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-067",
@@ -1301,7 +1443,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_67_timeseries_spike",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-068",
@@ -1319,7 +1463,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_68_rare_account",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-069",
@@ -1337,7 +1483,9 @@
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_69_last_digit_uniformity",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-070",
@@ -1355,7 +1503,9 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_70_eu_service_no_rc",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-071",
@@ -1373,7 +1523,9 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_71_rc_on_domestic",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-072",
@@ -1391,7 +1543,9 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_72_domestic_rc_goods",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-073",
@@ -1409,7 +1563,9 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_73_asymmetric_rc",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-074",
@@ -1427,7 +1583,9 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_74_construction_rc",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-075",
@@ -1445,7 +1603,9 @@
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_75_rc_missing_documentation",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-076",
@@ -1463,7 +1623,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_76_input_output_ratio",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-077",
@@ -1481,7 +1643,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_77_vat_account_reconciliation",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-078",
@@ -1499,7 +1663,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_78_negative_vat_liability",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-079",
@@ -1517,7 +1683,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_79_input_vat_no_purchase",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-080",
@@ -1535,7 +1703,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_80_revenue_without_output_vat",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-081",
@@ -1553,7 +1723,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_81_zero_rated_share",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-082",
@@ -1567,7 +1739,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_82_period_declaration",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "indberettet momsangivelse for perioden",
+      "scope_beslutning": "AKTIVERES via angivelses-input: upload af momsangivelse ELLER positiv indtastning (simuleret dansk momsangivelse). Motoren afstemmer beregnede totaler mod indberettede tal."
     },
     {
       "id": "VATA-083",
@@ -1581,7 +1755,9 @@
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_83_partial_deduction",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "delvis fradragsret (fordelingsnøgle)",
+      "scope_beslutning": "AKTIVERES todelt: (1) fra data — udled og flag anvendt fradragsbrøk pr. linje + flere/uensartede brøker; (2) fuldt via toggle 'Virksomheden har 100% momspligtig aktivitet' (default til). Slås fra -> indtast foreløbig (anvendt i perioden) og evt. endelig fradragsret (efterregulering, kendes i juni-angivelsen året efter)."
     },
     {
       "id": "VATA-084",
@@ -1599,7 +1775,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_84_missing_trader",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-085",
@@ -1613,7 +1791,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_85_carousel_pattern",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "vareflow på tværs af virksomheder (multi-entity)",
+      "scope_beslutning": "UDEN FOR SCOPE for single-entity-analyse — dokumenteret begrænsning. Proxy-signaler gives af de øvrige cat11-kontroller."
     },
     {
       "id": "VATA-086",
@@ -1631,7 +1811,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_86_rapid_throughput",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-087",
@@ -1649,7 +1831,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_87_high_risk_goods",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-088",
@@ -1667,7 +1851,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_88_zero_margin",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-089",
@@ -1685,7 +1871,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_89_new_high_volume_party",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-090",
@@ -1699,7 +1887,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_90_payment_pattern",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "fuld betalingsdata (modtagerkonto, betalingsdato, tredjepart)",
+      "scope_beslutning": "PARKERET: kandidat til valgfrit betalingsdata-input (fraud: faktiske overførsler vs. bogførte tal)."
     },
     {
       "id": "VATA-091",
@@ -1717,7 +1907,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_91_clearing_account_abuse",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-092",
@@ -1735,7 +1927,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_92_false_invoice",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-093",
@@ -1753,7 +1947,9 @@
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_93_identical_amounts_across_parties",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-094",
@@ -1771,7 +1967,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_94_eu_b2c_oss",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-095",
@@ -1789,7 +1987,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_95_distance_selling_threshold",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-096",
@@ -1807,7 +2007,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_96_digital_service_eu_consumer",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-097",
@@ -1825,7 +2027,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_97_dk_vat_on_eu_consumer",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-098",
@@ -1843,7 +2047,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_98_ioss_low_value",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-099",
@@ -1857,7 +2063,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_99_platform_liability",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "salgskanal + underliggende sælger (markedsplads-hæftelse)",
+      "scope_beslutning": "UDEN FOR SCOPE for bogføringsbaseret analyse — dokumenteret begrænsning."
     },
     {
       "id": "VATA-100",
@@ -1875,7 +2083,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_100_electronic_services",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-101",
@@ -1893,7 +2103,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_101_telecom_broadcasting",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-102",
@@ -1911,7 +2123,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_102_travel_margin",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     },
     {
       "id": "VATA-103",
@@ -1929,7 +2143,9 @@
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_103_used_goods_margin",
       "kilde": "",
-      "test": ""
+      "test": "",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
     }
   ]
 }

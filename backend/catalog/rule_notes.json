@@ -1,0 +1,33 @@
+{
+  "_kommentar": "Håndvedligeholdte annotationer til regelkataloget. Flettes ind af tools/build_rules_catalog.py (kode-udledte felter + disse noter). Keyet på test_id (streng). Felter pr. post: kilde (autoritativ retskilde), test (dækkende valideringstest), afhaenger_af, scope_beslutning. Tomme felter udelades.",
+  "noter": {
+    "36": {
+      "afhaenger_af": "ship_from_country / ship_to_country (vareflow)",
+      "scope_beslutning": "AKTIVERET (Fase D): place-of-supply/trekantshandel. Fyrer når ship_from/ship_to findes i importen; flade udtræk uden vareflow giver fortsat ingen findings."
+    },
+    "46": {
+      "afhaenger_af": "to datoer: bogføringsdato + fakturadato",
+      "scope_beslutning": "AKTIVERET (Fase D): faktura/bogførings-lag. Fyrer når både document_date (faktura) og date (bogføring) findes; ellers springes pænt over."
+    },
+    "82": {
+      "afhaenger_af": "indberettet momsangivelse for perioden",
+      "scope_beslutning": "AKTIVERES via angivelses-input: upload af momsangivelse ELLER positiv indtastning (simuleret dansk momsangivelse). Motoren afstemmer beregnede totaler mod indberettede tal."
+    },
+    "83": {
+      "afhaenger_af": "delvis fradragsret (fordelingsnøgle)",
+      "scope_beslutning": "AKTIVERES todelt: (1) fra data — udled og flag anvendt fradragsbrøk pr. linje + flere/uensartede brøker; (2) fuldt via toggle 'Virksomheden har 100% momspligtig aktivitet' (default til). Slås fra -> indtast foreløbig (anvendt i perioden) og evt. endelig fradragsret (efterregulering, kendes i juni-angivelsen året efter)."
+    },
+    "85": {
+      "afhaenger_af": "vareflow på tværs af virksomheder (multi-entity)",
+      "scope_beslutning": "UDEN FOR SCOPE for single-entity-analyse — dokumenteret begrænsning. Proxy-signaler gives af de øvrige cat11-kontroller."
+    },
+    "90": {
+      "afhaenger_af": "fuld betalingsdata (modtagerkonto, betalingsdato, tredjepart)",
+      "scope_beslutning": "PARKERET: kandidat til valgfrit betalingsdata-input (fraud: faktiske overførsler vs. bogførte tal)."
+    },
+    "99": {
+      "afhaenger_af": "salgskanal + underliggende sælger (markedsplads-hæftelse)",
+      "scope_beslutning": "UDEN FOR SCOPE for bogføringsbaseret analyse — dokumenteret begrænsning."
+    }
+  }
+}

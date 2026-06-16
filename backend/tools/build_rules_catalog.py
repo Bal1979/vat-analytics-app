@@ -31,6 +31,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)
 _CATEGORIES_DIR = os.path.join(_BACKEND, "analytics", "categories")
 _OUT = os.path.join(_BACKEND, "catalog", "rules.json")
+_NOTES = os.path.join(_BACKEND, "catalog", "rule_notes.json")
 
 # Kategori-definitioner (skal matche analytics/engine.py::CATEGORIES).
 CATEGORIES = [
@@ -89,8 +90,18 @@ def _extract_make_findings(func_node):
     return found, names, impacts, severities, has_dynamic_severity
 
 
+def _load_notes():
+    """Indlæs håndvedligeholdte annotationer (kilde/test/afhaenger_af/scope_beslutning)."""
+    if not os.path.exists(_NOTES):
+        return {}
+    with open(_NOTES, encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("noter", {})
+
+
 def build():
     rules = []
+    notes = _load_notes()
     for fname in sorted(os.listdir(_CATEGORIES_DIR)):
         if not fname.startswith("cat") or not fname.endswith(".py"):
             continue
@@ -114,6 +125,7 @@ def build():
             sev_out = sorted(severities)
             if dyn_sev:
                 sev_out = sev_out + ["dynamisk"]
+            note = notes.get(str(tid), {})
             rules.append({
                 "id": f"VATA-{tid:03d}",
                 "test_id": tid,
@@ -125,11 +137,17 @@ def build():
                 "status": status,
                 "modul": module,
                 "funktion": node.name,
-                "kilde": "",          # autoritativ retskilde — udfyldes i Fase B
-                "test": "",            # dækkende valideringstest — udfyldes i Fase C
+                "kilde": note.get("kilde", ""),          # autoritativ retskilde — udfyldes i Fase B
+                "test": note.get("test", ""),             # dækkende valideringstest — udfyldes i Fase C
+                "afhaenger_af": note.get("afhaenger_af", ""),
+                "scope_beslutning": note.get("scope_beslutning", ""),
             })
 
     rules.sort(key=lambda r: r["test_id"])
+
+    # Konsistenstjek: noter må kun pege på reelle test_id'er.
+    valid_ids = {r["test_id"] for r in rules}
+    unknown_notes = sorted(int(k) for k in notes if k.isdigit() and int(k) not in valid_ids)
 
     # Konsistenstjek: præcis 103 kontroller, ingen huller i 1..103.
     ids = [r["test_id"] for r in rules]
@@ -161,7 +179,9 @@ def build():
         print(f"  ADVARSEL manglende test_id: {missing}")
     if dupes:
         print(f"  ADVARSEL dublerede test_id: {dupes}")
-    return 0 if (len(rules) == 103 and not missing and not dupes) else 1
+    if unknown_notes:
+        print(f"  ADVARSEL rule_notes peger på ukendte test_id: {unknown_notes}")
+    return 0 if (len(rules) == 103 and not missing and not dupes and not unknown_notes) else 1
 
 
 if __name__ == "__main__":

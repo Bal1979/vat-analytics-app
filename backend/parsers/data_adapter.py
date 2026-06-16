@@ -61,9 +61,12 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
         # fall back to the row-level vat_rate
         tax_percentage = tax_rate_lookup.get(vat_code, vat_rate)
 
-        # Compute tax_base: if vat_amount and tax_percentage are known, derive it;
-        # otherwise use (debit + credit) as the base
-        if vat_amount and tax_percentage:
+        # Tax base: foretræk et importeret momsgrundlag fra kilden (mest korrekt);
+        # ellers udled fra vat_amount/tax_percentage; ellers brug (debit + credit).
+        imported_base = txn.get("tax_base")
+        if imported_base:
+            tax_base = round(imported_base, 2)
+        elif vat_amount and tax_percentage:
             tax_base = round(vat_amount / (tax_percentage / 100), 2)
         else:
             tax_base = round(debit + credit, 2)
@@ -86,6 +89,8 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
             "customer_name": txn.get("customer_name", "") or "",
             "source_document_id": txn.get("invoice_number", "") or "",
             "country": txn.get("country", "") or "",
+            "ship_from_country": txn.get("ship_from_country", "") or "",
+            "ship_to_country": txn.get("ship_to_country", "") or "",
             "vat_number": txn.get("vat_number", "") or "",
         }
 
@@ -110,6 +115,7 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
         adapted_txn = {
             "transaction_id": txn.get("transaction_id", f"ROW-{idx + 2}"),
             "date": date_str,
+            "document_date": txn.get("document_date") or "",
             "description": txn.get("description", ""),
             "journal_id": txn.get("journal_id", "IMPORT") or "IMPORT",
             "period": period,

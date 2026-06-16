@@ -42,7 +42,8 @@ COLUMN_ALIASES = {
     ],
     "account_id": [
         "account_id", "konto", "kontonr", "kontonummer", "account", "account_no",
-        "account_number", "gl_account", "finans_konto", "hovedkonto",
+        "account_number", "accountnumber", "gl_account", "gl_account_no",
+        "finans_konto", "hovedkonto",
     ],
     "account_description": [
         "account_description", "kontobeskrivelse", "kontonavn", "account_name",
@@ -62,11 +63,11 @@ COLUMN_ALIASES = {
         "amount", "beløb", "belob", "total", "net_amount", "nettobeløb",
     ],
     "vat_amount": [
-        "vat_amount", "moms", "momsbeløb", "momsbelob", "vat", "tax_amount",
-        "momsbeloeb", "skat", "afgift",
+        "vat_amount", "vat_amount_lcy", "moms", "momsbeløb", "momsbelob", "vat",
+        "tax_amount", "momsbeloeb", "skat", "afgift",
     ],
     "vat_code": [
-        "vat_code", "momskode", "tax_code", "moms_kode", "afgiftskode",
+        "vat_code", "vatcode", "momskode", "tax_code", "moms_kode", "afgiftskode",
         "vat_type", "momstype", "tax_type",
     ],
     "vat_rate": [
@@ -82,8 +83,8 @@ COLUMN_ALIASES = {
         "vendor_name", "vendor", "creditor_name",
     ],
     "customer_id": [
-        "customer_id", "kunde_id", "kundenr", "customer_no", "debitor_id",
-        "debitornr",
+        "customer_id", "kunde_id", "kundenr", "customer_no", "customernumber",
+        "customer_vendor_no", "debitor_id", "debitornr",
     ],
     "customer_name": [
         "customer_name", "kunde", "kundenavn", "customer", "debitor_name",
@@ -107,11 +108,33 @@ COLUMN_ALIASES = {
         "year", "år", "aar", "fiscal_year", "regnskabsår",
     ],
     "country": [
-        "country", "land", "landekode", "country_code",
+        "country", "land", "landekode", "country_code", "counterparty_country",
     ],
     "vat_number": [
         "vat_number", "momsnr", "momsnummer", "cvr", "cvr_nr", "cvrnummer",
-        "tax_id", "vat_id", "vat_registration",
+        "tax_id", "vat_id", "vat_registration", "vat_registration_no",
+        "corporateidentificationnumber",
+    ],
+    # Forsendelsesland (vareflow) — adskilt fra modpartens land. Bærer
+    # place-of-supply / trekantshandel (kontrol 36). Tre selvstændige felter:
+    # country (modpart), ship_from_country (afsendelse), ship_to_country (modtagelse).
+    "ship_from_country": [
+        "ship_from_country", "ship_from", "afsenderland", "afsendelsesland",
+        "fra_land", "origin_country", "dispatch_country",
+    ],
+    "ship_to_country": [
+        "ship_to_country", "ship_to", "modtagerland", "leveringsland", "til_land",
+        "destination_country", "delivery_country",
+    ],
+    # Fakturadato — adskilt fra bogføringsdato (date), så faktura/bogførings-lag
+    # (kontrol 46) kan beregnes. Falder sammen med date hvis kun én dato findes.
+    "document_date": [
+        "document_date", "fakturadato", "invoice_date", "bilagsdato", "dokumentdato",
+    ],
+    # Momsgrundlag fra kilden — bruges hvis til stede; ellers udledes det i adapteren.
+    "tax_base": [
+        "tax_base", "vat_base_lcy", "momsgrundlag", "grundlag", "afgiftsgrundlag",
+        "beregningsgrundlag",
     ],
 }
 
@@ -262,6 +285,13 @@ def _process_row(row, idx, col_map, is_tuple=False):
     vat_amount = _safe_float(get_val("vat_amount")) if "vat_amount" in col_map else None
     vat_code = _safe_str(get_val("vat_code")) if "vat_code" in col_map else ""
     vat_rate = _safe_float(get_val("vat_rate")) if "vat_rate" in col_map else None
+    tax_base = _safe_float(get_val("tax_base")) if "tax_base" in col_map else None
+
+    # Forsendelsesland (vareflow) + fakturadato — bærer place-of-supply (36) og
+    # faktura/bogførings-lag (46). Tomme når kilden ikke har kolonnerne.
+    ship_from_country = _safe_str(get_val("ship_from_country")) if "ship_from_country" in col_map else ""
+    ship_to_country = _safe_str(get_val("ship_to_country")) if "ship_to_country" in col_map else ""
+    document_date = _safe_date(get_val("document_date")) if "document_date" in col_map else None
 
     # Leverandør / Kunde
     supplier_id = _safe_str(get_val("supplier_id")) if "supplier_id" in col_map else ""
@@ -288,7 +318,11 @@ def _process_row(row, idx, col_map, is_tuple=False):
         "customer_name": customer_name,
         "currency": _safe_str(get_val("currency")) or "DKK",
         "country": _safe_str(get_val("country")),
+        "ship_from_country": ship_from_country,
+        "ship_to_country": ship_to_country,
         "vat_number": _safe_str(get_val("vat_number")),
+        "document_date": document_date,
+        "tax_base": tax_base,
         "period": _safe_str(get_val("period")),
         "year": _safe_str(get_val("year")),
     }

@@ -347,11 +347,67 @@ def test_35_vat_prefix_vs_country(data, ctx):
 # === TEST 36: Trekantshandel-indikator ===
 
 def test_36_triangulation(data, ctx):
-    """Trekantshandel (tre EU-parter) kræver vare-flow-data der ikke findes i
-    en flad regnskabseksport. Springer pænt over hvis data mangler."""
-    # Reelt vare-flow på tværs af tre lande kan ikke udledes af én linje pr.
-    # transaktion. Returnerer tomt indtil kildedata bærer leverings-/forsendelsesland.
-    return []
+    """Place-of-supply / trekantshandel ud fra vareflow (ship_from/ship_to).
+
+    Kører kun når forsendelsesland findes på linjen; ellers springes pænt over
+    (flade udtræk uden vareflow giver ingen falske alarmer). Fanger to klassiske,
+    dyre fejl:
+      A) Varen forlader ikke DK (ship_from=DK, ship_to=DK), men sælges til udland
+         uden dansk moms -> uberettiget nulsats; leverancen er indenlandsk (25%).
+      B) Varen leveres til et andet land end modparten -> mulig trekantshandel
+         eller forkert place-of-supply (afgøres af hvor varen fysisk leveres).
+    """
+    findings = []
+    for txn in data["transactions"]:
+        for line in txn["lines"]:
+            sf = vr.normalize_country(line.get("ship_from_country", ""))
+            st = vr.normalize_country(line.get("ship_to_country", ""))
+            if not sf and not st:
+                continue  # intet vareflow -> uændret adfærd for flade udtræk
+            country = _country_of(line, ctx)
+            vat = line.get("tax_amount") or 0
+
+            # A) Uberettiget nulsats: varen forlader ikke DK, men sælges til udland.
+            if _is_sale(line) and sf == "DK" and st == "DK" and vr.is_foreign(country) and vat <= 0:
+                base = line.get("tax_base") or (
+                    (line.get("debit_amount", 0) or 0) + (line.get("credit_amount", 0) or 0)
+                )
+                findings.append(make_finding(
+                    test_id=36,
+                    test_name="Indenlandsk leverance nulsat som udlandssalg",
+                    impact_type="economic",
+                    direction="negative",
+                    severity="high",
+                    description=f"Varen afsendes fra og til Danmark (ship_from=DK, ship_to=DK) på "
+                                f"transaktion {txn['transaction_id']}, men sælges til {country} uden "
+                                f"dansk moms. Når varen ikke forlader DK, er leverancen indenlandsk "
+                                f"og momspligtig (25%).",
+                    fix_suggestion="Pålæg 25% dansk moms. Nulsats ved EU-salg/eksport kræver, at varen "
+                                   "fysisk forlader Danmark — kundens land er ikke nok.",
+                    estimated_amount=round(base * vr.STANDARD_RATE / 100, 2),
+                    transactions=[_ref(txn, line, country=country, ship_from=sf, ship_to=st,
+                                       highlighted_field="ship_to_country")],
+                ))
+                continue
+
+            # B) Leveringsland != modpartsland -> mulig trekantshandel / forkert place-of-supply.
+            if st and country and st != country:
+                findings.append(make_finding(
+                    test_id=36,
+                    test_name="Leveringsland afviger fra modpartens land",
+                    impact_type="compliance",
+                    direction="neutral",
+                    severity="medium",
+                    description=f"Varen leveres til {st}, men modparten er registreret i {country} "
+                                f"(transaktion {txn['transaction_id']}). Det kan være trekantshandel "
+                                f"eller en forkert place-of-supply-behandling.",
+                    fix_suggestion="Afklar leveringskæden: ved trekantshandel gælder forenklingsreglen "
+                                   "med særlige fakturakrav, og place-of-supply afgøres af hvor varen "
+                                   "fysisk leveres — ikke kun modpartens land.",
+                    transactions=[_ref(txn, line, country=country, ship_to=st,
+                                       highlighted_field="ship_to_country")],
+                ))
+    return findings
 
 
 # === TEST 37: Manglende VIES-verifikation (rådgivende) ===

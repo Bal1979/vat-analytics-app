@@ -258,6 +258,31 @@ def test_45_sequence_vs_date(data):
 # === TEST 46: Forsinkelse faktura → bogføring ===
 
 def test_46_invoice_posting_lag(data):
-    """Kræver både fakturadato og bogføringsdato. En flad eksport har kun
-    én dato pr. transaktion, så testen springer pænt over."""
-    return []
+    """Stort lag mellem fakturadato (document_date) og bogføringsdato (date)
+    risikerer at momsen medtages i en forkert periode. Kører kun når BEGGE datoer
+    findes på transaktionen; ellers springes pænt over (flade udtræk med kun én dato)."""
+    findings = []
+    lag_threshold_days = 30
+    for txn in data["transactions"]:
+        posting = _parse(txn.get("date"))
+        invoice = _parse(txn.get("document_date"))
+        if posting is None or invoice is None:
+            continue
+        lag = (posting - invoice).days
+        if lag > lag_threshold_days:
+            findings.append(make_finding(
+                test_id=46,
+                test_name="Stort lag mellem faktura- og bogføringsdato",
+                impact_type="interest_risk",
+                direction="neutral",
+                severity="medium",
+                description=f"Fakturadato {invoice.isoformat()} og bogføringsdato {posting.isoformat()} "
+                            f"på transaktion {txn['transaction_id']} ligger {lag} dage fra hinanden. "
+                            f"Et stort lag kan betyde, at momsen er medtaget i en forkert periode.",
+                fix_suggestion="Kontrollér at momsen af fakturaen er angivet i den korrekte periode "
+                               "(typisk leverings-/fakturadatoens periode), og ret periodiseringen om nødvendigt.",
+                transactions=[_ref(txn, document_date=invoice.isoformat(),
+                                   posting_date=posting.isoformat(), lag_days=lag,
+                                   highlighted_field="document_date")],
+            ))
+    return findings
