@@ -184,3 +184,10 @@ h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 8px; }
     color: #999;
     margin-top: 4px;
 }
+
+/* === Distinkt (transaktions-dedupliceret) net under bruttonettet === */
+.impact-distinct {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}

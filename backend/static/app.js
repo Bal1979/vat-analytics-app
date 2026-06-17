@@ -170,17 +170,27 @@
     const comp = a.impact_summary.compliance;
     const cur = econ.currency || "DKK";
 
+    // Distinkt (transaktions-dedupliceret) net ved siden af brutto-net.
+    function setDistinct(elId, imp) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (imp.net_amount_distinct == null) { el.textContent = ""; return; }
+      el.textContent = `Distinkt net: ${fmt(imp.net_amount_distinct, cur)} · ${imp.distinct_transactions || 0} transaktioner`;
+    }
+
     document.getElementById("econ-negative").textContent = fmt(econ.negative_amount, cur);
     document.getElementById("econ-positive").textContent = fmt(econ.positive_amount, cur);
     document.getElementById("econ-net").textContent = fmt(econ.net_amount, cur);
     document.getElementById("econ-net").className = econ.net_amount >= 0 ? "net-positive" : "net-negative";
     document.getElementById("econ-count").textContent = `${econ.total_findings} findings`;
+    setDistinct("econ-distinct", econ);
 
     document.getElementById("interest-negative").textContent = fmt(interest.negative_amount, cur);
     document.getElementById("interest-positive").textContent = fmt(interest.positive_amount, cur);
     document.getElementById("interest-net").textContent = fmt(interest.net_amount, cur);
     document.getElementById("interest-net").className = interest.net_amount >= 0 ? "net-positive" : "net-negative";
     document.getElementById("interest-count").textContent = `${interest.total_findings} findings`;
+    setDistinct("interest-distinct", interest);
 
     const compBars = document.getElementById("compliance-bars");
     compBars.innerHTML = `
