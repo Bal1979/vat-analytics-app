@@ -31,10 +31,11 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
   playbook'ens drifts-afsnit.
 
 ## Internt løft tilbage (kan bygges af os — rækkefølge)
-1. **Aggregat-korrekthed (NÆSTE OP):** `engine.build_report` summerer `estimated_amount`
-   på tværs af kontroller; samme transaktion kan udløse flere → mulig dobbelttælling i
-   økonomiske totaler. Dedupliker pr. transaktion ELLER dokumentér metode; gør til testet invariant.
-2. **Jobs-oprydning:** in-memory `jobs`-dict ryddes aldrig (kommentar siger ellers) → hukommelse vokser. Tilføj TTL/oprydning.
+1. ✅ **Aggregat-korrekthed (FÆRDIG 2026-06-17):** `build_report` rapporterer nu både brutto
+   (`negative_amount`/`positive_amount`) og distinkt, transaktions-dedupliceret
+   (`*_distinct` + `distinct_transactions`) via `engine.distinct_amount`. Testet invariant
+   (distinkt ≤ brutto) i `tests/test_aggregate_correctness.py`; dokumenteret i arkitektur-doc'et.
+2. **Jobs-oprydning (NÆSTE OP):** in-memory `jobs`-dict ryddes aldrig (kommentar siger ellers) → hukommelse vokser. Tilføj TTL/oprydning.
 3. **Katalog-drift-gate i CI:** assert committet `rules.json` == genereret (fanger forældet katalog).
 4. **Materialitet konfigurerbar:** severity-vægte/tærskler er hardcodede i `engine.py`; gør engagement-styrede.
 

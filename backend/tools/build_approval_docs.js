@@ -177,6 +177,7 @@ const arch = makeDoc([
 
   H1("2. Kerneudfordring"),
   P("Den dominerende udfordring er korrekthed og sporbarhed: at de beregninger og aggregater værktøjet udleder er korrekte, og at hvert fund kan spores fra det rapporterede tal tilbage til den konkrete kildetransaktion. Hertil kommer materialitet (at et rødt flag reelt betyder «action krævet», ikke støj) og inputdatakvalitet/-bredde (at kontrollerne fodres med de rette felter frem for at gætte). Designprincippet er konservativt: en kontrol fyrer kun, når data understøtter det, så falske alarmer undgås."),
+  P("For at undgå dobbelttælling rapporteres de økonomiske totaler både som BRUTTO (sum af per-kontrol-estimater, kan overlappe når flere kontroller flager samme transaktion) og DISTINKT (transaktions-dedupliceret, hvor hver transaktion tæller én gang med det største per-kontrol-bidrag). Et automatiseret testet invariant sikrer, at det distinkte tal aldrig overstiger bruttotallet."),
 
   H1("3. Afgrænsning (scope)"),
   H2("3.1 I scope"),

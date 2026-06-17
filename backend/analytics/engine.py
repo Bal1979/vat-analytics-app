@@ -87,6 +87,38 @@ def run_all_tests(data: dict) -> dict:
     return report
 
 
+def distinct_amount(findings: list) -> tuple:
+    """Transaktions-dedupliceret beløb for en delmængde af findings.
+
+    Samme transaktion kan udløse flere kontroller. En ren sum af findings'
+    `estimated_amount` dobbelttæller derfor pengene. Denne funktion henfører
+    hvert findings beløb til de transaktioner det refererer (estimated_amount delt
+    ligeligt på de refererede transaktioner) og tager pr. transaktion det STØRSTE
+    bidrag på tværs af kontroller — et defensivt, ikke-dobbelttællende nedre estimat.
+
+    Fund uden transaktions-id (aggregerede fund som forhold/ratioer) kan ikke
+    henføres til en enkelt transaktion og tælles helt.
+
+    Returnerer (distinkt_beløb, antal_distinkte_transaktioner).
+    """
+    by_txn = {}            # transaction_id -> største henførte bidrag
+    aggregate_total = 0.0  # fund uden transaktions-id
+    for f in findings:
+        amt = f.get("estimated_amount") or 0.0
+        if amt <= 0:
+            continue
+        txn_ids = [t.get("transaction_id") for t in (f.get("transactions") or [])
+                   if t.get("transaction_id")]
+        if not txn_ids:
+            aggregate_total += amt
+            continue
+        per = amt / len(txn_ids)
+        for tid in txn_ids:
+            if per > by_txn.get(tid, 0.0):
+                by_txn[tid] = per
+    return round(sum(by_txn.values()) + aggregate_total, 2), len(by_txn)
+
+
 def build_report(data: dict, findings: list) -> dict:
     """Byg den fulde analyserapport med scores og klassificering."""
 
@@ -95,11 +127,18 @@ def build_report(data: dict, findings: list) -> dict:
     interest_risk = [f for f in findings if f["impact_type"] == "interest_risk"]
     compliance = [f for f in findings if f["impact_type"] == "compliance"]
 
-    # Beregn beløb per retning
+    # Brutto-beløb per retning: sum af per-kontrol-estimater (KAN overlappe, dvs.
+    # samme transaktion talt af flere kontroller). Suppleres af distinkte tal nedenfor.
     economic_negative = sum(f["estimated_amount"] for f in economic if f["direction"] == "negative")
     economic_positive = sum(f["estimated_amount"] for f in economic if f["direction"] == "positive")
     interest_negative = sum(f["estimated_amount"] for f in interest_risk if f["direction"] == "negative")
     interest_positive = sum(f["estimated_amount"] for f in interest_risk if f["direction"] == "positive")
+
+    # Distinkte (transaktions-deduplikerede) beløb — undgår dobbelttælling.
+    econ_neg_distinct, econ_neg_txns = distinct_amount([f for f in economic if f["direction"] == "negative"])
+    econ_pos_distinct, econ_pos_txns = distinct_amount([f for f in economic if f["direction"] == "positive"])
+    int_neg_distinct, int_neg_txns = distinct_amount([f for f in interest_risk if f["direction"] == "negative"])
+    int_pos_distinct, int_pos_txns = distinct_amount([f for f in interest_risk if f["direction"] == "positive"])
 
     # Beregn scores per kategori
     category_results = []
@@ -140,6 +179,11 @@ def build_report(data: dict, findings: list) -> dict:
                 "negative_amount": round(economic_negative, 2),
                 "positive_amount": round(economic_positive, 2),
                 "net_amount": round(economic_positive - economic_negative, 2),
+                # Distinkte (transaktions-deduplikerede) tal — undgår dobbelttælling.
+                "negative_amount_distinct": econ_neg_distinct,
+                "positive_amount_distinct": econ_pos_distinct,
+                "net_amount_distinct": round(econ_pos_distinct - econ_neg_distinct, 2),
+                "distinct_transactions": econ_neg_txns + econ_pos_txns,
                 "currency": data["header"].get("currency", "DKK"),
             },
             "interest_risk": {
@@ -147,6 +191,10 @@ def build_report(data: dict, findings: list) -> dict:
                 "negative_amount": round(interest_negative, 2),
                 "positive_amount": round(interest_positive, 2),
                 "net_amount": round(interest_positive - interest_negative, 2),
+                "negative_amount_distinct": int_neg_distinct,
+                "positive_amount_distinct": int_pos_distinct,
+                "net_amount_distinct": round(int_pos_distinct - int_neg_distinct, 2),
+                "distinct_transactions": int_neg_txns + int_pos_txns,
                 "currency": data["header"].get("currency", "DKK"),
             },
             "compliance": {
