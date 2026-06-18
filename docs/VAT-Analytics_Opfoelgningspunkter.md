@@ -35,8 +35,10 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
    (`negative_amount`/`positive_amount`) og distinkt, transaktions-dedupliceret
    (`*_distinct` + `distinct_transactions`) via `engine.distinct_amount`. Testet invariant
    (distinkt ≤ brutto) i `tests/test_aggregate_correctness.py`; dokumenteret i arkitektur-doc'et.
-2. **Jobs-oprydning (NÆSTE OP):** in-memory `jobs`-dict ryddes aldrig (kommentar siger ellers) → hukommelse vokser. Tilføj TTL/oprydning.
-3. **Katalog-drift-gate i CI:** assert committet `rules.json` == genereret (fanger forældet katalog).
+2. ✅ **Jobs-oprydning (FÆRDIG 2026-06-17):** `_prune_jobs()` i `main.py` fjerner gamle terminale
+   jobs (TTL via `JOB_RETENTION_SECONDS`, default 3600s) og capper antallet (`MAX_JOBS`, default 100),
+   trådsikkert via lock, kaldt lazy i `/analyze`. Testet i `tests/test_jobs_cleanup.py`.
+3. **Katalog-drift-gate i CI (NÆSTE OP):** assert committet `rules.json` == genereret (fanger forældet katalog).
 4. **Materialitet konfigurerbar:** severity-vægte/tærskler er hardcodede i `engine.py`; gør engagement-styrede.
 
 ## Internt, men kræver beslutning/input

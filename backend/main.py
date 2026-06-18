@@ -12,6 +12,7 @@ import os
 import re
 import uuid
 import shutil
+import time
 import logging
 import threading
 import traceback
@@ -38,8 +39,29 @@ app = FastAPI(
 # Maks upload: 2 GB
 MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "2048")) * 1024 * 1024
 
-# Job tracking for asynkrone analyser
+# Job tracking for asynkrone analyser (in-memory). Ryddes løbende, så hukommelsen
+# ikke vokser ubegrænset: færdige/fejlede jobs ældre end JOB_RETENTION_SECONDS
+# fjernes, og der holdes højst MAX_JOBS jobs.
 jobs = {}
+_jobs_lock = threading.Lock()
+JOB_RETENTION_SECONDS = int(os.environ.get("JOB_RETENTION_SECONDS", "3600"))
+MAX_JOBS = int(os.environ.get("MAX_JOBS", "100"))
+
+
+def _prune_jobs():
+    """Lazy oprydning af jobtilstand (trådsikker): fjern gamle terminale jobs og
+    cap det samlede antal, så in-memory-dict'en ikke vokser ubegrænset."""
+    now = time.time()
+    with _jobs_lock:
+        stale = [jid for jid, v in jobs.items()
+                 if v.get("status") in ("done", "error")
+                 and now - v.get("created_ts", now) > JOB_RETENTION_SECONDS]
+        for jid in stale:
+            jobs.pop(jid, None)
+        if len(jobs) > MAX_JOBS:
+            oldest = sorted(jobs.items(), key=lambda kv: kv[1].get("created_ts", 0))
+            for jid, _v in oldest[:len(jobs) - MAX_JOBS]:
+                jobs.pop(jid, None)
 
 # --- Session-baseret auth (porteret fra SAF-T/VIES/Data Extract) ---
 # Ingen credentials i kode/miljø: adgang fås via /setup (første gang) og
@@ -256,18 +278,21 @@ async def analyze(request: Request, file: UploadFile = File(...),
 
     # Store filer: asynkron processering
     if file_size >= LARGE_FILE_THRESHOLD:
+        _prune_jobs()  # lazy oprydning før et nyt job tilføjes
         job_id = str(uuid.uuid4())
-        jobs[job_id] = {
-            "status": "queued",
-            "progress": 0,
-            "rows_processed": 0,
-            "total_rows": 0,
-            "filename": file.filename,
-            "file_size": file_size,
-            "created_at": datetime.utcnow().isoformat(),
-            "result": None,
-            "error": None,
-        }
+        with _jobs_lock:
+            jobs[job_id] = {
+                "status": "queued",
+                "progress": 0,
+                "rows_processed": 0,
+                "total_rows": 0,
+                "filename": file.filename,
+                "file_size": file_size,
+                "created_at": datetime.utcnow().isoformat(),
+                "created_ts": time.time(),
+                "result": None,
+                "error": None,
+            }
 
         thread = threading.Thread(
             target=_run_analysis_job,
