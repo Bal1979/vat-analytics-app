@@ -110,7 +110,9 @@ def _scenario_ids():
         return set()
 
 
-def build():
+def build_catalog():
+    """Byg katalog-dict'en i hukommelsen (skriver ikke til disk).
+    Returnerer (catalog, problems-dict)."""
     rules = []
     notes = _load_notes()
     covered = _scenario_ids()
@@ -178,23 +180,36 @@ def build():
         "regler": rules,
     }
 
+    return catalog, {"missing": missing, "dupes": dupes, "unknown_notes": unknown_notes}
+
+
+def serialize(catalog) -> str:
+    """Kanonisk JSON-serialisering — præcis som filen skrives til disk."""
+    return json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
+
+
+def build():
+    """Byg + skriv kataloget til disk. Returnerer exit-kode (0 = ok)."""
+    catalog, problems = build_catalog()
     os.makedirs(os.path.dirname(_OUT), exist_ok=True)
     with open(_OUT, "w", encoding="utf-8") as f:
-        json.dump(catalog, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+        f.write(serialize(catalog))
 
+    rules = catalog["regler"]
     inaktive = [r["test_id"] for r in rules if r["status"] != "aktiv"]
     print(f"Skrev {_OUT}")
-    print(f"  catalog_version: {CATALOG_VERSION}")
+    print(f"  catalog_version: {catalog['catalog_version']}")
     print(f"  kontroller:      {len(rules)}")
     print(f"  inaktive:        {len(inaktive)} -> {inaktive}")
-    if missing:
-        print(f"  ADVARSEL manglende test_id: {missing}")
-    if dupes:
-        print(f"  ADVARSEL dublerede test_id: {dupes}")
-    if unknown_notes:
-        print(f"  ADVARSEL rule_notes peger på ukendte test_id: {unknown_notes}")
-    return 0 if (len(rules) == 103 and not missing and not dupes and not unknown_notes) else 1
+    if problems["missing"]:
+        print(f"  ADVARSEL manglende test_id: {problems['missing']}")
+    if problems["dupes"]:
+        print(f"  ADVARSEL dublerede test_id: {problems['dupes']}")
+    if problems["unknown_notes"]:
+        print(f"  ADVARSEL rule_notes peger på ukendte test_id: {problems['unknown_notes']}")
+    ok = (len(rules) == 103 and not problems["missing"]
+          and not problems["dupes"] and not problems["unknown_notes"])
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
