@@ -3,19 +3,23 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
 .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
 
+/* === Bal AI top-banner === */
+.balai-banner { background: #fff; border-bottom: 1px solid #e5e7eb; }
+.balai-banner-inner { max-width: 960px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 1rem; }
+
 /* === Header === */
-header { text-align: center; margin-bottom: 40px; }
+header { text-align: left; margin-bottom: 32px; }
 h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 8px; }
 .subtitle { color: #666; font-size: 1.05rem; }
 
 /* === Upload === */
 .upload-area { background: white; border: 2px dashed #ccd; border-radius: 16px; padding: 60px 40px; text-align: center; transition: all 0.3s; cursor: pointer; }
-.upload-area:hover, .upload-area.dragover { border-color: #2d5aa0; background: #f8faff; transform: translateY(-2px); box-shadow: 0 8px 25px rgba(45,90,160,0.15); }
+.upload-area:hover, .upload-area.dragover { border-color: #1B365D; background: #f8faff; transform: translateY(-2px); box-shadow: 0 8px 25px rgba(27,54,93,0.15); }
 .upload-icon { font-size: 3rem; margin-bottom: 16px; }
 .upload-text { font-size: 1.2rem; font-weight: 600; color: #333; margin-bottom: 8px; }
 .upload-hint { color: #999; margin-bottom: 16px; }
-.upload-btn { display: inline-block; background: #2d5aa0; color: white; padding: 12px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
-.upload-btn:hover { background: #1e4480; }
+.upload-btn { display: inline-block; background: #1B365D; color: white; padding: 12px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.upload-btn:hover { background: #2E5C8A; }
 .upload-formats { color: #aaa; font-size: 0.85rem; margin-top: 16px; }
 
 /* === Progress === */
