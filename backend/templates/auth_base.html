@@ -9,7 +9,13 @@
 </head>
 <body>
   <div class="auth-wrap {% block wrap_class %}{% endblock %}">
-    <a class="brand" href="https://www.balai.dk" title="Tilbage til balai.dk" style="text-decoration:none;color:inherit;display:inline-block">BAL AI · VAT Analytics</a>
+    <a class="balai-home" href="https://www.balai.dk" title="Tilbage til balai.dk">
+      <span class="balai-home-mark" aria-hidden="true">B</span>
+      <span class="balai-home-text">
+        <span class="balai-home-top">BALAI</span>
+        <span class="balai-home-sub">VAT Analytics</span>
+      </span>
+    </a>
     {% block content %}{% endblock %}
     <footer>VAT Analytics · adgangsstyring</footer>
   </div>
