@@ -30,6 +30,7 @@ from parsers.data_adapter import adapt_excel_to_saft
 from analytics.engine import run_analytics
 import auth
 import audit_log
+import central_auth
 
 app = FastAPI(
     title="VAT Analytics API",
@@ -75,7 +76,11 @@ app.add_middleware(
     same_site="lax",
     max_age=auth.SESSION_LIFETIME_HOURS * 3600,
 )
-auth.init_auth(app)
+# Brugerstyring er central (auth.balai.dk). De gamle lokale login/admin-ruter
+# mountes IKKE laengere; kun vaerktoejets egen audit-db initialiseres, plus
+# et logout-endpoint der rydder den delte cookie.
+audit_log.init_audit_db()
+app.include_router(central_auth.router)
 
 
 # --- HTTP-sikkerhedsheaders (defense-in-depth) ---
@@ -234,7 +239,7 @@ def health():
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request, user=Depends(auth.require_login)):
+def index(request: Request, user=Depends(central_auth.require_tool)):
     """Serve frontend (kræver login)."""
     return auth.templates.TemplateResponse(
         request, "index.html", {"csrf": auth.csrf_token(request)}
@@ -243,7 +248,7 @@ def index(request: Request, user=Depends(auth.require_login)):
 
 @app.post("/preview")
 async def preview_file(request: Request, file: UploadFile = File(...),
-                       user=Depends(auth.require_login), _=Depends(auth.verify_csrf)):
+                       user=Depends(central_auth.require_tool), _=Depends(auth.verify_csrf)):
     """
     Upload en fil og få en preview af kolonner + auto-detekteret mapping.
     Brugeren kan derefter bekræfte/rette mappingen før analyse.
@@ -263,7 +268,7 @@ async def preview_file(request: Request, file: UploadFile = File(...),
 
 @app.post("/analyze")
 async def analyze(request: Request, file: UploadFile = File(...),
-                  user=Depends(auth.require_login), _=Depends(auth.verify_csrf)):
+                  user=Depends(central_auth.require_tool), _=Depends(auth.verify_csrf)):
     """
     Upload en Excel/CSV fil og kør alle 103 momsanalyser.
 
@@ -341,7 +346,7 @@ async def analyze(request: Request, file: UploadFile = File(...),
 
 
 @app.get("/status/{job_id}")
-def job_status(job_id: str, user=Depends(auth.require_login)):
+def job_status(job_id: str, user=Depends(central_auth.require_tool)):
     """
     Returnér status og progress for et asynkront analyse-job.
     """
@@ -362,7 +367,7 @@ def job_status(job_id: str, user=Depends(auth.require_login)):
 
 
 @app.get("/result/{job_id}")
-def job_result(job_id: str, user=Depends(auth.require_login)):
+def job_result(job_id: str, user=Depends(central_auth.require_tool)):
     """
     Returnér resultatet af et færdigt analyse-job.
     """
