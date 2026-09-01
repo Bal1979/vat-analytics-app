@@ -273,6 +273,17 @@ et vilkårligt (også kunde-leveret) udtræk og map/flad-gør det til det kanoni
 analytics kræver. Adskilt fra Data Extract (opstrøms, leverer specifikationen) og fra selve
 analysen. Parkeret som selvstændigt værktøj — kan tages efter VAT analytics-reviewet.
 
+### 6.7 Data Extract har nu en objekt-model + pre-udfyldt Dataliste (opdatering 2026-06-15)
+Data Extract er løftet til en **objekt-model** (11 objekter som klientens Dataliste) og
+genererer nu en **pre-udfyldt ERP-Dataliste** i wizardens trin 3 (+ CSV-download). Kilde:
+`~/Projects/vat-extract/dataextract/catalog/objects.json` + `erp_objects.json` (single source
+`tools/object_model_data.py`). Objekterne: finansposteringer, salg, køb, lagerposteringer,
+debitor, kreditor, vare, kontoplan, saldobalance, momsopsætning + eksterne momskvitteringer.
+→ **Relevans for VAT analytics:** det er den strukturerede kontrakt for, hvordan klientdata
+kommer ind. Importen (§4) bør kunne modtage/mappe data efter disse objekter, og oversætter-
+sporet (§6.5) kan bruge objekt-modellen som mål-format. NB: Item Ledger, Saldobalance og dele
+af Køb/Moms er endnu UNVERIFIED/huller pr. ERP.
+
 ### 6.6 Definition of done for VAT analytics (jf. §1 + playbook §3)
 §3-checklisten grøn (auth, CI, valideringssuite m. plantede defekter, versioneret regelkatalog,
 sporbarhedsmatrix) + dokumentationspakke (4 docx + matrix + rapport) + stress-test på rigtige
