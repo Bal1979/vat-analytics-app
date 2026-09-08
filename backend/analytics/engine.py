@@ -5,8 +5,10 @@ med findings klassificeret efter impact-type, retning og sværhedsgrad.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Iterable
 from analytics.models import make_finding
+from analytics import materiality
+from analytics import modules
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,16 @@ CATEGORIES = [
 
 # === TEST RUNNER ===
 
-def run_all_tests(data: dict) -> dict:
+def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) -> dict:
     """
     Kør alle implementerede tests mod parsed SAF-T data.
     Returnerer en fuld analyserapport.
+
+    ``active_modules``: valgfrit eksplicit sæt af analyse-modulnøgler (se
+    analytics/modules.py). Er det ikke sat, bestemmes de aktive moduler af
+    miljøvariablen ANALYTICS_MODULES, ellers default (kun momskernen).
+    Deaktiverede moduler kører teknisk stadig, men deres fund filtreres fra før
+    rapporten bygges — så aggregater/scores kun afspejler de aktive kontroller.
     """
     all_findings = []
 
@@ -82,8 +90,17 @@ def run_all_tests(data: dict) -> dict:
 
     logger.info("All tests complete: %d total findings", len(all_findings))
 
-    # Byg rapport
-    report = build_report(data, all_findings)
+    # Momsrelevans-slankning: behold kun fund fra aktive analyse-moduler.
+    active = modules.resolve_active_modules(active_modules)
+    kept = [f for f in all_findings if modules.is_control_active(f["test_id"], active)]
+    suppressed = len(all_findings) - len(kept)
+    logger.info("Aktive moduler: %s — beholdt %d fund, filtreret %d fra",
+                sorted(active), len(kept), suppressed)
+
+    # Byg rapport på de aktive fund
+    report = build_report(data, kept)
+    report["moduler"] = modules.module_summary(active)
+    report["filtrerede_fund"] = suppressed
     return report
 
 
@@ -146,8 +163,8 @@ def build_report(data: dict, findings: list) -> dict:
         cat_findings = [f for f in findings if cat["test_range"][0] <= f["test_id"] <= cat["test_range"][1]]
         total_tests = cat["test_range"][1] - cat["test_range"][0] + 1
 
-        # Score: 100 - (findings med severity-vægt)
-        severity_weights = {"critical": 25, "high": 15, "medium": 8, "low": 3}
+        # Score: 100 - (findings med severity-vægt). Vægtene er engagement-kalibrerbare.
+        severity_weights = materiality.SEVERITY_WEIGHTS
         penalty = sum(severity_weights.get(f["severity"], 5) for f in cat_findings)
         score = max(0, min(100, 100 - penalty))
 
@@ -217,9 +234,10 @@ def build_report(data: dict, findings: list) -> dict:
     }
 
 
-def run_analytics(data: dict) -> dict:
+def run_analytics(data: dict, active_modules: Optional[Iterable[str]] = None) -> dict:
     """
     Hovedfunktion: Kør alle analytics tests mod parsed data.
-    Alias for run_all_tests — bruges af main.py.
+    Alias for run_all_tests — bruges af main.py. ``active_modules`` sendes videre
+    (ellers styres modulerne af ANALYTICS_MODULES / default).
     """
-    return run_all_tests(data)
+    return run_all_tests(data, active_modules=active_modules)

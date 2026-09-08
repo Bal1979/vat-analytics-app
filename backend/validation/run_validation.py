@@ -18,6 +18,7 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from analytics.engine import run_all_tests
+from analytics import modules
 from validation.scenarios import SCENARIOS
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,7 +26,10 @@ _DOCS = os.path.join(_REPO, "docs")
 
 
 def _fired_ids(data):
-    report = run_all_tests(data)
+    # Valideringssuiten validerer HVER kontrol uafhængigt af produktions-default,
+    # så alle analyse-moduler tændes her (ellers ville fund fra default-fra
+    # moduler blive filtreret bort og få scenarier til at fejle fejlagtigt).
+    report = run_all_tests(data, active_modules=modules.all_module_keys())
     return {f["test_id"] for f in report["all_findings"]}
 
 

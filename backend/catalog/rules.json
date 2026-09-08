@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0.0",
+  "catalog_version": "1.1.0",
   "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 103 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
   "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
   "antal_kontroller": 103,
@@ -101,6 +101,43 @@
       ]
     }
   ],
+  "analyse_moduler": [
+    {
+      "noegle": "moms_kerne",
+      "navn": "Momskerne",
+      "beskrivelse": "Kontroller med direkte momsfaglig konsekvens: sats, fradragsret, angivelse, reverse charge, place-of-supply og momsafstemning. Fundamentet i en momsgennemgang.",
+      "default_aktiv": true,
+      "antal_kontroller": 60
+    },
+    {
+      "noegle": "forensic_statistik",
+      "navn": "Forensic & statistik",
+      "beskrivelse": "Statistisk anomalidetektion, beløbs-outliers, timing-anomalier og karrusel/MTIC-indikatorer. Hører til et JE-/besvigelsesmandat — ikke en momsgennemgang.",
+      "default_aktiv": false,
+      "antal_kontroller": 26
+    },
+    {
+      "noegle": "datakvalitet",
+      "navn": "Stamdata- & datakvalitet",
+      "beskrivelse": "Parts-/stamdatavalidering uden direkte fradrags-konsekvens (fx dubletnavne, formatfejl). Datakvalitet, ikke momsfund.",
+      "default_aktiv": false,
+      "antal_kontroller": 4
+    },
+    {
+      "noegle": "dublet_recovery",
+      "navn": "Dublet-recovery (bredt)",
+      "beskrivelse": "Bredere dublet-/recovery-scanninger (nær-dubletter, beløbsmatch på tværs). Den stærke eksakt-dublet med moms-dobbeltfradrag ligger i momskernen.",
+      "default_aktiv": false,
+      "antal_kontroller": 3
+    },
+    {
+      "noegle": "ehandel_saerordninger",
+      "navn": "E-handel & særordninger",
+      "beskrivelse": "OSS/fjernsalg, digitale ydelser, margin-/brugtmoms. Momsfagligt korrekte, men kun relevante ved B2C-fjernsalg/særordninger — klientbetinget, default fra.",
+      "default_aktiv": false,
+      "antal_kontroller": 10
+    }
+  ],
   "regler": [
     {
       "id": "VATA-001",
@@ -115,6 +152,9 @@
         "dynamisk"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_01_vat_recalculation",
       "kilde": "",
@@ -135,6 +175,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_02_tax_code_validation",
       "kilde": "",
@@ -156,6 +199,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_03_vat_rounding",
       "kilde": "",
@@ -176,6 +222,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_04_invoice_field_completeness",
       "kilde": "",
@@ -196,6 +245,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_05_date_consistency",
       "kilde": "",
@@ -216,6 +268,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_06_negative_amounts",
       "kilde": "",
@@ -237,6 +292,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_07_zero_value_transactions",
       "kilde": "",
@@ -257,6 +315,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_08_currency_consistency",
       "kilde": "",
@@ -277,6 +338,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_09_tax_point",
       "kilde": "",
@@ -297,6 +361,9 @@
         "critical"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat01_transaction_integrity.py",
       "funktion": "test_10_document_type",
       "kilde": "",
@@ -317,6 +384,9 @@
         "critical"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_11_exact_duplicate",
       "kilde": "",
@@ -337,6 +407,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_12_fuzzy_duplicate",
       "kilde": "",
@@ -357,6 +430,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "dublet_recovery",
+      "analyse_modul_navn": "Dublet-recovery (bredt)",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_13_same_amount_same_vendor",
       "kilde": "",
@@ -377,6 +453,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_14_normalized_invoice_number",
       "kilde": "",
@@ -397,6 +476,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "dublet_recovery",
+      "analyse_modul_navn": "Dublet-recovery (bredt)",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_15_duplicate_payment",
       "kilde": "",
@@ -417,6 +499,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_16_credit_note_duplicate",
       "kilde": "",
@@ -437,6 +522,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_17_cross_entity_duplicate",
       "kilde": "",
@@ -458,6 +546,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "dublet_recovery",
+      "analyse_modul_navn": "Dublet-recovery (bredt)",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat02_duplicate_detection.py",
       "funktion": "test_18_sequential_gaps",
       "kilde": "",
@@ -478,6 +569,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_19_invalid_rate",
       "kilde": "",
@@ -498,6 +592,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_20_rate_vs_taxtable",
       "kilde": "",
@@ -518,6 +615,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_21_reduced_rate",
       "kilde": "",
@@ -538,6 +638,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_22_missing_output_vat",
       "kilde": "",
@@ -558,6 +661,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_23_rate_consistency_per_code",
       "kilde": "",
@@ -578,6 +684,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_24_implied_rate",
       "kilde": "",
@@ -598,6 +707,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_25_zero_rate_domestic",
       "kilde": "",
@@ -618,6 +730,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat03_vat_rate_validation.py",
       "funktion": "test_26_missing_tax_code",
       "kilde": "",
@@ -638,6 +753,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_27_eu_trade_no_vat_number",
       "kilde": "",
@@ -658,6 +776,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_28_invalid_eu_vat_format",
       "kilde": "",
@@ -678,6 +799,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_29_eu_acquisition_no_reverse_charge",
       "kilde": "",
@@ -698,6 +822,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_30_export_with_vat",
       "kilde": "",
@@ -718,6 +845,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_31_eu_sale_with_dk_vat",
       "kilde": "",
@@ -738,6 +868,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_32_missing_country_on_foreign",
       "kilde": "",
@@ -758,6 +891,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_33_currency_country_mismatch",
       "kilde": "",
@@ -778,6 +914,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_34_dk_vat_on_foreign_party",
       "kilde": "",
@@ -798,6 +937,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_35_vat_prefix_vs_country",
       "kilde": "",
@@ -820,6 +962,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_36_triangulation",
       "kilde": "",
@@ -840,6 +985,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_37_vies_verification",
       "kilde": "",
@@ -860,6 +1008,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat04_cross_border_eu.py",
       "funktion": "test_38_import_without_docs",
       "kilde": "",
@@ -880,6 +1031,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_39_after_period_end",
       "kilde": "",
@@ -900,6 +1054,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_40_before_period_start",
       "kilde": "",
@@ -920,6 +1077,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_41_weekend_postings",
       "kilde": "",
@@ -940,6 +1100,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_42_period_end_clustering",
       "kilde": "",
@@ -960,6 +1123,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_43_future_dates",
       "kilde": "",
@@ -980,6 +1146,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_44_period_boundary",
       "kilde": "",
@@ -1000,6 +1169,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_45_sequence_vs_date",
       "kilde": "",
@@ -1020,6 +1192,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat05_timing_period.py",
       "funktion": "test_46_invoice_posting_lag",
       "kilde": "",
@@ -1040,6 +1215,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "datakvalitet",
+      "analyse_modul_navn": "Stamdata- & datakvalitet",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_47_missing_party_name",
       "kilde": "",
@@ -1060,6 +1238,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "datakvalitet",
+      "analyse_modul_navn": "Stamdata- & datakvalitet",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_48_duplicate_suppliers",
       "kilde": "",
@@ -1080,6 +1261,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_49_missing_cvr_dk_supplier",
       "kilde": "",
@@ -1100,6 +1284,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_50_invalid_cvr_format",
       "kilde": "",
@@ -1120,6 +1307,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "datakvalitet",
+      "analyse_modul_navn": "Stamdata- & datakvalitet",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_51_one_off_supplier",
       "kilde": "",
@@ -1140,6 +1330,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_52_customer_without_vat",
       "kilde": "",
@@ -1160,6 +1353,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_53_shared_identity",
       "kilde": "",
@@ -1180,6 +1376,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "datakvalitet",
+      "analyse_modul_navn": "Stamdata- & datakvalitet",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat06_party_validation.py",
       "funktion": "test_54_party_in_both_roles",
       "kilde": "",
@@ -1200,6 +1399,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_55_round_amounts",
       "kilde": "",
@@ -1220,6 +1422,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_56_just_below_threshold",
       "kilde": "",
@@ -1240,6 +1445,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_57_cash_limit",
       "kilde": "",
@@ -1260,6 +1468,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_58_unusually_large",
       "kilde": "",
@@ -1280,6 +1491,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_59_large_vat_no_document",
       "kilde": "",
@@ -1300,6 +1514,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_60_negative_vat",
       "kilde": "",
@@ -1320,6 +1537,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_61_account_outlier",
       "kilde": "",
@@ -1340,6 +1560,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat07_amount_threshold.py",
       "funktion": "test_62_structuring",
       "kilde": "",
@@ -1360,6 +1583,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_63_benford_first_digit",
       "kilde": "",
@@ -1380,6 +1606,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_64_round_number_bias",
       "kilde": "",
@@ -1400,6 +1629,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_65_rare_tax_code",
       "kilde": "",
@@ -1420,6 +1652,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_66_duplicate_descriptions",
       "kilde": "",
@@ -1440,6 +1675,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_67_timeseries_spike",
       "kilde": "",
@@ -1460,6 +1698,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_68_rare_account",
       "kilde": "",
@@ -1480,6 +1721,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat08_statistical_anomaly.py",
       "funktion": "test_69_last_digit_uniformity",
       "kilde": "",
@@ -1500,6 +1744,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_70_eu_service_no_rc",
       "kilde": "",
@@ -1520,6 +1767,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_71_rc_on_domestic",
       "kilde": "",
@@ -1540,6 +1790,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_72_domestic_rc_goods",
       "kilde": "",
@@ -1560,6 +1813,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_73_asymmetric_rc",
       "kilde": "",
@@ -1580,6 +1836,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_74_construction_rc",
       "kilde": "",
@@ -1600,6 +1859,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat09_reverse_charge.py",
       "funktion": "test_75_rc_missing_documentation",
       "kilde": "",
@@ -1620,6 +1882,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_76_input_output_ratio",
       "kilde": "",
@@ -1640,6 +1905,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_77_vat_account_reconciliation",
       "kilde": "",
@@ -1660,6 +1928,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_78_negative_vat_liability",
       "kilde": "",
@@ -1680,6 +1951,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_79_input_vat_no_purchase",
       "kilde": "",
@@ -1700,6 +1974,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_80_revenue_without_output_vat",
       "kilde": "",
@@ -1720,6 +1997,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_81_zero_rated_share",
       "kilde": "",
@@ -1736,6 +2016,9 @@
       "impact_type": [],
       "severity": [],
       "status": "inaktiv_kraever_kildedata",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_82_period_declaration",
       "kilde": "",
@@ -1752,6 +2035,9 @@
       "impact_type": [],
       "severity": [],
       "status": "inaktiv_kraever_kildedata",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_83_partial_deduction",
       "kilde": "",
@@ -1772,6 +2058,9 @@
         "critical"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_84_missing_trader",
       "kilde": "",
@@ -1788,6 +2077,9 @@
       "impact_type": [],
       "severity": [],
       "status": "inaktiv_kraever_kildedata",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_85_carousel_pattern",
       "kilde": "",
@@ -1808,6 +2100,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_86_rapid_throughput",
       "kilde": "",
@@ -1828,6 +2123,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_87_high_risk_goods",
       "kilde": "",
@@ -1848,6 +2146,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_88_zero_margin",
       "kilde": "",
@@ -1868,6 +2169,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_89_new_high_volume_party",
       "kilde": "",
@@ -1884,6 +2188,9 @@
       "impact_type": [],
       "severity": [],
       "status": "inaktiv_kraever_kildedata",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_90_payment_pattern",
       "kilde": "",
@@ -1904,6 +2211,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_91_clearing_account_abuse",
       "kilde": "",
@@ -1924,6 +2234,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_92_false_invoice",
       "kilde": "",
@@ -1944,6 +2257,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "forensic_statistik",
+      "analyse_modul_navn": "Forensic & statistik",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat11_fraud_mtic.py",
       "funktion": "test_93_identical_amounts_across_parties",
       "kilde": "",
@@ -1964,6 +2280,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_94_eu_b2c_oss",
       "kilde": "",
@@ -1984,6 +2303,9 @@
         "high"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_95_distance_selling_threshold",
       "kilde": "",
@@ -2004,6 +2326,9 @@
         "medium"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_96_digital_service_eu_consumer",
       "kilde": "",
@@ -2024,6 +2349,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_97_dk_vat_on_eu_consumer",
       "kilde": "",
@@ -2044,6 +2372,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_98_ioss_low_value",
       "kilde": "",
@@ -2060,6 +2391,9 @@
       "impact_type": [],
       "severity": [],
       "status": "inaktiv_kraever_kildedata",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_99_platform_liability",
       "kilde": "",
@@ -2080,6 +2414,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_100_electronic_services",
       "kilde": "",
@@ -2100,6 +2437,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_101_telecom_broadcasting",
       "kilde": "",
@@ -2120,6 +2460,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_102_travel_margin",
       "kilde": "",
@@ -2140,6 +2483,9 @@
         "low"
       ],
       "status": "aktiv",
+      "analyse_modul": "ehandel_saerordninger",
+      "analyse_modul_navn": "E-handel & særordninger",
+      "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_103_used_goods_margin",
       "kilde": "",

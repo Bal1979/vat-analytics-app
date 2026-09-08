@@ -26,11 +26,13 @@ import os
 import re
 import sys
 
-CATALOG_VERSION = "1.0.0"
+CATALOG_VERSION = "1.1.0"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)
 sys.path.insert(0, _BACKEND)  # så validation.scenarios kan importeres uanset cwd
+
+from analytics import modules as _modules  # noqa: E402  (stdlib-only, intet netværk)
 _CATEGORIES_DIR = os.path.join(_BACKEND, "analytics", "categories")
 _OUT = os.path.join(_BACKEND, "catalog", "rules.json")
 _NOTES = os.path.join(_BACKEND, "catalog", "rule_notes.json")
@@ -141,6 +143,8 @@ def build_catalog():
             if dyn_sev:
                 sev_out = sev_out + ["dynamisk"]
             note = notes.get(str(tid), {})
+            mod_key = _modules.module_of(tid)
+            mod_meta = _modules.MODULES[mod_key]
             rules.append({
                 "id": f"VATA-{tid:03d}",
                 "test_id": tid,
@@ -150,6 +154,9 @@ def build_catalog():
                 "impact_type": sorted(impacts),
                 "severity": sev_out,
                 "status": status,
+                "analyse_modul": mod_key,
+                "analyse_modul_navn": mod_meta["navn"],
+                "default_aktiv": mod_meta["default_active"],
                 "modul": module,
                 "funktion": node.name,
                 "kilde": note.get("kilde", ""),          # autoritativ retskilde — udfyldes i Fase B
@@ -177,6 +184,16 @@ def build_catalog():
         "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
         "antal_kontroller": len(rules),
         "kategorier": [{"id": c[0], "navn": c[1], "test_range": [c[2], c[3]]} for c in CATEGORIES],
+        "analyse_moduler": [
+            {
+                "noegle": key,
+                "navn": meta["navn"],
+                "beskrivelse": meta["beskrivelse"],
+                "default_aktiv": meta["default_active"],
+                "antal_kontroller": sum(1 for r in rules if r["analyse_modul"] == key),
+            }
+            for key, meta in _modules.MODULES.items()
+        ],
         "regler": rules,
     }
 
