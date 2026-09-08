@@ -41,11 +41,14 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
   `parsers/upload_router.py`, routet i `main.py` (Excel-sti uændret). Best-effort,
   namespace-agnostisk, XML-hærdet. Bærer `standard_account_id` på linjen. Testet i
   `tests/test_saft_parser.py`.
-- ⬜ **Robust scope via `StandardAccountID`/standardkontoplan (increment B):** nødvendigt
-  fordi rigtige filer mislabeler `AccountType="Other"`. Map `StandardAccountID` →
-  standardkontoplan-rolle (balance vs. resultat) og før et `account_role`-signal ind i
-  `vat_rules.is_non_vat_account`. Genbrug SAF-T Validators `standard_accounts.py` +
-  standardkontoplan-referencen (603 konti).
+- ✅ **Robust scope via `StandardAccountID` (FÆRDIG — increment B):**
+  `analytics/standard_accounts.py` udleder nature (balance ≥ 5000 / resultat
+  1000–4999) fra standardkontoplanens sektions-headere; wiret ind i
+  `vat_rules.is_non_vat_account`. Bider nu på rigtige filer trods `AccountType="Other"`.
+  Bekræftet på den fejlmærkede v1.0-fil (kontrol 80 undertrykt). Testet i
+  `tests/test_standard_accounts.py` + udvidet `tests/test_vat_scope.py`.
+- ⬜ **Udbred scopet til flere kontroller:** kun kontrol 80 bruger p.t.
+  `is_non_vat_account`. Andre balancefølsomme kontroller kan adoptere samme hook.
 
 ## Internt løft tilbage (kan bygges af os — rækkefølge)
 1. ✅ **Aggregat-korrekthed (FÆRDIG 2026-06-17):** `build_report` rapporterer nu både brutto

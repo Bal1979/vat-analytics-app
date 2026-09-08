@@ -31,6 +31,13 @@ væsentlige løft mod EY-standard.
   indholds-sniff; `main.py` kalder kun routeren (Excel-sti uændret). Linjen bærer
   nu `standard_account_id` (fundament for robust scope, increment B). Testdækket i
   `tests/test_saft_parser.py`.
+- **Robust momsrelevans-scope (increment B):** `analytics/standard_accounts.py`
+  klassificerer `StandardAccountID` som balance (≥ 5000) eller resultat (1000–4999)
+  ud fra ERST-standardkontoplanens sektions-headere. `vat_rules.is_non_vat_account`
+  bruger nu dette signal ud over `AccountType`, så balanceposter undertrykkes korrekt
+  på rigtige filer, hvor `AccountType` er fejlmærket "Other". Kontrol 80; bekræftet
+  på den fejlmærkede v1.0-fil. Testet i `tests/test_standard_accounts.py` +
+  udvidet `tests/test_vat_scope.py`.
 
 ## Katalog v1.0.0 — 2026-06-16
 Første versionerede regelkatalog, auto-genereret fra de 103 kontrolfunktioner.

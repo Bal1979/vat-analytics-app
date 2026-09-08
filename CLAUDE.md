@@ -31,12 +31,14 @@ handlingsliste, ikke en mur af flag.
   **default FRA**: `forensic_statistik` (26), `ehandel_saerordninger` (10),
   `datakvalitet` (4), `dublet_recovery` (3). En standardkørsel viser altså kun
   momskernen. Intet er slettet — alt kan tændes igen (se Arkitektur).
-- **Momsrelevans-scope (fundament):** en momskontrol undertrykker kun et fund, når
-  linjen positivt er en balancekonto (SAF-T `AccountType`). Ukendt kontotype (fladt
-  Excel-udtræk) → uændret adfærd. Aktivt for kontrol 80. **Vigtigt real-data-fund:**
-  de to modtagne klientfiler mislabeler `AccountType="Other"` på ~93–100% af konti,
-  så et robust produktions-scope skal drives af `StandardAccountID`/standardkontoplanen
-  (kommer med SAF-T-parseren — se Åbne tråde).
+- **Momsrelevans-scope (robust):** en momskontrol undertrykker kun et fund, når
+  linjen positivt er en balancekonto — via TO uafhængige signaler: SAF-T
+  `AccountType` (asset/liability/equity) ELLER `StandardAccountID` ≥ 5000
+  (standardkontoplanens balance-sektion, `analytics/standard_accounts.py`). Ukendt
+  på begge (fladt Excel uden kontoplan) → uændret adfærd. Aktivt for kontrol 80.
+  StandardAccountID-signalet løser real-data-fundet: klientfilerne mislabeler
+  `AccountType="Other"` på ~93–100% af konti, men `StandardAccountID` er udfyldt og
+  pålideligt.
 - **SAF-T-input (produktion):** værktøjet accepterer nu også dansk SAF-T Financial
   (`.xml`, v1.0/2.0/2.1) ved siden af Excel/CSV — se `parsers/saft_parser.py` +
   `upload_router.py`. Best-effort, XML-hærdet.
@@ -77,8 +79,12 @@ committer/pusher (SSH ligger kun på hans Mac).
     Valideringssuiten kører med ALLE moduler (`all_module_keys()`), så den
     validerer hver kontrol uafhængigt af produktions-default.
   - `vat_rules.py`: linje-helpers og momsregler. `is_non_vat_account(line)` =
-    momsrelevans-scopet (kun `asset/liability/equity` → True; ukendt → False =
-    uændret). `normalize_country`, `is_foreign`, satser m.v.
+    momsrelevans-scopet: True hvis `AccountType` ∈ {asset,liability,equity} ELLER
+    `StandardAccountID` ≥ 5000 (via `standard_accounts.is_balance_account`); begge
+    ukendte → False = uændret. `normalize_country`, `is_foreign`, satser m.v.
+  - `standard_accounts.py`: StandardAccountID → nature (balance ≥ 5000 / resultat
+    1000–4999), fra ERST-standardkontoplanens sektions-headere. Robust scope-signal
+    når `AccountType` er fejlmærket.
   - `materiality.py`: severity-vægte + centrale tærskler (kontantgrænse,
     godkendelsesgrænser, købs-/salgsmoms-forhold, faktura-lag, fjernsalgstærskel,
     stort momsbeløb-uden-bilag). Env-overstyrbare via `MATERIALITY_*` (defaults =
@@ -152,12 +158,10 @@ Postgres), `AUTH_BASE_URL` (default `https://auth.balai.dk`), `AUTH_DB_PATH`,
 - **SAF-T-parser:** ✅ produktions-parser (`parsers/saft_parser.py` + `upload_router.py`)
   landet — mapper SAF-T Financial (DK v1.0/2.0/2.1) til den kanoniske struktur,
   best-effort (kører også på ugyldig SAF-T), routet i `main.py`. Bærer allerede
-  `standard_account_id` på linjen. **Næste (increment B):** `StandardAccountID` →
-  standardkontoplan-rolle (nature: balance vs. resultat), som **styrker
-  momsrelevans-scopet** på rigtige filer (hvor `AccountType` er mislabeled "Other").
-  Genbrug SAF-T Validators `standard_accounts.py` + standardkontoplan-referencen
-  (603 konti; `RESULTATOPGØRELSE` vs. balance-sektion giver nature). Balance-scope
-  skal ind i `vat_rules.is_non_vat_account` (nyt `account_role`-signal på linjen).
+  `standard_account_id` på linjen. **Increment B (FÆRDIG):** `StandardAccountID` →
+  nature (balance ≥ 5000 / resultat 1000–4999) i `analytics/standard_accounts.py`,
+  wiret ind i `vat_rules.is_non_vat_account`, så scopet bider på rigtige filer, hvor
+  `AccountType` er mislabeled "Other". Bekræftet på den fejlmærkede v1.0-fil.
 - **Features 82/83** (besluttet, afklar UI-form): 82 = periode vs. angivelse
   (angivelses-input); 83 = delvis fradragsret (fradragsbrøk + toggle "100%
   momspligtig"). 90 (betalingsmønstre) parkeret.
