@@ -3,6 +3,7 @@
 
 # Python
 venv/
+venv_py39_gammel/
 __pycache__/
 *.pyc
 .pytest_cache/

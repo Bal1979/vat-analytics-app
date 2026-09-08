@@ -3,6 +3,28 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Katalog v1.1.0 — 2026-09-08
+**Momsrelevans-slankning + scope + central-auth-oprydning.**
+
+- **Analyse-moduler (`analytics/modules.py`):** de 103 kontroller delt i moduler.
+  **Momskernen (60) default TIL**; `forensic_statistik` (26), `ehandel_saerordninger`
+  (10), `datakvalitet` (4), `dublet_recovery` (3) default FRA. Motoren filtrerer
+  findings til aktive moduler før rapporten bygges (intet slettes; alt kan tændes via
+  `ANALYTICS_MODULES` eller pr. kørsel). Keep/cut følger berigelsesnotatet.
+  Kataloget bærer nu `analyse_modul` + `default_aktiv` pr. kontrol + en
+  `analyse_moduler`-oversigt. Valideringssuiten kører med alle moduler tændt.
+- **Momsrelevans-scope (fundament):** `vat_rules.is_non_vat_account` undertrykker
+  momsfund på balancekonti (SAF-T `AccountType`); kun aktivt ved kendt kontotype
+  (uændret for fladt Excel). `data_adapter` bærer `account_type` med på linjen.
+  Wiret i kontrol 80. Real-data-fund: klientfiler mislabeler `AccountType="Other"`
+  → robust scope kræver `StandardAccountID`/standardkontoplan (SAF-T-parser-sporet).
+- **Central auth-tests:** `tests/test_auth.py` omskrevet til den centrale
+  BALAI-brugerstyring (redirect/401 i stedet for lokalt setup/login/CSRF), efter at
+  login/setup/admin er flyttet til `auth.balai.dk`.
+- **Recovery:** `analytics/materiality.py` (og momsrelevans-scope-filerne) var
+  utilsigtet ucommitteret; nu bragt i repoet (engine importerede dem allerede).
+- **Miljø:** lokal `venv` løftet til Python 3.13 (matcher CI/Railway).
+
 ## Katalog v1.0.0 — 2026-06-16
 Første versionerede regelkatalog, auto-genereret fra de 103 kontrolfunktioner.
 

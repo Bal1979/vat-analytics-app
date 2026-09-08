@@ -30,6 +30,15 @@ Docx (kræver Node + lokal install i repo-roden):
 npm install && node backend/tools/build_approval_docs.js
 ```
 
+## Analyse-moduler (momsrelevans-slankning)
+Fra katalog v1.1.0 er de 103 kontroller delt i moduler: **momskernen (60) er default
+TIL**; forensic/statistik, e-handel/særordninger, datakvalitet og dublet-recovery er
+default FRA. Hver kontrol i `rules.json` bærer `analyse_modul` + `default_aktiv`, og
+kataloget har en `analyse_moduler`-oversigt. Aktive moduler styres af miljøvariablen
+`ANALYTICS_MODULES` (komma-liste; `alle` = alt; default = kun momskernen). Definition:
+`backend/analytics/modules.py`.
+
 ## Kilder
 Regelkatalog: `backend/catalog/rules.json` (+ `rule_notes.json`). Kontrol-logik:
-`backend/analytics/`. Valideringssuite: `backend/validation/`.
+`backend/analytics/` (motor: `engine.py`; moduler: `modules.py`; materialitet:
+`materiality.py`). Valideringssuite: `backend/validation/`.

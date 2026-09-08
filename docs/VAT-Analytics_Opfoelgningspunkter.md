@@ -30,6 +30,19 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
   til EU som VAT Analytics (slet US-volumen → sæt EU → genopret volumen). Noteret i
   playbook'ens drifts-afsnit.
 
+## Momsrelevans (produktions-tilpasning — 2026-09-08)
+- ✅ **Slankning / analyse-moduler (FÆRDIG):** momskernen (60 kontroller) default TIL;
+  forensic/statistik (26), e-handel/særordninger (10), datakvalitet (4), dublet-recovery
+  (3) default FRA. `analytics/modules.py` + motor-filtrering + katalog v1.1.0
+  (`analyse_modul`/`default_aktiv`). Styres af `ANALYTICS_MODULES` (default = kun kerne).
+- ✅ **Momsrelevans-scope, fundament (FÆRDIG):** balancekonti (SAF-T `AccountType`)
+  undertrykker momsfund; uændret for fladt Excel. Kontrol 80.
+- ⬜ **Robust scope via `StandardAccountID`/standardkontoplan:** nødvendigt fordi rigtige
+  filer mislabeler `AccountType="Other"`. Bygges sammen med SAF-T-parseren; genbrug
+  SAF-T Validators `standard_accounts.py`.
+- ⬜ **SAF-T-parser (næste spor):** produktions-input (best-effort, kører også på ugyldig
+  SAF-T). Spike: `outputs/saft_spike.py`.
+
 ## Internt løft tilbage (kan bygges af os — rækkefølge)
 1. ✅ **Aggregat-korrekthed (FÆRDIG 2026-06-17):** `build_report` rapporterer nu både brutto
    (`negative_amount`/`positive_amount`) og distinkt, transaktions-dedupliceret
