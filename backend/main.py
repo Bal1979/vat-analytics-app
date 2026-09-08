@@ -25,8 +25,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from parsers.excel_parser import parse_excel, get_column_mapping_preview, LARGE_FILE_THRESHOLD
-from parsers.data_adapter import adapt_excel_to_saft
+from parsers.excel_parser import LARGE_FILE_THRESHOLD
+from parsers.upload_router import parse_upload, preview_upload
 from analytics.engine import run_analytics
 import auth
 import audit_log
@@ -130,7 +130,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Serve static files
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
-ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv"}
+ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv", ".xml"}
 
 
 def _save_upload(file: UploadFile) -> tuple:
@@ -197,20 +197,19 @@ def _run_analysis_job(job_id: str, file_path: str, filename: str, file_size: int
             jobs[job_id]["total_rows"] = total_rows
 
         logger.info("Job %s: parsing started", job_id)
-        parsed_data = parse_excel(file_path, progress_callback=progress_cb)
+        # Router: fladt Excel/CSV eller SAF-T XML -> samme kanoniske struktur.
+        adapted_data = parse_upload(file_path, progress_callback=progress_cb)
         logger.info("Job %s: parsing finished", job_id)
 
-        if parsed_data.get("parse_info", {}).get("error"):
+        if adapted_data.get("parse_info", {}).get("error"):
             jobs[job_id]["status"] = "error"
-            jobs[job_id]["error"] = parsed_data["parse_info"]["error"]
-            logger.error("Job %s: parse error — %s", job_id, parsed_data["parse_info"]["error"])
+            jobs[job_id]["error"] = adapted_data["parse_info"]["error"]
+            logger.error("Job %s: parse error — %s", job_id, adapted_data["parse_info"]["error"])
             return
 
         jobs[job_id]["status"] = "analyzing"
         jobs[job_id]["progress"] = 100  # Parsing done
 
-        # Adapt flat Excel data to SAF-T structure expected by analytics engine
-        adapted_data = adapt_excel_to_saft(parsed_data)
         logger.info("Job %s: analysis started", job_id)
         results = run_analytics(adapted_data)
         logger.info("Job %s: analysis finished", job_id)
@@ -255,7 +254,7 @@ async def preview_file(request: Request, file: UploadFile = File(...),
     """
     file_path, _f = _save_upload(file)
     try:
-        preview = get_column_mapping_preview(file_path)
+        preview = preview_upload(file_path)
         return JSONResponse({
             "filename": file.filename,
             "preview": preview,
@@ -316,15 +315,14 @@ async def analyze(request: Request, file: UploadFile = File(...),
     # Små filer: synkron analyse (uændret adfærd)
     try:
         logger.info("Sync analysis: parsing started for '%s'", file.filename)
-        parsed_data = parse_excel(file_path)
+        # Router: fladt Excel/CSV eller SAF-T XML -> samme kanoniske struktur.
+        adapted_data = parse_upload(file_path)
         logger.info("Sync analysis: parsing finished for '%s'", file.filename)
 
-        if parsed_data.get("parse_info", {}).get("error"):
-            logger.error("Sync analysis: parse error — %s", parsed_data["parse_info"]["error"])
-            raise HTTPException(400, parsed_data["parse_info"]["error"])
+        if adapted_data.get("parse_info", {}).get("error"):
+            logger.error("Sync analysis: parse error — %s", adapted_data["parse_info"]["error"])
+            raise HTTPException(400, adapted_data["parse_info"]["error"])
 
-        # Adapt flat Excel data to SAF-T structure expected by analytics engine
-        adapted_data = adapt_excel_to_saft(parsed_data)
         logger.info("Sync analysis: analysis started for '%s'", file.filename)
         results = run_analytics(adapted_data)
         logger.info("Sync analysis: analysis finished for '%s'", file.filename)
