@@ -120,17 +120,29 @@ def build_xlsx(cat):
     # --- Sporbarhedsmatrix (kontrol -> kilde -> modul -> test) ---
     ws = wb.create_sheet("Sporbarhedsmatrix")
     _style_sheet(ws, ["ID", "Test", "Kontrol", "Kategori", "Severity", "Impact",
-                      "Status", "Retsområde / kilde", "Modul", "Funktion",
-                      "Dækkende test", "Afhænger af"],
-                 [10, 6, 40, 30, 14, 22, 22, 46, 40, 30, 40, 38])
+                      "Status", "Analyse-modul", "Default", "Retsområde / kilde",
+                      "Kilde-modul", "Funktion", "Dækkende test", "Afhænger af"],
+                 [10, 6, 40, 30, 14, 22, 22, 24, 10, 46, 40, 30, 40, 38])
     for r in cat["regler"]:
         _append(ws, [
             r["id"], r["test_id"], r["navn"], r["kategori"],
             _join(r["severity"]), _join(r["impact_type"]), r["status"],
+            r.get("analyse_modul_navn", ""),
+            "TIL" if r.get("default_aktiv") else "FRA",
             _kilde(r), r["modul"], r["funktion"],
             r.get("test") or "(udfyldes — Fase C)",
             r.get("afhaenger_af") or "",
         ])
+
+    # --- Analyse-moduler ---
+    if cat.get("analyse_moduler"):
+        ws = wb.create_sheet("Analyse-moduler")
+        _style_sheet(ws, ["Modul", "Nøgle", "Default", "Kontroller", "Beskrivelse"],
+                     [24, 22, 10, 12, 70])
+        for m in cat["analyse_moduler"]:
+            _append(ws, [m["navn"], m["noegle"],
+                         "TIL" if m["default_aktiv"] else "FRA",
+                         m["antal_kontroller"], m["beskrivelse"]])
 
     # --- Kategorier ---
     ws = wb.create_sheet("Kategorier")
@@ -166,14 +178,24 @@ def build_report(cat):
              f"(valideringssuiten dækker alle {len(aktive)} aktive kontroller; de "
              f"{len(inaktive)} uden test er de inaktive)")
     L.append("")
-    L.append("## Sporbarhedsmatrix (kontrol → kilde → modul → test)")
+    if cat.get("analyse_moduler"):
+        L.append("## Analyse-moduler (momsrelevans-slankning)")
+        L.append("")
+        L.append("| Modul | Default | Kontroller | Beskrivelse |")
+        L.append("|-------|---------|------------|-------------|")
+        for m in cat["analyse_moduler"]:
+            dflt = "TIL" if m["default_aktiv"] else "FRA"
+            L.append(f"| {m['navn']} | {dflt} | {m['antal_kontroller']} | {m['beskrivelse']} |")
+        L.append("")
+    L.append("## Sporbarhedsmatrix (kontrol → analyse-modul → kilde → test)")
     L.append("")
-    L.append("| ID | Kontrol | Status | Retsområde / kilde | Modul | Test |")
-    L.append("|----|---------|--------|--------------------|-------|------|")
+    L.append("| ID | Kontrol | Status | Analyse-modul | Default | Retsområde / kilde | Test |")
+    L.append("|----|---------|--------|---------------|---------|--------------------|------|")
     for r in cat["regler"]:
         test = r.get("test") or "(Fase C)"
-        L.append(f"| {r['id']} | {r['navn']} | {r['status']} | {_kilde(r)} | "
-                 f"`{r['modul']}` | {test} |")
+        dflt = "TIL" if r.get("default_aktiv") else "FRA"
+        L.append(f"| {r['id']} | {r['navn']} | {r['status']} | "
+                 f"{r.get('analyse_modul_navn','')} | {dflt} | {_kilde(r)} | {test} |")
     L.append("")
     L.append("## Inaktive kontroller (beslutning og afhængighed)")
     L.append("")
