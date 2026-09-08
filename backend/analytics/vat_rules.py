@@ -15,6 +15,8 @@ import re
 import math
 from collections import Counter
 
+from analytics import standard_accounts
+
 # === SATSER ===
 
 # Dansk standard-momssats. Danmark har ingen reducerede satser —
@@ -330,12 +332,18 @@ _NON_VAT_ACCOUNT_TYPES = {"asset", "liability", "equity"}
 def is_non_vat_account(line):
     """True hvis linjen positivt kan identificeres som en ikke-moms (balance-)konto.
 
-    Bruges til at fjerne GL-støj (fx betalinger/balanceposter der ellers ligner
-    'indtægt uden moms') på strukturerede udtræk som SAF-T, hvor AccountType findes.
-    Returnerer False når kontotypen er ukendt, så flade udtræk er upåvirkede.
+    To uafhængige signaler (enten er nok):
+      1. SAF-T ``AccountType`` er en balancetype (asset/liability/equity).
+      2. ``StandardAccountID`` er en balancekonto (≥ 5000 i standardkontoplanen).
+         Dette er det ROBUSTE signal på rigtige filer, hvor AccountType ofte er
+         fejlmærket "Other" — se analytics/standard_accounts.py.
+    Begge ukendte (fx fladt Excel-udtræk uden kontoplan) → False, så adfærden er
+    uændret.
     """
     at = (line.get("account_type") or "").strip().lower()
-    return at in _NON_VAT_ACCOUNT_TYPES
+    if at in _NON_VAT_ACCOUNT_TYPES:
+        return True
+    return standard_accounts.is_balance_account(line.get("standard_account_id"))
 
 
 def line_amount(line):
