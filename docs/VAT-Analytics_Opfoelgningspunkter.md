@@ -40,7 +40,12 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
    trådsikkert via lock, kaldt lazy i `/analyze`. Testet i `tests/test_jobs_cleanup.py`.
 3. ✅ **Katalog-drift-gate (FÆRDIG 2026-06-17):** `tests/test_catalog_fresh.py` asserter at committet
    `rules.json` == `build_catalog()` (+ integritet). Generatoren refaktoreret til `build_catalog()`/`serialize()`/`build()`.
-4. **Materialitet konfigurerbar (NÆSTE OP):** severity-vægte/tærskler er hardcodede i `engine.py`; gør engagement-styrede (fx via env/parameter).
+4. ✅ **Materialitet konfigurerbar (FÆRDIG 2026-06-17):** `analytics/materiality.py` samler severity-vægte
+   + centrale tærskler (kontantgrænse, godkendelsesgrænser, købs-/salgsmoms-forhold, faktura-lag,
+   fjernsalgstærskel, stort momsbeløb-uden-bilag), env-overstyrbare via `MATERIALITY_*` (defaults = hidtidig
+   adfærd). Wiret i engine + cat05/07/10/12. Testet i `tests/test_materiality.py`.
+   Note: cat07/cat12 binder værdien ved import (env sættes ved opstart); per-run-override ville kræve at
+   tråde en config gennem motoren — mulig senere udvidelse.
 
 ## Internt, men kræver beslutning/input
 - **Features 82 + 83** (besluttet) — afklar UI-form før build. 90 parkeret.

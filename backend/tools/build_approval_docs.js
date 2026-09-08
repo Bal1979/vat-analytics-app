@@ -378,6 +378,9 @@ const hosting = makeDoc([
     ["SESSION_COOKIE_SECURE", "Secure-flag på session-cookie. Lad være usat (=secure) i prod.", "1 (secure)"],
     ["CORS_ORIGINS", "Tilladte origins (komma-separeret).", "https://vat.balai.dk,http://localhost:3000"],
     ["MAX_UPLOAD_MB", "Maksimal uploadstørrelse.", "2048"],
+    ["JOB_RETENTION_SECONDS", "TTL for færdige/fejlede async-jobs i hukommelsen.", "3600"],
+    ["MAX_JOBS", "Maks. antal async-jobs i hukommelsen (ældste evictes).", "100"],
+    ["MATERIALITY_* (valgfri)", "Engagement-kalibrerbare tærskler + severity-vægte (se analytics/materiality.py).", "(hidtidig adfærd)"],
     ["PORT", "Lytteport (sættes af platformen).", "5003 / 8080"],
   ], [2500, 4660, 2200]),
 
