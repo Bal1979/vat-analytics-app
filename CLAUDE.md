@@ -8,7 +8,8 @@
 
 Kontinuitets-/hand-off-note: hvor projektet er, hvorfor valgene blev truffet, og
 hvad der er åbent. Hold den opdateret ved væsentlige ændringer. Tool-specifik
-godkendelses-dokumentation ligger i `docs/`.
+godkendelses-dokumentation ligger i `docs/` — herunder `docs/TTAR-afklaring-og-mapping.md`,
+der mapper EY's TTAR-godkendelsesramme til vores evidens (spejlet på SAF-T-sporet).
 
 ## Hvad er det
 

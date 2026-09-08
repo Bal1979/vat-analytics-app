@@ -6,6 +6,9 @@ de ikke kan drifte.
 
 ## Start her
 - **VAT-Analytics_Godkendelses-overblik.docx** — status pr. område + åbne punkter + næste skridt.
+- **TTAR-afklaring-og-mapping.md** — mapper EY's TTAR-godkendelsesramme (Tax Technology
+  Approval Roadmap) til vores dokumentation/evidens: TTAR-pligt, jurisdiktion, funktionel
+  review, AI (ingen), OSS, data/GDPR, hosting, ændringsstyring + åbne governance-handlinger.
 
 ## Dokumenter (docx)
 - **VAT-Analytics_Solution_Architecture.docx** — formål, scope, arkitektur, kontrol-/regelmodel, dataflow, QA, hosting, begrænsninger, åbne punkter.
