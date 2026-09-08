@@ -9,12 +9,12 @@ bilag på store momsbeløb og strukturering (splitting).
 from collections import defaultdict
 from analytics.models import make_finding
 from analytics import vat_rules as vr
+from analytics import materiality
 
-
-# Typiske interne godkendelses-/indberetningsgrænser (DKK).
-APPROVAL_THRESHOLDS = [10000, 25000, 50000, 100000, 250000, 500000]
+# Engagement-kalibrerbare tærskler (defaults i analytics/materiality.py).
+APPROVAL_THRESHOLDS = materiality.APPROVAL_THRESHOLDS
 # Kontantgrænse: erhvervsdrivende må ikke modtage kontant betaling >= 20.000 DKK.
-CASH_LIMIT = 20000.0
+CASH_LIMIT = materiality.CASH_LIMIT
 
 
 def run_amount_tests(data: dict) -> list:
@@ -148,7 +148,7 @@ def test_59_large_vat_no_document(data):
     for txn in data["transactions"]:
         for line in txn["lines"]:
             vat = abs(line["tax_amount"] or 0)
-            if vat >= 5000 and not line.get("source_document_id"):
+            if vat >= materiality.LARGE_VAT_NO_DOCUMENT and not line.get("source_document_id"):
                 findings.append(make_finding(
                     test_id=59, test_name="Stort momsbeløb uden bilag",
                     impact_type="economic", direction="negative", severity="high",

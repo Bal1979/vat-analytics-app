@@ -8,6 +8,7 @@ regnskabet og mod momskonti, og afdækker usædvanlige forhold mellem dem.
 from collections import defaultdict
 from analytics.models import make_finding
 from analytics import vat_rules as vr
+from analytics import materiality
 
 
 def run_reconciliation_tests(data: dict) -> list:
@@ -61,8 +62,8 @@ def test_76_input_output_ratio(data):
         return findings
     if output_vat > 0:
         ratio = input_vat / output_vat
-        # Købsmoms mere end 3x salgsmoms = vedvarende negativ position
-        if ratio > 3.0:
+        # Købsmoms over den kalibrerbare faktor x salgsmoms = vedvarende negativ position
+        if ratio > materiality.INPUT_OUTPUT_RATIO:
             findings.append(make_finding(
                 test_id=76, test_name="Højt købsmoms/salgsmoms-forhold",
                 impact_type="interest_risk", direction="neutral", severity="medium",
@@ -170,6 +171,10 @@ def test_80_revenue_without_output_vat(data):
         for line in txn["lines"]:
             credit = line.get("credit_amount", 0) or 0
             if credit <= 0:
+                continue
+            # Momsrelevans-scope: spring balanceposter over (betalinger, mellemregninger
+            # m.v. er ikke momspligtig omsætning). Kun aktivt når kontotypen kendes (SAF-T).
+            if vr.is_non_vat_account(line):
                 continue
             vat = line["tax_amount"] or 0
             code = line["tax_code"]

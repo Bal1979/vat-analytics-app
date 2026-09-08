@@ -11,11 +11,12 @@ relevante tests springer pænt over, når grundlaget mangler.
 from collections import defaultdict
 from analytics.models import make_finding
 from analytics import vat_rules as vr
+from analytics import materiality
 
 
 # Fjernsalgstærskel for EU (samlet B2C-salg til andre EU-lande): 10.000 EUR.
-# Konverteret groft til DKK for en bogføring i kroner.
-DISTANCE_SELLING_THRESHOLD_DKK = 74500.0
+# Konverteret groft til DKK; engagement-kalibrerbar via materiality.
+DISTANCE_SELLING_THRESHOLD_DKK = materiality.DISTANCE_SELLING_THRESHOLD_DKK
 # OSS-relevante tekst-signaler.
 _ECOMMERCE_KEYWORDS = {"webshop", "e-handel", "ehandel", "online salg", "netbutik",
                        "fjernsalg", "distance selling"}

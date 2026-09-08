@@ -48,6 +48,12 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
         t["tax_code"]: t["tax_percentage"] for t in adapted_tax_table
     }
 
+    # Kontotype pr. konto (fra kontoplanen) -> bæres med på linjen, så momsrelevans-
+    # scope kan udelukke balanceposter. Tom for flade udtræk uden kontoplan.
+    acct_type_lookup = {
+        a.get("account_id"): a.get("account_type", "") for a in accounts
+    }
+
     # --- Adapt transactions: wrap each flat txn into SAF-T structure ---
     adapted_transactions = []
     for idx, txn in enumerate(transactions):
@@ -75,6 +81,7 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
         line = {
             "record_id": f"L{idx + 1}",
             "account_id": txn.get("account_id", ""),
+            "account_type": acct_type_lookup.get(txn.get("account_id", ""), ""),
             "description": txn.get("description", ""),
             "debit_amount": debit,
             "credit_amount": credit,

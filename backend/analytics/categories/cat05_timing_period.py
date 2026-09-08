@@ -10,6 +10,7 @@ import calendar
 from datetime import datetime, date
 from collections import defaultdict
 from analytics.models import make_finding
+from analytics import materiality
 
 
 def run_timing_tests(data: dict) -> list:
@@ -262,7 +263,7 @@ def test_46_invoice_posting_lag(data):
     risikerer at momsen medtages i en forkert periode. Kører kun når BEGGE datoer
     findes på transaktionen; ellers springes pænt over (flade udtræk med kun én dato)."""
     findings = []
-    lag_threshold_days = 30
+    lag_threshold_days = materiality.INVOICE_POSTING_LAG_DAYS
     for txn in data["transactions"]:
         posting = _parse(txn.get("date"))
         invoice = _parse(txn.get("document_date"))

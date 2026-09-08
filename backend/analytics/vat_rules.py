@@ -320,6 +320,24 @@ def is_round_amount(value, base=1000):
 
 # === LINJE-HELPERS ===
 
+# Kontotyper (SAF-T AccountType) der er balanceposter — IKKE momsbærende.
+# Momsrelevans-scope: en momskontrol må kun undertrykke et fund, når vi POSITIVT
+# kan se, at linjen er en balancekonto (asset/liability/equity). Er kontotypen
+# ukendt (fx Excel-import uden kontoplan), undertrykkes intet — adfærden er uændret.
+_NON_VAT_ACCOUNT_TYPES = {"asset", "liability", "equity"}
+
+
+def is_non_vat_account(line):
+    """True hvis linjen positivt kan identificeres som en ikke-moms (balance-)konto.
+
+    Bruges til at fjerne GL-støj (fx betalinger/balanceposter der ellers ligner
+    'indtægt uden moms') på strukturerede udtræk som SAF-T, hvor AccountType findes.
+    Returnerer False når kontotypen er ukendt, så flade udtræk er upåvirkede.
+    """
+    at = (line.get("account_type") or "").strip().lower()
+    return at in _NON_VAT_ACCOUNT_TYPES
+
+
 def line_amount(line):
     """Samlet beløb på en linje (debet + kredit)."""
     return (line.get("debit_amount", 0) or 0) + (line.get("credit_amount", 0) or 0)
