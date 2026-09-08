@@ -1,21 +1,21 @@
 """
-Tests for den porterede session-auth: adgangskontrol, setup-flow, CSRF og login.
-Ingen netværksafhængighed — kører mod FastAPI TestClient med en frisk db pr. test.
+Tests for adgangskontrollen efter overgangen til central BALAI-brugerstyring.
+
+Login, setup, invitationer og admin lever IKKE længere lokalt — de håndteres af
+den centrale tjeneste på auth.balai.dk. Dette repo håndhæver kun ADGANG via
+``central_auth.require_tool``:
+
+- HTML-ruter uden gyldig session  -> 303-redirect til den centrale login.
+- API-ruter uden gyldig session   -> 401 JSON (så frontenden kan reagere).
+- ``/logout`` rydder den delte .balai.dk-cookie og sender til central login.
+- ``/health`` er offentlig.
+
+Testene er netværksfrie: uden en gyldig, signeret session-cookie afvises kaldet,
+før modulet nogensinde slår op i den delte Postgres.
 """
 
-import re
-
-
-def _csrf_from(html: str) -> str:
-    m = re.search(r'name="_csrf" value="([^"]+)"', html)
-    assert m, "CSRF-token ikke fundet på siden"
-    return m.group(1)
-
-
-def test_index_requires_auth(client):
-    # Uden login skal forsiden redirecte (ikke returnere analyse-UI'et).
-    resp = client.get("/")
-    assert resp.status_code in (302, 303, 307)
+# API-præfikser som central_auth svarer 401 på (i stedet for at redirecte).
+API_PREFIXES = ("/analyze", "/preview", "/status", "/result")
 
 
 def test_health_is_public(client):
@@ -24,86 +24,43 @@ def test_health_is_public(client):
     assert resp.json()["status"] == "ok"
 
 
-def test_setup_offered_when_no_users(client):
-    # Med 0 brugere sendes man til /setup, og siden vises.
-    resp = client.get("/login")
+def test_index_requires_auth(client):
+    # Forsiden er en HTML-rute: uden login skal den redirecte, ikke vise UI'et.
+    resp = client.get("/")
     assert resp.status_code in (302, 303, 307)
-    assert "/setup" in resp.headers.get("location", "")
-    page = client.get("/setup")
-    assert page.status_code == 200
-    assert "administrator" in page.text.lower()
 
 
-def test_logout_requires_csrf(client):
-    # POST uden CSRF-token skal afvises (400) — beviser CSRF-beskyttelsen.
-    resp = client.post("/logout")
-    assert resp.status_code == 400
-
-
-def test_setup_creates_admin_and_grants_access(client):
-    page = client.get("/setup")
-    token = _csrf_from(page.text)
-    resp = client.post("/setup", data={
-        "_csrf": token,
-        "username": "admin",
-        "password": "et-langt-password",
-        "password2": "et-langt-password",
-    })
-    assert resp.status_code in (302, 303)
-    # Efter setup er man logget ind → forsiden svarer 200.
-    home = client.get("/")
-    assert home.status_code == 200
-
-
-def test_setup_then_logout_then_login(client):
-    # Opret admin
-    token = _csrf_from(client.get("/setup").text)
-    client.post("/setup", data={
-        "_csrf": token, "username": "admin",
-        "password": "et-langt-password", "password2": "et-langt-password",
-    })
-    # Log ud (med CSRF fra en autentificeret side)
-    logout_token = _csrf_from(client.get("/admin/users").text)
-    out = client.post("/logout", data={"_csrf": logout_token})
-    assert out.status_code in (302, 303)
-    # Forsiden kræver login igen
-    assert client.get("/").status_code in (302, 303, 307)
-    # Log ind igen
-    login_token = _csrf_from(client.get("/login").text)
-    login = client.post("/login", data={
-        "_csrf": login_token, "username": "admin", "password": "et-langt-password",
-    })
-    assert login.status_code in (302, 303)
-    assert client.get("/").status_code == 200
-
-
-def test_login_wrong_password_fails(client):
-    token = _csrf_from(client.get("/setup").text)
-    client.post("/setup", data={
-        "_csrf": token, "username": "admin",
-        "password": "et-langt-password", "password2": "et-langt-password",
-    })
-    # Log ud
-    logout_token = _csrf_from(client.get("/admin/users").text)
-    client.post("/logout", data={"_csrf": logout_token})
-    # Forkert password → ingen adgang
-    login_token = _csrf_from(client.get("/login").text)
-    resp = client.post("/login", data={
-        "_csrf": login_token, "username": "admin", "password": "forkert-password",
-    })
-    assert resp.status_code == 200  # login-siden vises igen med fejl
-    assert "forkert" in resp.text.lower()
-    assert client.get("/").status_code in (302, 303, 307)
+def test_html_route_redirects_to_central_login(client):
+    # Redirect'en skal pege på den centrale login med et next-link tilbage hertil.
+    resp = client.get("/")
+    assert resp.status_code == 303
+    location = resp.headers.get("location", "")
+    assert "/login" in location
+    assert "next=" in location
 
 
 def test_api_route_requires_login_returns_401(client):
-    # API-ruter får 401 JSON (ikke redirect) når der findes brugere men ingen session.
-    token = _csrf_from(client.get("/setup").text)
-    client.post("/setup", data={
-        "_csrf": token, "username": "admin",
-        "password": "et-langt-password", "password2": "et-langt-password",
-    })
-    logout_token = _csrf_from(client.get("/admin/users").text)
-    client.post("/logout", data={"_csrf": logout_token})
+    # API-ruter får 401 JSON (ikke redirect) uden session — også for et ukendt job,
+    # fordi adgangskontrollen kører før rute-handleren.
     resp = client.get("/status/does-not-exist")
     assert resp.status_code == 401
+
+
+def test_all_api_prefixes_return_401_without_session(client):
+    # Alle beskyttede API-præfikser svarer konsekvent 401 uden session.
+    for path in ("/status/x", "/result/x"):
+        assert client.get(path).status_code == 401, path
+
+
+def test_logout_redirects_to_central_login(client):
+    # Logout er en ren redirect til central login (rydder den delte cookie).
+    resp = client.get("/logout")
+    assert resp.status_code == 303
+    assert "/login" in resp.headers.get("location", "")
+
+
+def test_logout_post_also_redirects(client):
+    # Logout accepterer både GET og POST og kræver ikke lokal CSRF længere.
+    resp = client.post("/logout")
+    assert resp.status_code == 303
+    assert "/login" in resp.headers.get("location", "")
