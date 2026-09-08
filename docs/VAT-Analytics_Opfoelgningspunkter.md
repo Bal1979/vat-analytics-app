@@ -37,11 +37,15 @@ Levende liste over åbne punkter fra EY-løftet. Hold den opdateret.
   (`analyse_modul`/`default_aktiv`). Styres af `ANALYTICS_MODULES` (default = kun kerne).
 - ✅ **Momsrelevans-scope, fundament (FÆRDIG):** balancekonti (SAF-T `AccountType`)
   undertrykker momsfund; uændret for fladt Excel. Kontrol 80.
-- ⬜ **Robust scope via `StandardAccountID`/standardkontoplan:** nødvendigt fordi rigtige
-  filer mislabeler `AccountType="Other"`. Bygges sammen med SAF-T-parseren; genbrug
-  SAF-T Validators `standard_accounts.py`.
-- ⬜ **SAF-T-parser (næste spor):** produktions-input (best-effort, kører også på ugyldig
-  SAF-T). Spike: `outputs/saft_spike.py`.
+- ✅ **SAF-T-parser (FÆRDIG — increment A):** `parsers/saft_parser.py` +
+  `parsers/upload_router.py`, routet i `main.py` (Excel-sti uændret). Best-effort,
+  namespace-agnostisk, XML-hærdet. Bærer `standard_account_id` på linjen. Testet i
+  `tests/test_saft_parser.py`.
+- ⬜ **Robust scope via `StandardAccountID`/standardkontoplan (increment B):** nødvendigt
+  fordi rigtige filer mislabeler `AccountType="Other"`. Map `StandardAccountID` →
+  standardkontoplan-rolle (balance vs. resultat) og før et `account_role`-signal ind i
+  `vat_rules.is_non_vat_account`. Genbrug SAF-T Validators `standard_accounts.py` +
+  standardkontoplan-referencen (603 konti).
 
 ## Internt løft tilbage (kan bygges af os — rækkefølge)
 1. ✅ **Aggregat-korrekthed (FÆRDIG 2026-06-17):** `build_report` rapporterer nu både brutto

@@ -24,6 +24,13 @@ væsentlige løft mod EY-standard.
 - **Recovery:** `analytics/materiality.py` (og momsrelevans-scope-filerne) var
   utilsigtet ucommitteret; nu bragt i repoet (engine importerede dem allerede).
 - **Miljø:** lokal `venv` løftet til Python 3.13 (matcher CI/Railway).
+- **SAF-T-parser (produktions-input):** `parsers/saft_parser.py` mapper SAF-T
+  Financial (DK v1.0/2.0/2.1) til den kanoniske struktur — best-effort (kører også
+  på ugyldig/fejlmærket SAF-T), namespace-agnostisk, XML-hærdet (DOCTYPE/ENTITY
+  afvist). `parsers/upload_router.py` router upload på filendelse (`.xml`) eller
+  indholds-sniff; `main.py` kalder kun routeren (Excel-sti uændret). Linjen bærer
+  nu `standard_account_id` (fundament for robust scope, increment B). Testdækket i
+  `tests/test_saft_parser.py`.
 
 ## Katalog v1.0.0 — 2026-06-16
 Første versionerede regelkatalog, auto-genereret fra de 103 kontrolfunktioner.

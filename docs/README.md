@@ -30,6 +30,13 @@ Docx (kræver Node + lokal install i repo-roden):
 npm install && node backend/tools/build_approval_docs.js
 ```
 
+## Input: Excel/CSV og SAF-T
+Værktøjet accepterer både et fladt Excel/CSV-udtræk og en dansk SAF-T Financial-fil
+(`.xml`, v1.0/2.0/2.1). `backend/parsers/upload_router.py` router på filendelse eller
+indholds-sniff; begge kilder giver samme kanoniske struktur til motoren. SAF-T-parseren
+(`backend/parsers/saft_parser.py`) er best-effort (kører også på ugyldig/fejlmærket SAF-T)
+og XML-hærdet.
+
 ## Analyse-moduler (momsrelevans-slankning)
 Fra katalog v1.1.0 er de 103 kontroller delt i moduler: **momskernen (60) er default
 TIL**; forensic/statistik, e-handel/særordninger, datakvalitet og dublet-recovery er

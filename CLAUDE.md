@@ -37,8 +37,12 @@ handlingsliste, ikke en mur af flag.
   de to modtagne klientfiler mislabeler `AccountType="Other"` på ~93–100% af konti,
   så et robust produktions-scope skal drives af `StandardAccountID`/standardkontoplanen
   (kommer med SAF-T-parseren — se Åbne tråde).
-- **169 automatiserede tests** + uafhængig valideringssuite (**98/98 aktive kontroller**,
-  én plantet defekt pr. kontrol, gated i CI).
+- **SAF-T-input (produktion):** værktøjet accepterer nu også dansk SAF-T Financial
+  (`.xml`, v1.0/2.0/2.1) ved siden af Excel/CSV — se `parsers/saft_parser.py` +
+  `upload_router.py`. Best-effort, XML-hærdet.
+- **169 automatiserede tests** (+ ~14 nye SAF-T-parser-tests) + uafhængig
+  valideringssuite (**98/98 aktive kontroller**, én plantet defekt pr. kontrol,
+  gated i CI).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).
@@ -82,10 +86,18 @@ committer/pusher (SSH ligger kun på hans Mac).
     værdien ved import (env sættes ved opstart).
   - `categories/cat01..cat12`: de 103 `test_NN`-funktioner. `models.make_finding`
     er den fælles finding-konstruktion.
-- **`parsers/`**: `excel_parser.py` (fladt udtræk + kolonne-alias) →
-  `data_adapter.py` (adapterer fladt Excel til den SAF-T-lignende struktur motoren
-  forventer: `txn["lines"]` med tax_code/percentage/base/amount, `account_type`
-  fra kontoplanen båret med på linjen, period/år udledt).
+- **`parsers/`**: to input-kilder, samme kanoniske output:
+  - `excel_parser.py` (fladt udtræk + kolonne-alias) → `data_adapter.py`
+    (adapterer fladt Excel til den SAF-T-lignende struktur motoren forventer:
+    `txn["lines"]` med tax_code/percentage/base/amount, `account_type` fra
+    kontoplanen båret med på linjen, period/år udledt).
+  - `saft_parser.py` (**SAF-T XML → kanonisk struktur, produktion**): best-effort,
+    namespace-agnostisk (localname), tolerant over for ugyldig/fejlmærket SAF-T,
+    XML-hærdet (DOCTYPE/ENTITY afvises). Bærer `account_type` + `standard_account_id`
+    + `non_deductible_amount` med på linjen. Motoren importeres ikke her.
+  - `upload_router.py`: `parse_upload()`/`preview_upload()` router på filendelse
+    (`.xml`) eller indholds-sniff (AuditFile-rod) — Excel-sti uændret. `main.py`
+    kalder kun routeren.
 - **`main.py` er kun web-laget.** Beskyttede ruter bruger
   `central_auth.require_tool`. Jobs er in-memory (kræver 1 worker), private pr.
   bruger; `_prune_jobs()` rydder gamle terminale jobs (TTL `JOB_RETENTION_SECONDS`,
@@ -137,12 +149,15 @@ Postgres), `AUTH_BASE_URL` (default `https://auth.balai.dk`), `AUTH_DB_PATH`,
 
 ## Åbne tråde
 
-- **SAF-T-parser (næste spor):** produktions-input der mapper SAF-T Financial
-  (DK v1.0/2.0/2.1) til den kanoniske struktur, best-effort (kører også på ugyldig
-  SAF-T). Bringer `StandardAccountID` → standardkontoplan-rolle, som **styrker
-  momsrelevans-scopet** på rigtige filer (hvor `AccountType` er mislabeled). Spike
-  ligger i `outputs/saft_spike.py` (ikke i repo); genbrug SAF-T Validators
-  `standard_accounts.py`-rollemapping.
+- **SAF-T-parser:** ✅ produktions-parser (`parsers/saft_parser.py` + `upload_router.py`)
+  landet — mapper SAF-T Financial (DK v1.0/2.0/2.1) til den kanoniske struktur,
+  best-effort (kører også på ugyldig SAF-T), routet i `main.py`. Bærer allerede
+  `standard_account_id` på linjen. **Næste (increment B):** `StandardAccountID` →
+  standardkontoplan-rolle (nature: balance vs. resultat), som **styrker
+  momsrelevans-scopet** på rigtige filer (hvor `AccountType` er mislabeled "Other").
+  Genbrug SAF-T Validators `standard_accounts.py` + standardkontoplan-referencen
+  (603 konti; `RESULTATOPGØRELSE` vs. balance-sektion giver nature). Balance-scope
+  skal ind i `vat_rules.is_non_vat_account` (nyt `account_role`-signal på linjen).
 - **Features 82/83** (besluttet, afklar UI-form): 82 = periode vs. angivelse
   (angivelses-input); 83 = delvis fradragsret (fradragsbrøk + toggle "100%
   momspligtig"). 90 (betalingsmønstre) parkeret.
