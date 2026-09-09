@@ -3,6 +3,21 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Præsentation & scoring — 2026-09-09 (ikke-katalog)
+- **Datagrundlag/kørbarhed:** `analytics/readiness.py` afgør pr. kontrol
+  kørt / sprunget over (manglende felt) / modul fra / kræver eksterne data;
+  vist som panel i UI. Kategorier uden kørte kontroller vises ikke længere som
+  grøn «bestået», men som grå «Ikke kørt».
+- **SAF-T-input i UI:** filvælger + tekster accepterer nu `.xml` (SAF-T).
+- **Distinkt netto som overskrift:** de transaktions-deduplikerede beløb er nu
+  hovedtallet; brutto (kan overlappe) vises som kontekst — undgår oppustede tal.
+- **«Handling krævet»-panel:** kritiske + høje fund vises prioriteret øverst.
+- **Score-kalibrering:** loft pr. severity-tier (`materiality.SEVERITY_PENALTY_CAPS`,
+  MATERIALITY_CAP_*), så mange lav-/medium-fund ikke alene tvinger en kategori i
+  rød — RØD drives af kritiske/høje fund. Bekræftet: Timing 6 → 69.
+- **Auth-fix:** Starlette-session bruger egen cookie (`vat_local`) og central_auth
+  prøver alle `session`-cookies — løser 401 på upload.
+
 ## Katalog v1.1.0 — 2026-09-08
 **Momsrelevans-slankning + scope + central-auth-oprydning.**
 

@@ -166,9 +166,18 @@ def build_report(data: dict, findings: list) -> dict:
         cat_findings = [f for f in findings if cat["test_range"][0] <= f["test_id"] <= cat["test_range"][1]]
         total_tests = cat["test_range"][1] - cat["test_range"][0] + 1
 
-        # Score: 100 - (findings med severity-vægt). Vægtene er engagement-kalibrerbare.
+        # Score: 100 - fradrag pr. severity-tier, hvert med et LOFT, så mange
+        # lav-/medium-fund ikke alene tvinger en kategori i rød (RØD = handling,
+        # drevet af kritiske/høje fund). Vægte og loft er engagement-kalibrerbare.
         severity_weights = materiality.SEVERITY_WEIGHTS
-        penalty = sum(severity_weights.get(f["severity"], 5) for f in cat_findings)
+        caps = materiality.SEVERITY_PENALTY_CAPS
+        penalty = 0
+        for sev, weight in severity_weights.items():
+            count = sum(1 for f in cat_findings if f["severity"] == sev)
+            penalty += min(count * weight, caps.get(sev, 100))
+        # Ukendte severities bevarer den hidtidige default-vægt (defensivt).
+        _known = set(severity_weights)
+        penalty += sum(5 for f in cat_findings if f["severity"] not in _known)
         score = max(0, min(100, 100 - penalty))
 
         category_results.append({

@@ -45,6 +45,18 @@ SEVERITY_WEIGHTS = {
     "low": _i("MATERIALITY_WEIGHT_LOW", 3),
 }
 
+# Loft pr. severity-tier på det samlede score-fradrag i en kategori. Uden loft
+# kunne mange lav-/medium-fund alene presse en kategori i rød — men RØD skal
+# betyde «handling krævet», dvs. drevet af kritiske/høje fund. Kritisk/høj har et
+# højt loft (kan reelt give rød); medium/lav er begrænset, så medium-only højst
+# giver gul og lav-only forbliver ~grøn. Kalibrerbart pr. engagement.
+SEVERITY_PENALTY_CAPS = {
+    "critical": _i("MATERIALITY_CAP_CRITICAL", 100),
+    "high": _i("MATERIALITY_CAP_HIGH", 100),
+    "medium": _i("MATERIALITY_CAP_MEDIUM", 30),
+    "low": _i("MATERIALITY_CAP_LOW", 15),
+}
+
 # Kontantbetalingsgrænse (cat07): erhvervsdrivende må ikke modtage ≥ 20.000 DKK kontant.
 CASH_LIMIT = _f("MATERIALITY_CASH_LIMIT", 20000.0)
 

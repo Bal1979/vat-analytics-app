@@ -10,6 +10,7 @@ from analytics import materiality
 
 def test_defaults_match_legacy_behaviour():
     assert materiality.SEVERITY_WEIGHTS == {"critical": 25, "high": 15, "medium": 8, "low": 3}
+    assert materiality.SEVERITY_PENALTY_CAPS == {"critical": 100, "high": 100, "medium": 30, "low": 15}
     assert materiality.CASH_LIMIT == 20000.0
     assert materiality.LARGE_VAT_NO_DOCUMENT == 5000.0
     assert materiality.INPUT_OUTPUT_RATIO == 3.0
