@@ -71,7 +71,7 @@
     const statusTexts = {
       queued: "Fil modtaget, venter på processering...",
       parsing: "Parser data fra filen...",
-      analyzing: "Kører 103 momsanalyser...",
+      analyzing: "Kører momskerne-kontrollerne...",
     };
 
     pollInterval = setInterval(async () => {

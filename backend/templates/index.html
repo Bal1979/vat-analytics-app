@@ -22,19 +22,19 @@
     <div class="container">
         <header>
             <h1>VAT Analytics</h1>
-            <p class="subtitle">Momsanalyse fra Excel/CSV data — 103 automatiserede tests</p>
+            <p class="subtitle">Momsanalyse fra Excel/CSV eller SAF-T — 60 momsrelevante kernekontroller (af 103 i alt)</p>
         </header>
 
         <!-- Upload area -->
         <div id="upload-area" class="upload-area">
             <div class="upload-icon">📊</div>
-            <p class="upload-text">Træk din Excel- eller CSV-fil hertil</p>
+            <p class="upload-text">Træk din Excel-, CSV- eller SAF-T-fil hertil</p>
             <p class="upload-hint">eller</p>
             <label class="upload-btn">
                 Vælg fil
-                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" hidden>
+                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv,.xml" hidden>
             </label>
-            <p class="upload-formats">Understøtter .xlsx, .xls, .csv og .tsv filer (op til 2 GB)</p>
+            <p class="upload-formats">Understøtter .xlsx, .xls, .csv, .tsv og SAF-T (.xml) — op til 2 GB. SAF-T behandles best-effort (kører også på en ugyldig fil).</p>
         </div>
 
         <!-- Progress -->
@@ -49,7 +49,7 @@
                 <p class="progress-detail" id="progress-detail"></p>
                 <p class="progress-file-info" id="progress-file-info"></p>
             </div>
-            <p class="progress-hint">Kører 103 tests på tværs af 12 kategorier</p>
+            <p class="progress-hint">Kører momskernen (60 kontroller) på tværs af 12 kategorier</p>
         </div>
 
         <!-- Results -->
@@ -136,6 +136,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20260909"></script>
 </body>
 </html>
