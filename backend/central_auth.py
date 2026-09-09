@@ -73,14 +73,39 @@ def _serializer() -> URLSafeTimedSerializer:
     )
 
 
+def _all_session_cookies(request: Request):
+    """Alle værdier for cookien "session" fra den rå Cookie-header.
+
+    Browseren kan sende MERE end én "session"-cookie (fx en gammel host-only cookie
+    fra før central-auth ved siden af den delte .balai.dk-cookie). request.cookies er
+    deduplikeret og kan derfor returnere den forkerte. Vi læser derfor headeren rå og
+    prøver alle kandidater, så en stray cookie ikke skygger for den gyldige."""
+    raw_header = request.headers.get("cookie", "") or ""
+    values = []
+    for part in raw_header.split(";"):
+        part = part.strip()
+        if "=" not in part:
+            continue
+        name, val = part.split("=", 1)
+        if name.strip() == CENTRAL_COOKIE_NAME and val.strip():
+            values.append(val.strip())
+    if not values:  # fallback hvis headeren ikke kunne parses
+        one = request.cookies.get(CENTRAL_COOKIE_NAME)
+        if one:
+            values.append(one)
+    return values
+
+
 def _decode_session(request: Request):
-    raw = request.cookies.get(CENTRAL_COOKIE_NAME)
-    if not raw or not _secret():
+    if not _secret():
         return None
-    try:
-        return _serializer().loads(raw, max_age=SESSION_MAX_HOURS * 3600)
-    except (BadSignature, SignatureExpired):
-        return None
+    ser = _serializer()
+    for raw in _all_session_cookies(request):
+        try:
+            return ser.loads(raw, max_age=SESSION_MAX_HOURS * 3600)
+        except (BadSignature, SignatureExpired):
+            continue  # prøv næste "session"-cookie
+    return None
 
 
 # ---------------------------------------------------------------------------

@@ -72,6 +72,11 @@ _SESSION_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1") != "0"
 app.add_middleware(
     SessionMiddleware,
     secret_key=auth.secret_key(),
+    # EGEN cookie ("vat_local") så værktøjets Starlette-session (CSRF) IKKE
+    # kolliderer med den centrale BALAI-cookie ("session" på .balai.dk).
+    # Uden dette skygger en host-only "session"-cookie for den centrale, og
+    # API-kald (fx /analyze) fejler med 401 selvom siden loadede.
+    session_cookie="vat_local",
     https_only=_SESSION_SECURE,
     same_site="lax",
     max_age=auth.SESSION_LIFETIME_HOURS * 3600,
