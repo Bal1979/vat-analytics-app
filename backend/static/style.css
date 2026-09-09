@@ -203,3 +203,23 @@ h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 8px; }
 .balai-home-text { display: inline-flex; flex-direction: column; line-height: 1.15; text-align: left; }
 .balai-home-top { font-weight: 600; font-size: 14px; color: #1B365D; }
 .balai-home-sub { font-weight: 400; font-size: 11px; color: #6B7280; }
+
+/* --- Datagrundlag / kørbarhed --- */
+.datagrundlag { background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #1B365D; }
+.dg-title { font-weight: 700; color: #1B365D; margin-bottom: 10px; }
+.dg-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.dg-pill { font-size: 0.85rem; font-weight: 600; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
+.dg-pill-koert { background: #e6f4ea; color: #1e7e34; }
+.dg-pill-data { background: #fff3cd; color: #8a6d3b; }
+.dg-pill-modul { background: #eceff3; color: #55606e; }
+.dg-pill-ekstern { background: #e7edf5; color: #34506e; }
+.dg-note { font-size: 0.85rem; color: #8a6d3b; margin: 8px 0 0; }
+.dg-missing-title { font-size: 0.9rem; font-weight: 600; color: #555; margin: 14px 0 6px; }
+.dg-missing { list-style: none; margin: 0; padding: 0; }
+.dg-missing li { font-size: 0.88rem; color: #444; padding: 6px 0; border-top: 1px solid #f0f0f0; }
+.dg-missing li:first-child { border-top: none; }
+.dg-missing .dg-field { font-weight: 600; color: #1B365D; }
+.dg-missing .dg-src { color: #6B7280; }
+/* neutral (grå) score-chip når en kategori ikke kørte */
+.cat-score-mini.cat-neutral { background: #cdd3db; color: #55606e; }
+.cat-status { font-size: 0.8rem; color: #8a6d3b; }

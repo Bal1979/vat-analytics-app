@@ -155,6 +155,35 @@
     }
   }
 
+  function renderDatagrundlag(dg) {
+    const panel = document.getElementById("datagrundlag-panel");
+    if (!panel) return;
+    if (!dg || !dg.opsummering) { panel.innerHTML = ""; return; }
+    const s = dg.opsummering;
+    const pills = [
+      `<span class="dg-pill dg-pill-koert">${escapeHtml(s.koert)} kørt</span>`,
+      s.sprunget_over_data ? `<span class="dg-pill dg-pill-data">${escapeHtml(s.sprunget_over_data)} sprunget over (mangler data)</span>` : "",
+      s.modul_fra ? `<span class="dg-pill dg-pill-modul">${escapeHtml(s.modul_fra)} modul slået fra</span>` : "",
+      s.kraever_eksterne_data ? `<span class="dg-pill dg-pill-ekstern">${escapeHtml(s.kraever_eksterne_data)} kræver eksterne data</span>` : "",
+    ].join("");
+    let missing = "";
+    if (dg.manglende_data && dg.manglende_data.length) {
+      const items = dg.manglende_data.map((m) =>
+        `<li><span class="dg-field">${escapeHtml(m.navn)}</span> — blokerer ${escapeHtml(m.antal)} ${m.antal === 1 ? "kontrol" : "kontroller"} · <span class="dg-src">findes i ${escapeHtml(m.kilde)}</span></li>`
+      ).join("");
+      missing = `<p class="dg-missing-title">Tilføj disse data for at kunne køre flere analyser:</p><ul class="dg-missing">${items}</ul>`;
+    }
+    const note = dg.faa_transaktioner
+      ? `<p class="dg-note">Få transaktioner (${escapeHtml(dg.profil.transaktioner)}) — statistiske kontroller har et svagt grundlag.</p>` : "";
+    panel.innerHTML = `
+      <div class="datagrundlag">
+        <div class="dg-title">Datagrundlag — hvad kunne køres på dette udtræk (af ${escapeHtml(s.i_alt)} kontroller)</div>
+        <div class="dg-summary">${pills}</div>
+        ${note}
+        ${missing}
+      </div>`;
+  }
+
   function showResults(data) {
     const a = data.analytics;
 
@@ -209,17 +238,43 @@
     document.getElementById("sev-low").textContent = `${sev.low} lav`;
     document.getElementById("sev-total").textContent = `${a.total_findings} findings i alt`;
 
+    renderDatagrundlag(a.datagrundlag);
+
+    // Opslag: kategori-id -> datagrundlags-rollup (kørt/sprunget over/modul fra/...).
+    const dgCat = {};
+    if (a.datagrundlag && a.datagrundlag.kategorier) {
+      for (const c of a.datagrundlag.kategorier) dgCat[c.id] = c;
+    }
+
     container.innerHTML = "";
     for (const cat of a.categories) {
-      const scoreClass = cat.score >= 80 ? "cat-good" : cat.score >= 50 ? "cat-warning" : "cat-bad";
+      const st = dgCat[cat.id];
+      let scoreClass, scoreLabel, statusLine = "", metaText;
+      if (st && st.koert === 0) {
+        // Ingen kontroller kørte i kategorien -> vis IKKE grøn "bestået".
+        scoreClass = "cat-neutral"; scoreLabel = "–";
+        const parts = [];
+        if (st.modul_fra) parts.push(`${st.modul_fra} modul fra`);
+        if (st.sprunget_over_data) parts.push(`${st.sprunget_over_data} mangler data`);
+        if (st.kraever_eksterne_data) parts.push(`${st.kraever_eksterne_data} kræver eksterne data`);
+        statusLine = `<span class="cat-status">Ikke kørt · ${escapeHtml(parts.join(" · "))}</span>`;
+        metaText = `0/${escapeHtml(st.antal)} kontroller kørt`;
+      } else {
+        scoreClass = cat.score >= 80 ? "cat-good" : cat.score >= 50 ? "cat-warning" : "cat-bad";
+        scoreLabel = escapeHtml(cat.score);
+        metaText = st
+          ? `${escapeHtml(st.koert)}/${escapeHtml(st.antal)} kontroller kørt · ${escapeHtml(cat.findings_count)} findings`
+          : `${escapeHtml(cat.total_tests)} tests · ${escapeHtml(cat.findings_count)} findings`;
+      }
       const div = document.createElement("div");
       div.className = "category-card";
       div.innerHTML = `
         <div class="cat-header">
-          <div class="cat-score-mini ${scoreClass}">${escapeHtml(cat.score)}</div>
+          <div class="cat-score-mini ${scoreClass}">${scoreLabel}</div>
           <div class="cat-info">
             <span class="cat-name">${escapeHtml(cat.name)}</span>
-            <span class="cat-meta">${escapeHtml(cat.total_tests)} tests · ${escapeHtml(cat.findings_count)} findings</span>
+            <span class="cat-meta">${metaText}</span>
+            ${statusLine}
           </div>
           <div class="cat-severity">
             ${cat.critical_count ? `<span class="sev-dot sev-critical-dot">${escapeHtml(cat.critical_count)}</span>` : ""}

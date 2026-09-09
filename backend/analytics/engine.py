@@ -9,6 +9,7 @@ from typing import Optional, Iterable
 from analytics.models import make_finding
 from analytics import materiality
 from analytics import modules
+from analytics import readiness
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,8 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) ->
     report = build_report(data, kept)
     report["moduler"] = modules.module_summary(active)
     report["filtrerede_fund"] = suppressed
+    # Datagrundlag: hvilke kontroller kunne køre på dette datasæt, og hvad mangler.
+    report["datagrundlag"] = readiness.assess(data, active, CATEGORIES)
     return report
 
 
