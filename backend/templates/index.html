@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VAT Analytics</title>
     <meta name="csrf-token" content="{{ csrf }}">
-    <link rel="stylesheet" href="/static/style.css?v=20260909">
+    <link rel="stylesheet" href="/static/style.css?v=20260909c">
 </head>
 <body>
     <div class="balai-banner">
@@ -64,6 +64,9 @@
                     <p id="score-summary"></p>
                 </div>
             </div>
+
+            <!-- Handling krævet (kritiske + høje fund øverst) -->
+            <div id="action-panel"></div>
 
             <!-- Impact Summary -->
             <div class="impact-grid">
@@ -139,6 +142,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=20260909c"></script>
+    <script src="/static/app.js?v=20260909d"></script>
 </body>
 </html>

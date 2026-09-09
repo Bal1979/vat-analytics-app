@@ -184,6 +184,33 @@
       </div>`;
   }
 
+  function renderActionPanel(findings, cur) {
+    const panel = document.getElementById("action-panel");
+    if (!panel) return;
+    const order = { critical: 0, high: 1 };
+    const items = (findings || [])
+      .filter((f) => f.severity === "critical" || f.severity === "high")
+      .sort((a, b) => (order[a.severity] - order[b.severity]) ||
+                      ((b.estimated_amount || 0) - (a.estimated_amount || 0)));
+    if (!items.length) { panel.innerHTML = ""; return; }
+    const nCrit = items.filter((f) => f.severity === "critical").length;
+    const nHigh = items.length - nCrit;
+    const rows = items.map((f) => `
+      <li class="action-item">
+        <span class="action-sev sev-${escapeHtml(f.severity)}">${f.severity === "critical" ? "KRITISK" : "HØJ"}</span>
+        <div class="action-body">
+          <span class="action-test">Test ${escapeHtml(f.test_id)}: ${escapeHtml(f.test_name)}</span>
+          <span class="action-desc">${escapeHtml(f.description)}</span>
+        </div>
+        ${f.estimated_amount ? `<span class="action-amt">${fmt(f.estimated_amount, cur)}</span>` : ""}
+      </li>`).join("");
+    panel.innerHTML = `
+      <div class="action-panel">
+        <div class="action-title">⚠️ Handling krævet — ${items.length} fund (${nCrit} kritiske, ${nHigh} høje)</div>
+        <ul class="action-list">${rows}</ul>
+      </div>`;
+  }
+
   function showResults(data) {
     const a = data.analytics;
 
@@ -198,6 +225,9 @@
     const interest = a.impact_summary.interest_risk;
     const comp = a.impact_summary.compliance;
     const cur = econ.currency || "DKK";
+
+    // Prioriteret handlingsliste: kritiske + høje fund øverst (RØD = handling).
+    renderActionPanel(a.all_findings, cur);
 
     // Distinkt (transaktions-dedupliceret) tal er det ærlige tal og bruges som
     // overskrift. Brutto (kan overlappe, når flere kontroller flager samme

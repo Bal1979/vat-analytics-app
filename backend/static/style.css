@@ -223,3 +223,17 @@ h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 8px; }
 /* neutral (grå) score-chip når en kategori ikke kørte */
 .cat-score-mini.cat-neutral { background: #cdd3db; color: #55606e; }
 .cat-status { font-size: 0.8rem; color: #8a6d3b; }
+
+/* --- Handling krævet (prioriteret liste med kritiske/høje fund) --- */
+.action-panel { background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #dc3545; }
+.action-title { font-weight: 700; color: #b02a37; margin-bottom: 10px; }
+.action-list { list-style: none; margin: 0; padding: 0; }
+.action-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid #f0f0f0; }
+.action-item:first-child { border-top: none; }
+.action-sev { flex: none; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; color: #fff; margin-top: 2px; }
+.action-sev.sev-critical { background: #dc3545; }
+.action-sev.sev-high { background: #fd7e14; }
+.action-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.action-test { font-weight: 600; color: #1B365D; font-size: 0.9rem; }
+.action-desc { font-size: 0.85rem; color: #555; }
+.action-amt { flex: none; font-weight: 700; color: #b02a37; white-space: nowrap; margin-top: 2px; }
