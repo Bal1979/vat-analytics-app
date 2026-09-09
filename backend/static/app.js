@@ -199,27 +199,26 @@
     const comp = a.impact_summary.compliance;
     const cur = econ.currency || "DKK";
 
-    // Distinkt (transaktions-dedupliceret) net ved siden af brutto-net.
-    function setDistinct(elId, imp) {
-      const el = document.getElementById(elId);
-      if (!el) return;
-      if (imp.net_amount_distinct == null) { el.textContent = ""; return; }
-      el.textContent = `Distinkt net: ${fmt(imp.net_amount_distinct, cur)} · ${imp.distinct_transactions || 0} transaktioner`;
+    // Distinkt (transaktions-dedupliceret) tal er det ærlige tal og bruges som
+    // overskrift. Brutto (kan overlappe, når flere kontroller flager samme
+    // transaktion) vises som mindre kontekst nedenunder.
+    function setImpact(prefix, imp) {
+      const pick = (d, b) => (d == null ? b : d);
+      const dNet = pick(imp.net_amount_distinct, imp.net_amount);
+      document.getElementById(prefix + "-negative").textContent =
+        fmt(pick(imp.negative_amount_distinct, imp.negative_amount), cur);
+      document.getElementById(prefix + "-positive").textContent =
+        fmt(pick(imp.positive_amount_distinct, imp.positive_amount), cur);
+      const netEl = document.getElementById(prefix + "-net");
+      const txns = imp.distinct_transactions ? ` · ${imp.distinct_transactions} transaktioner` : "";
+      netEl.textContent = fmt(dNet, cur) + txns;
+      netEl.className = dNet >= 0 ? "net-positive" : "net-negative";
+      document.getElementById(prefix + "-count").textContent = `${imp.total_findings} findings`;
+      const ctx = document.getElementById(prefix + "-distinct");
+      if (ctx) ctx.textContent = `Brutto (kan overlappe flere kontroller): net ${fmt(imp.net_amount, cur)}`;
     }
-
-    document.getElementById("econ-negative").textContent = fmt(econ.negative_amount, cur);
-    document.getElementById("econ-positive").textContent = fmt(econ.positive_amount, cur);
-    document.getElementById("econ-net").textContent = fmt(econ.net_amount, cur);
-    document.getElementById("econ-net").className = econ.net_amount >= 0 ? "net-positive" : "net-negative";
-    document.getElementById("econ-count").textContent = `${econ.total_findings} findings`;
-    setDistinct("econ-distinct", econ);
-
-    document.getElementById("interest-negative").textContent = fmt(interest.negative_amount, cur);
-    document.getElementById("interest-positive").textContent = fmt(interest.positive_amount, cur);
-    document.getElementById("interest-net").textContent = fmt(interest.net_amount, cur);
-    document.getElementById("interest-net").className = interest.net_amount >= 0 ? "net-positive" : "net-negative";
-    document.getElementById("interest-count").textContent = `${interest.total_findings} findings`;
-    setDistinct("interest-distinct", interest);
+    setImpact("econ", econ);
+    setImpact("interest", interest);
 
     const compBars = document.getElementById("compliance-bars");
     compBars.innerHTML = `
