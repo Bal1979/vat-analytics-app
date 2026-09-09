@@ -285,7 +285,11 @@
           <span class="cat-toggle">▼</span>
         </div>
         <div class="cat-body">
-          ${cat.findings.length === 0 ? '<p class="no-findings-text">Ingen findings — alle tests bestået</p>' : ""}
+          ${cat.findings.length === 0 ? (
+            (st && st.koert === 0)
+              ? `<p class="cat-status">Kategorien blev ikke kørt på dette udtræk.${st.modul_fra ? ` ${escapeHtml(st.modul_fra)} kontrol(ler) ligger i et fravalgt modul.` : ""}${st.kraever_eksterne_data ? ` ${escapeHtml(st.kraever_eksterne_data)} kræver eksterne data.` : ""}${st.sprunget_over_data ? ` ${escapeHtml(st.sprunget_over_data)} mangler data.` : ""}</p>`
+              : `<p class="no-findings-text">Ingen findings i de kørte kontroller${st && st.koert < st.antal ? ` (${escapeHtml(st.koert)}/${escapeHtml(st.antal)} kørt)` : ""}.</p>`
+          ) : ""}
           ${cat.findings.map(f => `
             <div class="finding finding-${escapeHtml(f.severity)}">
               <div class="finding-header">
