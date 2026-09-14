@@ -3,6 +3,32 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Maskinlæsbar datakontrakt — 2026-09-14 (ikke-katalog)
+- **`catalog/data_contract.json` (v0.1.0):** motorens fulde inputkontrakt —
+  7 objekter (`header/accounts/tax_table/transactions+lines/suppliers/
+  customers/summary`), 67 felter — udledt af en ny hånd-vedligeholdt single
+  source `tools/data_contract_data.py` via `tools/build_data_contract.py`
+  (samme mønster som `build_rules_catalog.py`). Drift-gated
+  (`tests/test_data_contract_fresh.py`), inkl. et krydstjek mod
+  `analytics/readiness.py`'s signal-felter og et drift-tjek af
+  `MATERIALITY_*`-env-navne mod `analytics/materiality.py`.
+- **`balai_extensions`-afsnit:** eksplicit markering af felter der ikke er
+  native SAF-T Financial (jf. `balai-platform/BALAI-dataflow-arkitektur.md`
+  §2a) — ship_from/to_country, document_date, non_deductible_amount, samt en
+  endnu delvist implementeret version-triple (erklæret/strukturelt
+  detekteret/mål).
+- **`run_config`-afsnit:** `ANALYTICS_MODULES` (introspektion af
+  `analytics/modules.py`, aldrig hånd-duplikeret) og `MATERIALITY_*`-tærskler.
+- **`known_gaps`-afsnit:** ni konkrete, evidensbaserede uoverensstemmelser
+  mellem Excel- og SAF-T-input-vejene, opdaget under kortlægningen (fx
+  `customers[].vat_number/country` hårdkodet tomme på Excel-vejen; `summary`
+  mangler total_debit/credit/vat på SAF-T-vejen; `source_document_id` betyder
+  fakturanummer vs. transaktionsbeskrivelse afhængigt af oprindelse). Ingen af
+  disse er rettet — kontrakten er bevidst deskriptiv i denne omgang, ikke
+  håndhævende (næste byggetrin i dataflow-arkitekturen).
+- Bevidst UDEN FOR scope: ingen ændring af parser-adfærd (fx `or 0.0`-
+  fallbacks) og ingen runtime-validering/pydantic — se `known_gaps`.
+
 ## Præsentation & scoring — 2026-09-09 (ikke-katalog)
 - **Datagrundlag/kørbarhed:** `analytics/readiness.py` afgør pr. kontrol
   kørt / sprunget over (manglende felt) / modul fra / kræver eksterne data;

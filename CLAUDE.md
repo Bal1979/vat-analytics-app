@@ -58,6 +58,7 @@ source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest -q                            # 169 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
+python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 98/98 uafhængig validering
 ```
 Bemærk: Railway auto-deployer ved `git push`. Bal kører pytest lokalt og
@@ -116,6 +117,38 @@ committer/pusher (SSH ligger kun på hans Mac).
   API-ruter (`/analyze`,`/preview`,`/status`,`/result`) → **401 JSON**; HTML-ruter →
   **303-redirect** til `AUTH_BASE_URL/login?next=…`. `/logout` rydder den delte cookie.
   `auth.py` er nu en tynd rest (CSRF-verify + audit-db-init). Brugerident er `email`.
+
+## Maskinlæsbar datakontrakt (motorens input)
+
+`catalog/data_contract.json` (v0.1.0) beskriver hele motorens kanoniske
+inputstruktur — de 7 objekter `header/accounts/tax_table/transactions
+(+lines)/suppliers/customers/summary`, 67 felter i alt. Samme mønster som
+regelkataloget: **hånd-vedligeholdt single source** `tools/data_contract_data.py`
+→ generator `tools/build_data_contract.py` → `catalog/data_contract.json`,
+drift-gated i CI (`tests/test_data_contract_fresh.py`: committet == genereret,
+plus et krydstjek mod `analytics/readiness.py`'s signal-felter og et
+drift-tjek af `MATERIALITY_*`-env-navne mod `analytics/materiality.py`).
+Kontrakten er **deskriptiv, ikke håndhævende** — ingen runtime-validering/
+pydantic er indført i parserne (det er et senere byggetrin, jf.
+`balai-platform/BALAI-dataflow-arkitektur.md` §7).
+
+Pr. felt: type, obligatorisk/valgfri, format/gyldige værdier, hvilke
+kontroller/kategorier/features der kræver det, og om hver af de to
+input-veje (Excel/CSV, SAF-T XML) reelt udfylder det i dag (`kilder`). Et
+eksplicit `balai_extensions`-afsnit markerer de felter, der IKKE er native
+SAF-T Financial-elementer (§2a i dataflow-arkitekturen): ship_from/to_country,
+document_date, non_deductible_amount, samt en version-triple
+(erklæret/strukturelt detekteret/mål — kun "erklæret" er implementeret i dag).
+Et `run_config`-afsnit dokumenterer `ANALYTICS_MODULES` (hentet direkte fra
+`analytics/modules.py`, aldrig hånd-duplikeret) og `MATERIALITY_*`-tærsklerne.
+Et `known_gaps`-afsnit lister ni konkrete, evidensbaserede uoverensstemmelser
+mellem Excel- og SAF-T-input-vejene (fx: `customers[].vat_number/country` er
+hårdkodet tomme på Excel-vejen, hvilket gør kontrol 94-97 strukturelt ude af
+stand til at finde kundens land på Excel-oprindelse; `summary` mangler
+total_debit/credit/vat på SAF-T-vejen; `source_document_id` betyder
+fakturanummer på Excel-vejen men transaktionsbeskrivelse på SAF-T-vejen).
+Regenerér efter ændringer i `tools/data_contract_data.py`:
+`python tools/build_data_contract.py`.
 
 ## Regelkatalog & modul-sporbarhed
 
