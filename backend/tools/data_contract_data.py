@@ -67,10 +67,16 @@ HEADER_FIELDS = [
         "status": "implemented_partial",
         "kilder": {"excel": False, "saft": False},
         "ekstension": False,
-        "kraeves_af": "Ingen — nøglen findes kun i Excel-vejens header-dict og er altid \"\".",
-        "noter": "UOVERENSSTEMMELSE: nøglen findes slet ikke i SAF-T-vejens header-dict "
-                 "(saft_parser.parse_saft), men er altid til stede (tom) i Excel-vejens. "
-                 "Reelt dødt felt i dag på begge veje.",
+        "kraeves_af": "Ingen kontrol i dag — nøglen er altid \"\" på begge veje.",
+        "noter": "Trin 3 (GAP-08, delvist lukket): nøglen er nu til stede (tom streng) "
+                 "PÅ BEGGE VEJE — saft_parser.parse_saft sætter den også, så kode der "
+                 "antager samme nøglesæt ikke længere rammer KeyError. kilder er "
+                 "stadig False/False, fordi ingen af parserne udtrækker en REEL CVR: "
+                 "SAF-T Financial DK's Header/Company bærer ikke konsekvent et "
+                 "selvstændigt CVR for indberetterens egen virksomhed på tværs af "
+                 "versioner/eksportører, og Excel-vejen har ingen kolonne-alias for "
+                 "det. Reelt dødt felt i dag på begge veje — symmetrisk dødt, ikke "
+                 "længere asymmetrisk.",
     },
     {
         "navn": "currency", "type": "string", "obligatorisk": True, "format": "ISO 4217, fx \"DKK\"",
@@ -111,10 +117,12 @@ HEADER_FIELDS = [
     {
         "navn": "source", "type": "string", "obligatorisk": False, "format": "",
         "status": "implemented",
-        "kilder": {"excel": True, "saft": False},
+        "kilder": {"excel": True, "saft": True},
         "ekstension": False,
-        "kraeves_af": "Ingen kontrol — diagnostik/UI (\"Excel/CSV import\").",
-        "noter": "Findes kun i Excel-vejens header — ingen tilsvarende nøgle i SAF-T-vejen.",
+        "kraeves_af": "Ingen kontrol — diagnostik/UI (\"Excel/CSV import\"/\"SAF-T XML import\").",
+        "noter": "Trin 3 (GAP-08, lukket for dette felt): saft_parser sætter nu også "
+                 "\"SAF-T XML import\" — begge veje bærer en reel, meningsfuld "
+                 "diagnostikværdi (ikke en tom placeholder).",
     },
     {
         "navn": "saft_version", "type": "string", "obligatorisk": False, "format": "\"1.0\"|\"2.0\"|\"2.1\" (selvangivet)",
@@ -126,7 +134,11 @@ HEADER_FIELDS = [
         "noter": "Svarer til SAF-T's native, selvangivne AuditFileVersion — det er "
                  "netop dette ENE felt, BAL-004/BAL-005-erfaringen viser kan være "
                  "forkert (Danoil/Føniksbyen erklærede v1.0, indeholdt v2.0-data). "
-                 "Findes slet ikke i Excel-vejens header.",
+                 "Trin 3 (GAP-08, delvist lukket): nøglen er nu til stede (tom "
+                 "streng) i Excel-vejens header for nøglesæt-symmetri — men bærer "
+                 "ingen reel værdi dér (semantisk umuligt: der er intet selvangivet "
+                 "AuditFileVersion at læse fra et fladt udtræk), så kilder.excel "
+                 "forbliver False.",
     },
 ]
 
@@ -152,43 +164,59 @@ ACCOUNT_FIELDS = [
         "navn": "account_type", "type": "string", "obligatorisk": False,
         "format": "SAF-T AccountType-enum, fx \"Asset\"|\"Liability\"|\"Equity\"|\"Revenue\"|\"Expense\"|\"Other\"",
         "status": "implemented_partial",
-        "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "vat_rules.is_non_vat_account signal 1 -> kontrol 80 "
                        "(revenue_without_output_vat); kategori 2 test_15 "
                        "(duplicate_payment, filtrerer \"Asset\"-konti).",
-        "noter": "Excel-vejen sætter ALTID \"\" — der findes ingen COLUMN_ALIASES-nøgle "
-                 "for kontotype, så feltet kan ikke udfyldes selv hvis kildefilen har "
-                 "en kolonne til det. Dokumenteret, tilsigtet adfærd (CLAUDE.md): "
-                 "ukendt kontotype -> uændret/konservativ scope.",
+        "noter": "Trin 3 (GAP-03, delvist lukket): COLUMN_ALIASES har nu en "
+                 "\"account_type\"-indgang (kontotype/konto_type/accounttype), så "
+                 "feltet KAN udfyldes, hvis kildefilen har en relevant kolonne. "
+                 "Fraværende kolonne giver stadig \"\" — samme konservative "
+                 "fallback-adfærd som før (CLAUDE.md: ukendt kontotype -> uændret "
+                 "scope). Et almindeligt fladt GL-udtræk vil typisk stadig mangle "
+                 "denne kolonne, så den praktiske effekt afhænger af kildefilen.",
     },
     {
         "navn": "standard_account_id", "type": "string", "obligatorisk": False,
         "format": "ERST-standardkontoplan-kode, fx \"5800\" (resultat: 1000-4999, balance: >=5000)",
         "status": "implemented_partial",
-        "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "vat_rules.is_non_vat_account signal 2 (robust scope) via "
                        "standard_accounts.account_nature() -> kontrol 80 + hele "
                        "momskernens balancekonto-udelukkelse.",
-        "noter": "Excel-vejens accounts[]-dict har slet ikke denne nøgle (ikke engang "
-                 "tom streng) — kun SAF-T-vejen bærer den. Native SAF-T-element "
+        "noter": "Trin 3 (GAP-03, delvist lukket): COLUMN_ALIASES har nu en "
+                 "\"standard_account_id\"-indgang. Nøglen er altid til stede i "
+                 "Excel-vejens accounts[]-dict (tidligere manglede den helt); tom "
+                 "streng når kildefilen ikke har kolonnen. Native SAF-T-element "
                  "(StandardAccountID), IKKE en balai_extension.",
     },
     {
-        "navn": "opening_balance", "type": "number", "obligatorisk": False, "format": "DKK, kan være negativ",
+        "navn": "opening_balance", "type": "number (nullable)", "obligatorisk": False,
+        "format": "DKK, kan være negativ",
         "status": "implemented_partial",
-        "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "Ingen kontrol i dag.",
-        "noter": "Excel-vejen sætter altid 0.0 (ingen kolonne-alias for åbningssaldo).",
+        "noter": "Trin 3 (GAP-04, delvist lukket): COLUMN_ALIASES har nu en "
+                 "\"opening_balance\"-indgang. None (ikke stille 0.0) når kildefilen "
+                 "ikke har kolonnen, så \"ingen saldodata\" kan skelnes fra \"saldo "
+                 "er faktisk 0\" — ingen eksisterende kontrol læser feltet, så "
+                 "None-fallbacket ændrer ikke nogen kontrols adfærd.",
     },
     {
-        "navn": "closing_balance", "type": "number", "obligatorisk": False, "format": "DKK, kan være negativ",
+        "navn": "closing_balance", "type": "number (nullable)", "obligatorisk": False,
+        "format": "DKK, kan være negativ",
         "status": "implemented_partial",
-        "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "Kontrol 77 (vat_account_reconciliation, kategori 10) — "
                        "afstemmer beregnet moms mod kontoens closing_balance.",
-        "noter": "VIGTIGT: Excel-vejen sætter altid 0.0 (ingen kolonne-alias). "
-                 "Kontrol 77 kører derfor på Excel-import mod en KONSTANT nulsaldo "
-                 "for alle momskonti — se known_gaps.",
+        "noter": "Trin 3 (GAP-04, delvist lukket): COLUMN_ALIASES har nu en "
+                 "\"closing_balance\"-indgang, så kontrol 77 kan afstemme mod en "
+                 "reel saldo på Excel-import, når kildefilen bærer den. Uden "
+                 "kolonnen er værdien None; cat10_vat_reconciliation.test_77 bruger "
+                 "allerede 'a.get(\"closing_balance\", 0) or 0', så None giver "
+                 "samme \"ingen saldoinformation\"-adfærd som tidligere 0.0 — "
+                 "uændret kontrol-adfærd i det tilfælde. Et fladt GL-udtræk uden "
+                 "en selvstændig kontoplan-fane vil typisk stadig mangle kolonnen.",
     },
 ]
 
@@ -222,25 +250,34 @@ TAX_TABLE_FIELDS = [
     },
     {
         "navn": "rate", "type": "number", "obligatorisk": False, "format": "procent, fx 25.0",
-        "status": "implemented_partial", "kilder": {"excel": True, "saft": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "Ingen kontrol direkte (kun bro-felt til tax_percentage).",
-        "noter": "UOVERENSSTEMMELSE: kun til stede på Excel-afledte tax_table-poster "
-                 "(excel_parser's rå output-nøgle, bevaret af data_adapter ved siden "
-                 "af tax_percentage). SAF-T-poster har aldrig denne nøgle. Bør ikke "
-                 "bruges af ny kode — brug tax_percentage.",
+        "noter": "Trin 3 (GAP-09, lukket for dette felt): saft_parser afleder nu "
+                 "også \"rate\" = tax_percentage (reel værdi, ikke en placeholder) "
+                 "på SAF-T-oprindede poster — nøglen er ikke længere kun til stede "
+                 "på Excel-afledte poster. Bør stadig ikke bruges af ny kode — "
+                 "brug tax_percentage, som er navnet motoren forventer.",
     },
     {
         "navn": "standard_tax_code", "type": "string", "obligatorisk": False,
         "format": "Skattestyrelsens StandardTaxCode (jf. tax_codes.py-katalog)",
         "status": "implemented_partial", "kilder": {"excel": False, "saft": True}, "ekstension": False,
         "kraeves_af": "Ingen kontrol i dag (potentiel bro til feature 82, rubrik-afstemning).",
-        "noter": "Findes kun for SAF-T-oprindelse (nativ StandardTaxCode).",
+        "noter": "Trin 3 (GAP-09, delvist lukket): nøglen er nu til stede (tom "
+                 "streng) også på Excel-afledte tax_table-poster (data_adapter), så "
+                 "kode der antager samme nøglesæt ikke rammer KeyError. Bærer "
+                 "stadig ingen reel værdi dér — semantisk umuligt uden en "
+                 "kildekolonne for Skattestyrelsens StandardTaxCode.",
     },
     {
         "navn": "country", "type": "string", "obligatorisk": False, "format": "ISO 3166-1 alpha-2",
         "status": "implemented_partial", "kilder": {"excel": False, "saft": True}, "ekstension": False,
         "kraeves_af": "Ingen kontrol i dag — relevant for udenlandske momskoder.",
-        "noter": "Findes kun for SAF-T-oprindelse (nativ TaxTableEntry/Country).",
+        "noter": "Trin 3 (GAP-09, delvist lukket): nøglen er nu til stede (tom "
+                 "streng) også på Excel-afledte tax_table-poster (data_adapter). "
+                 "Bærer stadig ingen reel værdi dér — Excel-parseren har ingen "
+                 "kolonne-alias for momskodens land (adskilt fra transaktionens "
+                 "modparts-land, som allerede findes som lines[].country).",
     },
 ]
 
@@ -343,18 +380,22 @@ LINE_FIELDS = [
     },
     {
         "navn": "account_type", "type": "string", "obligatorisk": False, "format": "se ACCOUNT_FIELDS",
-        "status": "implemented_partial", "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "status": "implemented_partial", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "vat_rules.is_non_vat_account signal 1 -> kontrol 80.",
-        "noter": "Joinet fra accounts[].account_type via account_id — samme "
-                 "Excel-begrænsning som accounts[].account_type.",
+        "noter": "Joinet fra accounts[].account_type via account_id. Trin 3 "
+                 "(GAP-03, delvist lukket): data_adapter joiner nu den samme værdi "
+                 "som accounts[].account_type — reel på Excel-vejen, når "
+                 "kildefilen har kontotype-kolonnen; ellers \"\" (uændret adfærd).",
     },
     {
         "navn": "standard_account_id", "type": "string", "obligatorisk": False, "format": "se ACCOUNT_FIELDS",
-        "status": "implemented_partial", "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "status": "implemented_partial", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "vat_rules.is_non_vat_account signal 2 -> kontrol 80 + momskerne-scope.",
-        "noter": "Excel-vejens linje-dict har slet ikke denne nøgle (data_adapter "
-                 "sætter den aldrig — heller ikke som tom streng). "
-                 "line.get(\"standard_account_id\") returnerer None, ikke \"\".",
+        "noter": "Trin 3 (GAP-03, delvist lukket): data_adapter joiner nu "
+                 "standard_account_id fra accounts[] via account_id — nøglen er "
+                 "altid til stede (tidligere manglede den helt på Excel-vejen; "
+                 "line.get(\"standard_account_id\") returnerede None). Tom streng "
+                 "når kildefilen ikke har kolonnen.",
     },
     {
         "navn": "description", "type": "string", "obligatorisk": False, "format": "",
@@ -552,29 +593,38 @@ CUSTOMER_FIELDS = [
     },
     {
         "navn": "vat_number", "type": "string", "obligatorisk": False, "format": "EU-momsnummerformat",
-        "status": "implemented_partial", "kilder": {"excel": False, "saft": True}, "ekstension": False,
-        "kraeves_af": "customer_lookup i cat04 (via customers[]) og cat12 — men se note.",
-        "noter": "VIGTIGT GAB: excel_parser hårdkoder customer_info[\"vat_number\"]=\"\" "
-                 "ALTID (parsers/excel_parser.py, _process_row) — modsat "
-                 "supplier_info, hvor vat_number udfyldes. For Excel-oprindelse "
-                 "er kundens moms-nr. derfor strukturelt utilgængeligt via "
-                 "customers[], uanset om kildefilen har kolonnen. (Linje-niveau "
-                 "vat_number, brugt af de fleste kontroller, er upåvirket.)",
+        "status": "implemented_partial", "kilder": {"excel": True, "saft": True}, "ekstension": False,
+        "kraeves_af": "Ingen kontrol læser customers[].vat_number direkte i dag — "
+                       "cat04's customer_lookup falder kun tilbage til suppliers[] "
+                       "(ikke customers[]), og cat12/cat06 (kontrol 52) bruger "
+                       "udelukkende linje-niveau vat_number. En reel motorændring "
+                       "kræves for at en kontrol skal KONSUMERE feltet — det er "
+                       "uden for denne opgaves scope (kun parsere/adapter/kontrakt/"
+                       "tests). Feltet er nu leveret strukturelt, klar til brug.",
+        "noter": "Trin 3 (GAP-05, lukket): excel_parser har nu en dedikeret "
+                 "\"customer_vat_number\"-kolonne-alias, med fallback til den "
+                 "generiske \"vat_number\"-kolonne (samme mønster som "
+                 "supplier_info). Tom streng, håndteret pænt, når ingen af "
+                 "kolonnerne findes.",
     },
     {
         "navn": "country", "type": "string", "obligatorisk": False, "format": "ISO 3166-1 alpha-2",
-        "status": "implemented_partial", "kilder": {"excel": False, "saft": True}, "ekstension": False,
+        "status": "implemented_partial", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "cat12._cust_country() — kontrol 94/95/96/97 (e-handel/OSS/"
-                       "fjernsalg/digitale ydelser, kategori 12) læser UDELUKKENDE "
-                       "customers[].country, uden linje-niveau-fallback.",
-        "noter": "VIGTIGT GAB, samme rodårsag som vat_number ovenfor: "
-                 "excel_parser hårdkoder customer_info[\"country\"]=\"\" ALTID. "
-                 "Konsekvens: kontrol 94/95/96/97 kan STRUKTURELT ALDRIG finde en "
-                 "kundes land på Excel/CSV-oprindelse — selv med en udfyldt "
-                 "'Land'-kolonne i kilden — fordi _cust_country() ikke falder "
-                 "tilbage til lines[].country. Modulet 'ehandel_saerordninger' er "
-                 "default FRA, så det er ikke synligt i en standardkørsel, men "
-                 "bider hvis modulet tændes på et Excel-udtræk.",
+                       "fjernsalg/digitale ydelser, kategori 12). RETTELSE til "
+                       "tidligere version af denne kontrakt: _cust_country() "
+                       "tjekker FAKTISK lines[].country FØRST og falder kun "
+                       "tilbage til customers[].country, hvis linjens eget "
+                       "country-felt er tomt — ikke omvendt.",
+        "noter": "Trin 3 (GAP-05, lukket): excel_parser har nu en dedikeret "
+                 "\"customer_country\"-kolonne-alias, med fallback til den "
+                 "generiske \"country\"-kolonne. Praktisk effekt: kontrol 94-97 "
+                 "kunne allerede (før denne rettelse) finde landet via "
+                 "lines[].country, når kildefilen har en generisk landekolonne "
+                 "(_cust_country()'s linje-niveau-fallback); det ægte gab var "
+                 "smallere end oprindeligt dokumenteret — kun de tilfælde, hvor "
+                 "linjens eget country-felt er tomt, men en kundespecifik "
+                 "land-kolonne findes. Den situation er nu også dækket.",
     },
 ]
 
@@ -591,22 +641,25 @@ SUMMARY_FIELDS = [
     },
     {
         "navn": "total_debit", "type": "number", "obligatorisk": False, "format": "DKK",
-        "status": "implemented_partial", "kilder": {"excel": True, "saft": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "Ingen kontrol læser summary.total_debit direkte i dag "
                        "(informativt/rapport-niveau).",
-        "noter": "UOVERENSSTEMMELSE: nøglen mangler HELT i saft_parser's summary-dict.",
+        "noter": "Trin 3 (GAP-07, lukket): saft_parser beregner nu total_debit "
+                 "deterministisk som summen af transaktionernes total_debit — "
+                 "samme beregning som data_adapter.adapt_excel_to_saft bruger.",
     },
     {
         "navn": "total_credit", "type": "number", "obligatorisk": False, "format": "DKK",
-        "status": "implemented_partial", "kilder": {"excel": True, "saft": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "Samme som total_debit.",
-        "noter": "UOVERENSSTEMMELSE: nøglen mangler HELT i saft_parser's summary-dict.",
+        "noter": "Trin 3 (GAP-07, lukket): se total_debit.",
     },
     {
         "navn": "total_vat", "type": "number", "obligatorisk": False, "format": "DKK",
-        "status": "implemented_partial", "kilder": {"excel": True, "saft": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True}, "ekstension": False,
         "kraeves_af": "Samme som total_debit/total_credit.",
-        "noter": "UOVERENSSTEMMELSE: nøglen mangler HELT i saft_parser's summary-dict.",
+        "noter": "Trin 3 (GAP-07, lukket): beregnet som summen af tax_amount over "
+                 "alle linjer, samme beregning som data_adapter.",
     },
     {
         "navn": "period_start", "type": "string", "obligatorisk": False, "format": "ISO-dato",
@@ -829,102 +882,148 @@ MATERIALITY_RUN_CONFIG = [
 KNOWN_GAPS = [
     {
         "id": "GAP-01",
+        "status": "aaben",
         "titel": "'or 0.0'-fallback på debit/credit/vat_amount skjuler manglende data",
         "beskrivelse": "data_adapter.adapt_excel_to_saft bruger 'txn.get(...) or 0.0' "
                        "på debit_amount/credit_amount/vat_amount. En reel 0-værdi i "
                        "kilden bliver umulig at skelne fra en manglende kolonne/tom "
                        "celle. Kendt, bevidst uden for scope for denne kontrakt "
-                       "(adfærdsændring, ikke beskrivelse).",
+                       "(adfærdsændring, ikke beskrivelse) — uændret i trin 3.",
         "beroerte_felter": ["transactions[].lines[].debit_amount",
                              "transactions[].lines[].credit_amount",
                              "transactions[].lines[].tax_amount"],
     },
     {
         "id": "GAP-02",
+        "status": "aaben",
         "titel": "tax_base kan være et beregnet skøn uden at være markeret som sådan",
         "beskrivelse": "tax_base falder tilbage fra 'importeret grundlag' til "
                        "'udledt af vat_amount/tax_percentage' til 'debit+credit', "
-                       "uden at outputtet mærker hvilken sti der blev brugt.",
+                       "uden at outputtet mærker hvilken sti der blev brugt. "
+                       "Uændret i trin 3.",
         "beroerte_felter": ["transactions[].lines[].tax_base"],
     },
     {
         "id": "GAP-03",
-        "titel": "accounts[]/lines[] mangler account_type + standard_account_id strukturelt på Excel-vejen",
-        "beskrivelse": "Der findes ingen COLUMN_ALIASES-indgang for kontotype eller "
-                       "standardkontoplan-id — feltet kan ikke udfyldes selv hvis "
-                       "kildefilen har en relevant kolonne. Konsekvens: "
-                       "vat_rules.is_non_vat_account() (momsrelevans-scope, bl.a. "
-                       "kontrol 80) er strukturelt inaktiv på Excel/CSV-import — "
-                       "dokumenteret og tilsigtet konservativ adfærd (CLAUDE.md), "
-                       "men værd at have eksplicit i kontrakten.",
+        "status": "delvist_lukket",
+        "titel": "accounts[]/lines[] kunne ikke bære account_type + standard_account_id fra Excel-vejen",
+        "beskrivelse": "Trin 3 (2026-09-14): COLUMN_ALIASES har nu \"account_type\" "
+                       "og \"standard_account_id\"-indgange, så vat_rules."
+                       "is_non_vat_account() (momsrelevans-scope, bl.a. kontrol 80) "
+                       "KAN aktiveres på Excel/CSV-import, når kildefilen har de "
+                       "relevante kolonner. Delvist, ikke helt, lukket: et typisk "
+                       "fladt GL-udtræk uden separat kontoplan-fane vil stadig "
+                       "mangle kolonnerne, og adfærden forbliver den dokumenterede, "
+                       "konservative default (CLAUDE.md: ukendt kontotype -> "
+                       "uændret scope) i det tilfælde.",
         "beroerte_felter": ["accounts[].account_type", "accounts[].standard_account_id",
                              "transactions[].lines[].account_type",
                              "transactions[].lines[].standard_account_id"],
     },
     {
         "id": "GAP-04",
-        "titel": "accounts[].opening_balance/closing_balance er altid 0.0 på Excel-vejen",
-        "beskrivelse": "Ingen kolonne-alias for saldi. Kontrol 77 "
-                       "(vat_account_reconciliation) afstemmer beregnet moms mod "
-                       "accounts[].closing_balance — på Excel-import sker denne "
-                       "afstemning derfor reelt mod en konstant nulsaldo for alle "
-                       "momskonti, hvilket kan give et misvisende resultat "
-                       "(falsk positiv ELLER falsk negativ afhængig af fortegn).",
+        "status": "delvist_lukket",
+        "titel": "accounts[].opening_balance/closing_balance var altid 0.0 på Excel-vejen",
+        "beskrivelse": "Trin 3 (2026-09-14): COLUMN_ALIASES har nu \"opening_balance\" "
+                       "og \"closing_balance\"-indgange. Kontrol 77 "
+                       "(vat_account_reconciliation) kan derfor afstemme mod en "
+                       "reel saldo på Excel-import, når kildefilen bærer saldi pr. "
+                       "konto. Uden kolonnen er værdien None (ikke en stille 0.0) — "
+                       "cat10's 'a.get(\"closing_balance\", 0) or 0' giver samme "
+                       "\"ingen saldoinformation\"-adfærd som før. Delvist, ikke "
+                       "helt, lukket: de fleste flade GL-udtræk vil stadig mangle "
+                       "kontosaldi pr. række.",
         "beroerte_felter": ["accounts[].opening_balance", "accounts[].closing_balance"],
     },
     {
         "id": "GAP-05",
-        "titel": "customers[].vat_number og customers[].country er hårdkodet tomme på Excel-vejen",
-        "beskrivelse": "excel_parser._process_row sætter disse to felter til \"\" "
-                       "ubetinget for kunder (i modsætning til leverandører, hvor de "
-                       "udfyldes fra kildekolonner). cat12's kontrol 94/95/96/97 "
-                       "(e-handel/OSS/fjernsalg/digitale ydelser) læser UDELUKKENDE "
-                       "customers[].country uden linje-niveau-fallback og kan derfor "
-                       "strukturelt aldrig finde en kundes land på Excel/CSV-"
-                       "oprindelse. Modulet er default FRA, så gabet er usynligt i "
-                       "en standardkørsel, men bider hvis 'ehandel_saerordninger' "
-                       "tændes på et Excel-udtræk.",
+        "status": "lukket",
+        "titel": "customers[].vat_number og customers[].country var hårdkodet tomme på Excel-vejen",
+        "beskrivelse": "Trin 3 (2026-09-14): excel_parser har nu dedikerede "
+                       "\"customer_vat_number\"/\"customer_country\"-kolonne-"
+                       "aliaser, med fallback til de generiske \"vat_number\"/"
+                       "\"country\"-kolonner (samme mønster som supplier_info "
+                       "allerede brugte). Fravær af kolonner håndteres pænt (tom "
+                       "streng, ikke crash). PRÆCISERING ift. tidligere version af "
+                       "denne kontrakt: cat12._cust_country() falder FAKTISK "
+                       "tilbage til lines[].country FØR customers[].country (ikke "
+                       "omvendt, som tidligere beskrevet her) — det reelle gab var "
+                       "derfor smallere end først dokumenteret, men er nu lukket "
+                       "for begge stier (linje- og kunde-niveau). Ingen kontrol "
+                       "læser customers[].vat_number i dag (se feltets egen note) "
+                       "— det er en motor-observation, ikke en resterende "
+                       "parser-/adapter-mangel.",
         "beroerte_felter": ["customers[].vat_number", "customers[].country"],
     },
     {
         "id": "GAP-06",
-        "titel": "source_document_id betyder noget forskelligt på de to input-veje",
-        "beskrivelse": "Excel-oprindelse: reelt fakturanummer (invoice_number-kolonne). "
-                       "SAF-T-oprindelse: transaktionens fritekstbeskrivelse "
-                       "(Transaction/Description), fordi SAF-T Financial "
-                       "GeneralLedgerEntries ikke bærer et selvstændigt dokument-id "
-                       "på transaktionsniveau. Dubletdetektion (kategori 2) er "
-                       "dermed et svagere signal på SAF-T-oprindelse end på "
-                       "Excel-oprindelse, uden at det er synligt i outputtet.",
+        "status": "aaben",
+        "titel": "source_document_id betyder noget forskelligt på de to input-veje — formentlig uløseligt",
+        "beskrivelse": "Excel-oprindelse: reelt fakturanummer (invoice_number-"
+                       "kolonne). SAF-T-oprindelse: transaktionens "
+                       "fritekstbeskrivelse (Transaction/Description). Dette er "
+                       "IKKE en parser-mangel, der kan rettes ved bedre mapping — "
+                       "det er en strukturel grænse i selve SAF-T Financial-"
+                       "skemaet: GeneralLedgerEntries/Transaction har intet "
+                       "selvstændigt dokument-/fakturanummer-element på "
+                       "transaktions- eller linjeniveau (kun JournalID, "
+                       "TransactionID og fritekst-Description); et sådant nummer "
+                       "findes typisk kun i et separat SourceDocuments-afsnit i "
+                       "SAF-T (fakturaer/betalinger som selvstændige objekter), som "
+                       "denne parser ikke joiner mod GL-transaktioner i dag. "
+                       "Konsekvens: dubletdetektion (kategori 2, kontrol 11-18) er "
+                       "et systematisk svagere signal på SAF-T-oprindelse end på "
+                       "Excel-oprindelse (fritekst dedupliker dårligere end et "
+                       "fakturanummer), uden at dette er synligt i outputtet. "
+                       "Reel lukning kræver enten (a) at parseren udvides til at "
+                       "joine SourceDocuments mod GL-linjer via dokument-"
+                       "referencer — en ikke-triviel SAF-T-strukturel udvidelse, "
+                       "eller (b) et separat, eksplicit svagheds-flag i outputtet "
+                       "frem for at overloade source_document_id. Begge er uden "
+                       "for denne opgaves scope (kun parsere/adapter/kontrakt/"
+                       "tests, ingen motor- eller SAF-T-parser-strukturændringer).",
         "beroerte_felter": ["transactions[].lines[].source_document_id"],
     },
     {
         "id": "GAP-07",
-        "titel": "summary mangler total_debit/total_credit/total_vat på SAF-T-vejen",
-        "beskrivelse": "data_adapter.adapt_excel_to_saft bygger summary med "
-                       "total_debit/total_credit/total_vat; saft_parser.parse_saft's "
-                       "summary-dict har dem slet ikke. Al kode/UI der læser disse "
-                       "nøgler uden .get()-fallback vil fejle eller mistolke "
-                       "SAF-T-oprindede rapporter.",
+        "status": "lukket",
+        "titel": "summary manglede total_debit/total_credit/total_vat på SAF-T-vejen",
+        "beskrivelse": "Trin 3 (2026-09-14): saft_parser.parse_saft beregner nu "
+                       "total_debit/total_credit/total_vat deterministisk af de "
+                       "parsede transaktioner/linjer — samme beregning som "
+                       "data_adapter.adapt_excel_to_saft bruger for Excel-vejen. "
+                       "summary-objektet er nu symmetrisk mellem de to input-veje.",
         "beroerte_felter": ["summary.total_debit", "summary.total_credit", "summary.total_vat"],
     },
     {
         "id": "GAP-08",
-        "titel": "header.registration_number/source/saft_version er ikke symmetriske mellem input-veje",
-        "beskrivelse": "registration_number/source findes kun (og er reelt aldrig "
-                       "udfyldt for registration_number) i Excel-vejens header; "
-                       "saft_version findes kun i SAF-T-vejens. Kode der antager "
-                       "samme nøglesæt på tværs af input-veje vil ramme KeyError "
-                       "eller stille (og forkert) tavshed.",
+        "status": "delvist_lukket",
+        "titel": "header.registration_number/source/saft_version var ikke symmetriske mellem input-veje",
+        "beskrivelse": "Trin 3 (2026-09-14): (1) source er nu lukket helt — begge "
+                       "veje sætter en reel diagnostikværdi (\"Excel/CSV import\" "
+                       "hhv. \"SAF-T XML import\"). (2) registration_number og "
+                       "saft_version er nu til stede (tom streng) på BEGGE veje "
+                       "— nøglesæt-symmetri, ingen KeyError-risiko — men bærer "
+                       "stadig kun en reel værdi på den ene vej (saft_version) "
+                       "eller ingen af dem (registration_number, semantisk umuligt "
+                       "at udlede pålideligt fra nogen af kilderne i dag). Delvist "
+                       "lukket: nøglesæt-symmetri opnået, værdi-symmetri ikke (og "
+                       "for registration_number næppe realistisk uden ny "
+                       "SAF-T-udtræksfunktionalitet).",
         "beroerte_felter": ["header.registration_number", "header.source", "header.saft_version"],
     },
     {
         "id": "GAP-09",
-        "titel": "tax_table-poster har forskellige nøgler afhængigt af oprindelse",
-        "beskrivelse": "Excel-afledte poster bærer både 'rate' (rå) og "
-                       "'tax_percentage' (adapteret); SAF-T-poster bærer kun "
-                       "'tax_percentage', plus 'standard_tax_code'/'country' som "
-                       "Excel-poster aldrig har.",
+        "status": "delvist_lukket",
+        "titel": "tax_table-poster havde forskellige nøgler afhængigt af oprindelse",
+        "beskrivelse": "Trin 3 (2026-09-14): (1) rate er nu lukket helt — "
+                       "saft_parser afleder \"rate\" = tax_percentage, så begge "
+                       "veje har nøglen med en reel værdi. (2) standard_tax_code/"
+                       "country er nu til stede (tom streng) også på Excel-afledte "
+                       "poster (data_adapter) — nøglesæt-symmetri — men bærer "
+                       "stadig ingen reel værdi dér, da Excel-parseren ikke har "
+                       "kildekolonner for momskodens standardkode/land. Delvist "
+                       "lukket, samme mønster som GAP-08.",
         "beroerte_felter": ["tax_table[].rate", "tax_table[].standard_tax_code", "tax_table[].country"],
     },
 ]

@@ -36,11 +36,17 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
     parse_info = parsed_data.get("parse_info", {})
 
     # --- Fix tax_table: ensure each entry has "tax_percentage" ---
+    # Nøglesæt-symmetri med SAF-T-vejens tax_table (GAP-09): standard_tax_code
+    # og country findes kun nativt i SAF-T (StandardTaxCode/Country på
+    # TaxTableEntry) — Excel-oprindelse har ingen kildekolonne for dem, men får
+    # nøglerne til stede (tomme), så kode der læser dem ikke rammer KeyError.
     adapted_tax_table = []
     for entry in tax_table:
         adapted_entry = dict(entry)
         if "tax_percentage" not in adapted_entry:
             adapted_entry["tax_percentage"] = adapted_entry.get("rate", 0.0)
+        adapted_entry.setdefault("standard_tax_code", "")
+        adapted_entry.setdefault("country", "")
         adapted_tax_table.append(adapted_entry)
 
     # Build a lookup from tax_code -> tax_percentage
@@ -48,10 +54,15 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
         t["tax_code"]: t["tax_percentage"] for t in adapted_tax_table
     }
 
-    # Kontotype pr. konto (fra kontoplanen) -> bæres med på linjen, så momsrelevans-
-    # scope kan udelukke balanceposter. Tom for flade udtræk uden kontoplan.
+    # Kontotype/standardkontoplan-id pr. konto (fra kontoplanen) -> bæres med på
+    # linjen, så momsrelevans-scope (vat_rules.is_non_vat_account) kan udelukke
+    # balanceposter. Tom for flade udtræk uden kontoplan/kontotype-kolonne
+    # (se GAP-03) — uændret adfærd i det tilfælde.
     acct_type_lookup = {
         a.get("account_id"): a.get("account_type", "") for a in accounts
+    }
+    std_acct_lookup = {
+        a.get("account_id"): a.get("standard_account_id", "") for a in accounts
     }
 
     # --- Adapt transactions: wrap each flat txn into SAF-T structure ---
@@ -82,6 +93,7 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
             "record_id": f"L{idx + 1}",
             "account_id": txn.get("account_id", ""),
             "account_type": acct_type_lookup.get(txn.get("account_id", ""), ""),
+            "standard_account_id": std_acct_lookup.get(txn.get("account_id", ""), ""),
             "description": txn.get("description", ""),
             "debit_amount": debit,
             "credit_amount": credit,

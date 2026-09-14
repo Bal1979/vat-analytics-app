@@ -115,6 +115,40 @@ COLUMN_ALIASES = {
         "tax_id", "vat_id", "vat_registration", "vat_registration_no",
         "corporateidentificationnumber",
     ],
+    # Kunde-specifikke momsnr/land-kolonner — adskilt fra de generiske
+    # "vat_number"/"country" (som i praksis rammer modparten på rækken, uanset
+    # om den er leverandør eller kunde). Findes kilden ikke en dedikeret
+    # kunde-kolonne, falder _process_row tilbage til den generiske kolonne
+    # (se GAP-05 i catalog/data_contract.json — kontrol 94-97, kategori 12).
+    "customer_country": [
+        "customer_country", "kundeland", "kunde_land", "debitorland",
+        "debitor_land", "customer_country_code",
+    ],
+    "customer_vat_number": [
+        "customer_vat_number", "kunde_momsnr", "kunde_momsnummer",
+        "debitor_momsnr", "debitor_cvr", "customer_cvr", "customer_vat_id",
+    ],
+    # Kontotype/standardkontoplan-id — bærer momsrelevans-scopet (vat_rules.
+    # is_non_vat_account, kontrol 80) også på Excel-vejen, når kildefilen har
+    # en kontoplan-kolonne (fx eksporteret sammen med en separat kontoplan-fane
+    # eller joinet ind før upload). Se GAP-03.
+    "account_type": [
+        "account_type", "kontotype", "konto_type", "accounttype",
+    ],
+    "standard_account_id": [
+        "standard_account_id", "standardkontoplan", "standard_kontonummer",
+        "standardkonto", "standardaccountid",
+    ],
+    # Konto-saldi — gør kontrol 77 (momskonto-afstemning) meningsfuld på
+    # Excel-vejen, når kildefilen bærer saldi pr. konto. Se GAP-04.
+    "opening_balance": [
+        "opening_balance", "aabningssaldo", "åbningssaldo", "primosaldo",
+        "primo_saldo", "opening_amount",
+    ],
+    "closing_balance": [
+        "closing_balance", "afslutningssaldo", "slutsaldo", "ultimosaldo",
+        "ultimo_saldo", "closing_amount",
+    ],
     # Forsendelsesland (vareflow) — adskilt fra modpartens land. Bærer
     # place-of-supply / trekantshandel (kontrol 36). Tre selvstændige felter:
     # country (modpart), ship_from_country (afsendelse), ship_to_country (modtagelse).
@@ -299,6 +333,30 @@ def _process_row(row, idx, col_map, is_tuple=False):
     customer_id = _safe_str(get_val("customer_id")) if "customer_id" in col_map else ""
     customer_name = _safe_str(get_val("customer_name")) if "customer_name" in col_map else ""
 
+    # Kundens momsnr/land: foretræk en dedikeret kunde-kolonne; ellers falder
+    # vi tilbage til den generiske modparts-kolonne (samme mønster som
+    # supplier_info nedenfor bruger for leverandøren). Tom hvis ingen af
+    # delene findes i kilden — håndteres pænt, ikke crash (GAP-05).
+    customer_vat_number = (_safe_str(get_val("customer_vat_number"))
+                            or _safe_str(get_val("vat_number")))
+    customer_country = (_safe_str(get_val("customer_country"))
+                         or _safe_str(get_val("country")))
+
+    # Kontotype/standardkontoplan-id — kun udfyldt hvis kildefilen har en
+    # relevant kolonne; ellers "" (uændret, konservativt momsrelevans-scope
+    # for kontrol 80 mv. — se GAP-03).
+    account_type = _safe_str(get_val("account_type")) if "account_type" in col_map else ""
+    standard_account_id = (_safe_str(get_val("standard_account_id"))
+                            if "standard_account_id" in col_map else "")
+
+    # Konto-saldi — None (ikke 0.0) når kolonnen mangler, så "ingen data" kan
+    # skelnes fra "saldo er faktisk 0". Kontrol 77 tolker begge som "ingen
+    # saldoinformation" (samme adfærd som i dag), se GAP-04.
+    opening_balance = (_safe_float(get_val("opening_balance"))
+                        if "opening_balance" in col_map else None)
+    closing_balance = (_safe_float(get_val("closing_balance"))
+                        if "closing_balance" in col_map else None)
+
     txn = {
         "transaction_id": txn_id,
         "date": date_str,
@@ -332,9 +390,10 @@ def _process_row(row, idx, col_map, is_tuple=False):
         account_info = {
             "account_id": account_id,
             "description": account_desc,
-            "account_type": "",
-            "opening_balance": 0.0,
-            "closing_balance": 0.0,
+            "account_type": account_type,
+            "standard_account_id": standard_account_id,
+            "opening_balance": opening_balance,
+            "closing_balance": closing_balance,
         }
 
     supplier_info = None
@@ -351,8 +410,8 @@ def _process_row(row, idx, col_map, is_tuple=False):
         customer_info = {
             "customer_id": customer_id,
             "name": customer_name,
-            "vat_number": "",
-            "country": "",
+            "vat_number": customer_vat_number,
+            "country": customer_country,
         }
 
     vat_info = None
@@ -560,6 +619,11 @@ def _build_result(transactions, accounts_seen, suppliers_seen,
         "period_start": "",
         "period_end": "",
         "source": "Excel/CSV import",
+        # Nøglesæt-symmetri med SAF-T-vejen (GAP-08): saft_version er semantisk
+        # N/A for Excel-oprindelse (intet selvangivet AuditFileVersion at læse),
+        # men nøglen er til stede (tom), så kode der antager samme nøglesæt på
+        # tværs af input-veje ikke rammer KeyError.
+        "saft_version": "",
     }
 
     dates = [t["date"] for t in transactions if t["date"]]

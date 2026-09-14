@@ -159,10 +159,17 @@ def parse_saft(path: str):
     tt = _find_first(root, "TaxTable")
     for entry in _children(tt, "TaxTableEntry"):
         for det in _children(entry, "TaxCodeDetails"):
+            tax_pct = _num(det, "TaxPercentage")
             tax_table.append({
                 "tax_code": _txt(det, "TaxCode"),
                 "description": _txt(det, "Description"),
-                "tax_percentage": _num(det, "TaxPercentage"),
+                "tax_percentage": tax_pct,
+                # Nøglesæt-symmetri med Excel-vejen (GAP-09): "rate" er
+                # Excel-parserens rå bro-felt til tax_percentage. SAF-T har
+                # ikke et selvstændigt "rate"-element, men vi kan aflede det
+                # direkte af tax_percentage, så nøglen er til stede med en
+                # reel (ikke gættet) værdi på begge veje.
+                "rate": tax_pct,
                 "standard_tax_code": _txt(det, "StandardTaxCode"),
                 "country": _txt(det, "Country"),
             })
@@ -299,9 +306,19 @@ def parse_saft(path: str):
 
     header_dict = {
         "company_name": company_name,
+        # Nøglesæt-symmetri med Excel-vejen (GAP-08): "registration_number"
+        # findes i dag ikke som et pålideligt element i denne fils Header/
+        # Company (SAF-T Financial DK's Header bærer ikke konsekvent et
+        # selvstændigt CVR for indberetterens egen virksomhed på tværs af
+        # versioner/eksportører) — nøglen er til stede (tom) i stedet for at
+        # mangle helt, så kode der antager samme nøglesæt ikke rammer
+        # KeyError. Reel udtræk af virksomhedens CVR er en selvstændig,
+        # senere opgave, ikke en ren symmetri-fix.
+        "registration_number": "",
         "currency": default_ccy,
         "period_start": p_start,
         "period_end": p_end,
+        "source": "SAF-T XML import",
         "saft_version": version,
     }
     if p_start and p_end:
@@ -313,6 +330,15 @@ def parse_saft(path: str):
         except (ValueError, IndexError):
             pass
 
+    # Summary-totaler — afledt deterministisk af de parsede transaktioner/
+    # linjer, samme beregning som data_adapter.adapt_excel_to_saft bruger for
+    # Excel-vejen (GAP-07: disse nøgler manglede tidligere helt her).
+    total_debit = round(sum(t["total_debit"] for t in transactions), 2)
+    total_credit = round(sum(t["total_credit"] for t in transactions), 2)
+    total_vat = round(
+        sum(l["tax_amount"] for t in transactions for l in t["lines"]), 2
+    )
+
     canonical = {
         "header": header_dict,
         "accounts": accounts,
@@ -322,6 +348,9 @@ def parse_saft(path: str):
         "customers": customers,
         "summary": {
             "total_transactions": len(transactions),
+            "total_debit": total_debit,
+            "total_credit": total_credit,
+            "total_vat": total_vat,
             "currency": default_ccy,
             "period_start": p_start,
             "period_end": p_end,

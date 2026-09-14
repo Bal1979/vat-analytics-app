@@ -190,3 +190,114 @@ class TestImportContractExpansion:
         # Importeret momsgrundlag vinder over det udledte (250/0.25 = 1000).
         assert line["tax_base"] == 4242.0
         assert txn["document_date"] == "2024-03-01"
+
+
+class TestDataContractGapClosure:
+    """Trin 3 (BALAI-dataflow-arkitektur.md §7): kolonne-aliaser der lukker/
+    delvist lukker GAP-03/04/05 i catalog/data_contract.json på Excel-vejen."""
+
+    def _xlsx(self, tmp_path, headers, rows, name="import.xlsx"):
+        import openpyxl
+        path = str(tmp_path / name)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(headers)
+        for r in rows:
+            ws.append(r)
+        wb.save(path)
+        return path
+
+    # --- GAP-05: kundens land/momsnr ---------------------------------------
+
+    def test_customer_country_and_vat_from_dedicated_columns(self, tmp_path):
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Kredit", "customerNumber",
+             "customer_country", "customer_vat_number"],
+            [["B1", "2024-01-15", "1000", 5000.0, "K1", "DE", "DE123456789"]],
+        )
+        result = parse_excel(path)
+        cust = next(c for c in result["customers"] if c["customer_id"] == "K1")
+        assert cust["country"] == "DE"
+        assert cust["vat_number"] == "DE123456789"
+
+    def test_customer_country_and_vat_fallback_to_generic_columns(self, tmp_path):
+        # Ingen dedikeret kunde-kolonne -> falder tilbage til de generiske
+        # modparts-kolonner (samme mønster som leverandøren allerede bruger).
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Kredit", "customerNumber",
+             "Land", "Momsnr"],
+            [["B1", "2024-01-15", "1000", 5000.0, "K1", "SE", "SE556677889901"]],
+        )
+        result = parse_excel(path)
+        cust = next(c for c in result["customers"] if c["customer_id"] == "K1")
+        assert cust["country"] == "SE"
+        assert cust["vat_number"] == "SE556677889901"
+
+    def test_customer_country_and_vat_empty_without_columns(self, tmp_path):
+        # Fravær af kolonner håndteres pænt: tomt, ikke crash.
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Kredit", "customerNumber"],
+            [["B1", "2024-01-15", "1000", 5000.0, "K1"]],
+        )
+        result = parse_excel(path)
+        cust = next(c for c in result["customers"] if c["customer_id"] == "K1")
+        assert cust["country"] == ""
+        assert cust["vat_number"] == ""
+
+    # --- GAP-04: konto-saldi ------------------------------------------------
+
+    def test_account_balances_from_columns(self, tmp_path):
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Debet", "aabningssaldo", "afslutningssaldo"],
+            [["B1", "2024-01-15", "6600", 1000.0, 2000.0, -3000.0]],
+        )
+        result = parse_excel(path)
+        acct = next(a for a in result["accounts"] if a["account_id"] == "6600")
+        assert acct["opening_balance"] == 2000.0
+        assert acct["closing_balance"] == -3000.0
+
+    def test_account_balances_absent_without_columns(self, tmp_path):
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Debet"],
+            [["B1", "2024-01-15", "6600", 1000.0]],
+        )
+        result = parse_excel(path)
+        acct = next(a for a in result["accounts"] if a["account_id"] == "6600")
+        # None (ikke stille 0.0) -- kan skelnes fra en reelt nulstillet saldo.
+        assert acct["opening_balance"] is None
+        assert acct["closing_balance"] is None
+
+    # --- GAP-03: kontotype/standardkontoplan-id -----------------------------
+
+    def test_account_type_and_standard_id_from_columns(self, tmp_path):
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Debet", "kontotype", "standardkontoplan"],
+            [["B1", "2024-01-15", "6900", 1000.0, "Liability", "5800"]],
+        )
+        result = parse_excel(path)
+        acct = next(a for a in result["accounts"] if a["account_id"] == "6900")
+        assert acct["account_type"] == "Liability"
+        assert acct["standard_account_id"] == "5800"
+
+        from parsers.data_adapter import adapt_excel_to_saft
+        adapted = adapt_excel_to_saft(result)
+        line = adapted["transactions"][0]["lines"][0]
+        assert line["account_type"] == "Liability"
+        assert line["standard_account_id"] == "5800"
+
+    def test_account_type_and_standard_id_empty_without_columns(self, tmp_path):
+        path = self._xlsx(
+            tmp_path,
+            ["Bilagsnr", "Dato", "Konto", "Debet"],
+            [["B1", "2024-01-15", "6900", 1000.0]],
+        )
+        result = parse_excel(path)
+        acct = next(a for a in result["accounts"] if a["account_id"] == "6900")
+        assert acct["account_type"] == ""
+        assert acct["standard_account_id"] == ""

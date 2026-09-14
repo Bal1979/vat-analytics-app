@@ -238,3 +238,35 @@ def test_router_preview_saft(tmp_path):
     prev = upload_router.preview_upload(path)
     assert prev["type"] == "saft"
     assert prev["sections"]["transactions"] == 2
+
+
+# --- Trin 3 (BALAI-dataflow-arkitektur.md §7): GAP-07/08/09 --------------
+
+def test_summary_carries_totals(tmp_path):
+    # GAP-07: summary manglede total_debit/total_credit/total_vat helt på
+    # SAF-T-vejen. T1: 20000 kredit + 5000 moms. T2: 20000 kredit, ingen moms.
+    path = _write(tmp_path, "v21.xml", SAFT_V21)
+    data, _ = saft_parser.parse_saft(path)
+    summary = data["summary"]
+    assert summary["total_debit"] == 0.0
+    assert summary["total_credit"] == 40000.0
+    assert summary["total_vat"] == 5000.0
+
+
+def test_header_has_source_and_symmetric_placeholder_keys(tmp_path):
+    # GAP-08: source sat på begge veje; registration_number til stede (tom)
+    # for nøglesæt-symmetri med Excel-vejen.
+    path = _write(tmp_path, "v21.xml", SAFT_V21)
+    data, _ = saft_parser.parse_saft(path)
+    header = data["header"]
+    assert header["source"] == "SAF-T XML import"
+    assert header["registration_number"] == ""
+
+
+def test_tax_table_rate_derived_from_percentage(tmp_path):
+    # GAP-09: "rate" findes nu også på SAF-T-oprindede tax_table-poster,
+    # afledt af tax_percentage (ikke gættet).
+    path = _write(tmp_path, "v21.xml", SAFT_V21)
+    data, _ = saft_parser.parse_saft(path)
+    entry = next(t for t in data["tax_table"] if t["tax_code"] == "U25")
+    assert entry["rate"] == entry["tax_percentage"] == 25.0
