@@ -223,6 +223,8 @@ h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 8px; }
 /* neutral (grå) score-chip når en kategori ikke kørte */
 .cat-score-mini.cat-neutral { background: #cdd3db; color: #55606e; }
 .cat-status { font-size: 0.8rem; color: #8a6d3b; }
+/* neutral net (fx renterisiko-fund uden kvantificeret beløb) */
+.net-neutral { color: #6B7280; }
 
 /* --- Handling krævet (prioriteret liste med kritiske/høje fund) --- */
 .action-panel { background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #dc3545; }

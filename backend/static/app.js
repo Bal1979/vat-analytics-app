@@ -234,17 +234,34 @@
     // transaktion) vises som mindre kontekst nedenunder.
     function setImpact(prefix, imp) {
       const pick = (d, b) => (d == null ? b : d);
+      const dNeg = pick(imp.negative_amount_distinct, imp.negative_amount);
+      const dPos = pick(imp.positive_amount_distinct, imp.positive_amount);
       const dNet = pick(imp.net_amount_distinct, imp.net_amount);
-      document.getElementById(prefix + "-negative").textContent =
-        fmt(pick(imp.negative_amount_distinct, imp.negative_amount), cur);
-      document.getElementById(prefix + "-positive").textContent =
-        fmt(pick(imp.positive_amount_distinct, imp.positive_amount), cur);
+      const negEl = document.getElementById(prefix + "-negative");
+      const posEl = document.getElementById(prefix + "-positive");
       const netEl = document.getElementById(prefix + "-net");
+      const ctx = document.getElementById(prefix + "-distinct");
+      document.getElementById(prefix + "-count").textContent = `${imp.total_findings} findings`;
+
+      // Kvalitative fund: der ER fund, men ingen af dem har et beregnet beløb.
+      // Vis det tydeligt i stedet for et forvirrende "DKK 0" (der ligner ingen risiko).
+      const noAmounts = !dNeg && !dPos && !dNet && !imp.negative_amount &&
+                        !imp.positive_amount && !imp.net_amount;
+      if (imp.total_findings > 0 && noAmounts) {
+        negEl.textContent = "–";
+        posEl.textContent = "–";
+        netEl.textContent = "–";
+        netEl.className = "net-neutral";
+        if (ctx) ctx.textContent =
+          `${imp.total_findings} fund er kvalitative (uden beregnet beløb) — se detaljer nedenfor.`;
+        return;
+      }
+
+      negEl.textContent = fmt(dNeg, cur);
+      posEl.textContent = fmt(dPos, cur);
       const txns = imp.distinct_transactions ? ` · ${imp.distinct_transactions} transaktioner` : "";
       netEl.textContent = fmt(dNet, cur) + txns;
       netEl.className = dNet >= 0 ? "net-positive" : "net-negative";
-      document.getElementById(prefix + "-count").textContent = `${imp.total_findings} findings`;
-      const ctx = document.getElementById(prefix + "-distinct");
       if (ctx) ctx.textContent = `Brutto (kan overlappe flere kontroller): net ${fmt(imp.net_amount, cur)}`;
     }
     setImpact("econ", econ);
