@@ -51,8 +51,21 @@ handlingsliste, ikke en mur af flag.
   kundestamdata på denne vej i dag. Ny afstemningsgate
   (`analytics/reconciliation_gate.py`, §8.3) + offline-CLI
   (`tools/analyze_canonical.py`) kører hele motoren uden webserver.
-- **251 automatiserede tests** + uafhængig valideringssuite (**98/98 aktive
-  kontroller**, én plantet defekt pr. kontrol, gated i CI).
+- **Bilagsgruppering (GAP-12, 2026-09-17, Bal-godkendt):** `canonical_parser`
+  grupperer nu rækker med samme, ikke-tomme `(invoice_numbers, posting_dates)`
+  til ÉN transaktion med flere `lines[]` (bilagsnøgle — BC/NAV's Entry
+  No./Transaction No. indgår ikke i den seedede mapping). `total_debit`/
+  `total_credit` summeres over linjerne, samme konvention som Excel-/SAF-T-vejen.
+  Rækker med tomt bilagsnummer grupperes ALDRIG (kendt, bevidst begrænsning —
+  gætter ingen sammenhæng uden evidens). Empirisk verificeret på den rigtige
+  BC/NAV-fil (125.986 rækker): kontrol 10 (transaktionsbalance) faldt fra
+  125.885 kritiske falsk-positive til **0** fund (denne fils rækker havde alle
+  udfyldt bilagsnummer); 125.986 → 50.479 transaktioner (Ø 2,5 linjer/bilag);
+  afstemningsgaten uændret 208/208 (afstemning er konto-/linjebaseret, ikke
+  transaktionsbaseret). GAP-12 status `delvist_lukket` i `data_contract_data.py`.
+- **256 automatiserede tests** (251 + 5 nye GAP-12-grupperingstests) +
+  uafhængig valideringssuite (**98/98 aktive kontroller**, én plantet defekt
+  pr. kontrol, gated i CI).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).

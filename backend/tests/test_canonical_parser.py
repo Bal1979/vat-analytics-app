@@ -211,3 +211,109 @@ def test_engine_runs_on_canonical_output(tmp_path):
     report = run_all_tests(canonical)
     assert "total_findings" in report
     assert "categories" in report
+
+
+# --- Bilagsgruppering (GAP-12, Bal-godkendt 2026-09-17) ----------------------
+
+def test_rows_with_same_invoice_and_date_are_grouped_into_one_transaction(tmp_path):
+    """To ensidede GL-linjer (kun debit hhv. kun credit) med samme bilagsnøgle
+    (invoice_numbers, posting_dates) skal samles til ÉN transaktion med to
+    linjer -- den reelle rettelse for GAP-12/kontrol 10-støjen."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F-1", "1000", "U25", "250.0", "0", "1250.0", "sale", ""],
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F-1", "2100", "", "0", "1250.0", "0", "purchase", ""],
+    ])
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+
+    assert len(canonical["transactions"]) == 1
+    txn = canonical["transactions"][0]
+    assert len(txn["lines"]) == 2
+    assert txn["total_debit"] == 1250.0
+    assert txn["total_credit"] == 1250.0
+    # Deterministisk id af nøglen, ikke det gamle rækkebaserede ROW-id.
+    assert txn["transaction_id"] == "DOC_F-1_2024-01-10"
+
+    # Linjerne beholder deres række-lineage og et positionelt record_id.
+    assert [l["record_id"] for l in txn["lines"]] == ["L1", "L2"]
+    assert [l["source_row"] for l in txn["lines"]] == [2, 3]
+
+    # Summary (linje-niveau) er uændret af grupperingen.
+    assert canonical["summary"]["total_debit"] == 1250.0
+    assert canonical["summary"]["total_credit"] == 1250.0
+    assert info["sections"]["lines"] == 2
+    assert info["sections"]["transactions"] == 1
+
+
+def test_grouping_fixes_control_10_false_positive(tmp_path):
+    """Den empiriske pointe med GAP-12-rettelsen: to ensidede linjer, der før
+    grupperingen hver blev flaget af kontrol 10 (transaktionsbalance), giver
+    nu INGEN fund, fordi de er slået sammen til én balanceret transaktion."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F-1", "1000", "U25", "250.0", "0", "1250.0", "sale", ""],
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F-1", "2100", "", "0", "1250.0", "0", "purchase", ""],
+    ])
+    canonical, _ = canonical_parser.parse_canonical(path)
+    report = run_all_tests(canonical, active_modules={"moms_kerne"})
+    balance_findings = [f for f in report["all_findings"] if f["test_id"] == 10]
+    assert balance_findings == []
+
+
+def test_rows_with_empty_invoice_number_are_never_grouped_across_rows(tmp_path):
+    """Tomt/manglende bilagsnummer må ALDRIG gætte en sammenhæng -- selv to
+    rækker med samme dato og ellers ens data forbliver hver sin 1-linjes
+    transaktion (samme fallback-adfærd som før grupperingen fandtes)."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "", "1000", "U25", "250.0", "0", "1250.0", "sale", ""],
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "", "2100", "", "0", "1250.0", "0", "purchase", ""],
+    ])
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+
+    assert len(canonical["transactions"]) == 2
+    for txn in canonical["transactions"]:
+        assert len(txn["lines"]) == 1
+    ids = {t["transaction_id"] for t in canonical["transactions"]}
+    assert ids == {"ROW-2", "ROW-3"}  # gammelt rækkebaseret id bevaret
+
+
+def test_same_invoice_number_on_two_dates_is_two_transactions(tmp_path):
+    """Samme bilagsnummer, men to forskellige posting_dates, er IKKE samme
+    bilag -- nøglen er (invoice_numbers, posting_dates) sammen, ikke hver for
+    sig."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F-1", "1000", "U25", "250.0", "0", "1250.0", "sale", ""],
+        ["2024-01-11", "2024-01-11", "2024-01", "false", "F-1", "2100", "", "0", "1250.0", "0", "purchase", ""],
+    ])
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+
+    assert len(canonical["transactions"]) == 2
+    for txn in canonical["transactions"]:
+        assert len(txn["lines"]) == 1
+    ids = {t["transaction_id"] for t in canonical["transactions"]}
+    assert ids == {"DOC_F-1_2024-01-10", "DOC_F-1_2024-01-11"}
+
+
+def test_grouped_transaction_multiline_amounts_and_document_date(tmp_path):
+    """Tre linjer på samme bilag -- aggregatfelter summeres over alle tre, og
+    document_date afledes af gruppens første rækkes tax_point (samme
+    proxy-logik som før grupperingen)."""
+    path = _write_csv(tmp_path, [
+        ["2024-02-01", "2024-01-28", "2024-02", "false", "F-77", "1000", "U25", "100.0", "0", "500.0", "sale", ""],
+        ["2024-02-01", "2024-01-29", "2024-02", "false", "F-77", "1000", "U25", "50.0", "0", "250.0", "sale", ""],
+        ["2024-02-01", "2024-01-30", "2024-02", "false", "F-77", "2100", "", "0", "750.0", "0", "purchase", ""],
+    ])
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+
+    assert len(canonical["transactions"]) == 1
+    txn = canonical["transactions"][0]
+    assert len(txn["lines"]) == 3
+    assert txn["total_debit"] == 750.0
+    assert txn["total_credit"] == 750.0
+    assert txn["date"] == "2024-02-01"
+    # Første rækkes tax_point, ikke sidste.
+    assert txn["document_date"] == "2024-01-28"
+    assert [l["record_id"] for l in txn["lines"]] == ["L1", "L2", "L3"]
+    assert [l["source_row"] for l in txn["lines"]] == [2, 3, 4]

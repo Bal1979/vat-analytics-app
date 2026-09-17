@@ -3,6 +3,60 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## GAP-12 mitigeret: bilagsgruppering i den kanoniske parser — 2026-09-17 (ikke-katalog)
+Bal-godkendt opfølgning på byggetrin 8 (se afsnittet nedenfor). Kontrol 10
+(transaktionsbalance, kategori 1) gav 125.885 strukturelle falsk-positive fund
+af 125.986 kanoniske rækker på den rigtige BC/NAV-fil, fordi hver GL-linje blev
+sin egen 1-linjes transaktion — BC/NAV-poster balancerer PR. BILAG, ikke pr.
+linje, og bilagsnøglen (Entry No./Transaction No.) er ikke med i den seedede
+mapping. Kun `backend/parsers/canonical_parser.py` + rapportmetadata ændret —
+ingen ændring i `analytics/categories/*.py`-kontrollogikken.
+
+- **`canonical_parser.py`:** rækker med samme, IKKE-TOMME
+  `(invoice_numbers, posting_dates)` samles nu til ÉN transaktion med flere
+  `lines[]` (ny `_group_key`/`_build_transaction`). Rækker med tomt/manglende
+  `invoice_numbers` grupperes ALDRIG på tværs af rækker (heller ikke ved samme
+  dato) — ingen gættet sammenhæng uden evidens; de forbliver hver sin
+  1-linjes transaktion med det gamle `ROW-<rækkenr>`-id. En grupperet
+  transaktions id er deterministisk (`DOC_<invoice>_<dato>`).
+  `total_debit`/`total_credit` summeres over gruppens linjer — samme
+  aggregeringskonvention som `data_adapter.adapt_excel_to_saft` og
+  `saft_parser.parse_saft`. Hver linje bærer nu et canonical-only
+  `source_row`-felt (oprindeligt CSV-rækkenummer) for lineage, uafhængigt af
+  gruppering.
+- **Empirisk verifikation på den rigtige BC/NAV-fil (125.986 rækker),
+  før/efter:**
+
+  | Nøgletal | Før gruppering | Efter gruppering |
+  |---|---|---|
+  | Transaktioner | 125.986 | 50.479 (Ø 2,5 linjer/bilag) |
+  | Kontrol 10 (kritisk) | 125.885 | **0** |
+  | Høj/medium/lav (øvrige) | 3.071 / 198.505 / 18.622 | 2.366 / 114.575 / 12.037 |
+  | Fund i alt | 346.083 | 128.978 |
+  | Afstemningsgate | afstemt, 208/208 | afstemt, 208/208 (uændret) |
+  | total_debit/total_credit/total_vat | uændret | uændret (identisk til øre) |
+  | Køretid (parsing+analyse) | 6,1 s | 3,7 s |
+
+  Afstemningsgaten er upåvirket, fordi den summerer netto debit−credit PR.
+  KONTO over alle linjer uafhængigt af transaktionsgruppering — grupperingen
+  kan pr. konstruktion ikke ændre kontosummerne. Residual-analyse: på denne
+  fil havde ALLE 125.986 rækker et udfyldt bilagsnummer (0 ungrupperede
+  `ROW-`-transaktioner), og samtlige 50.479 grupperede bilag balancerer —
+  kontrol 10-residualet er 0 fund, ikke bare reduceret. Den kendte
+  begrænsning (tomt bilagsnummer grupperes aldrig) er derfor uprøvet på
+  denne konkrete fil, men forbliver dokumenteret som åben i GAP-12.
+- **`tools/data_contract_data.py`:** GAP-12 opdateret fra `aaben` til
+  `delvist_lukket` — mitigeringen, nøglen og den kendte begrænsning
+  (tomme bilagsnumre) dokumenteret. `catalog/data_contract.json`
+  regenereret (uændret v0.2.0/69 felter — dette er parser-adfærd, ikke
+  kontraktform, så ingen version-bump).
+- **Tests:** 5 nye scenarier i `tests/test_canonical_parser.py` (flere linjer
+  pr. bilag inkl. korrekt document_date/aggregater, tomme bilagsnumre
+  grupperes aldrig, samme bilagsnr. på to datoer = to transaktioner, samt at
+  kontrol 10's tidligere falsk-positiv forsvinder efter gruppering). 256/256
+  tests grønne (op fra 251), 98/98 uafhængig validering grøn, katalog-/
+  kontrakt-drift-gates grønne.
+
 ## Kanonisk ingestion-vej + afstemningsgate — 2026-09-17 (ikke-katalog)
 Byggetrin 8 i den aftalte rækkefølge (`balai-platform/BALAI-dataflow-arkitektur.md`
 §2a/§7, Bal-godkendt 2026-09-17). Tredje input-vej ved siden af Excel/CSV og

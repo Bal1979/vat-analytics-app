@@ -32,11 +32,28 @@ Designprincipper (samme disciplin som ``saft_parser.py``):
   * **Ingen ændring af rådata:** filen åbnes read-only og røres aldrig
     (jf. brugerens faste regel: BALAI analyserer, retter aldrig i uploadede/
     transformerede filer).
-  * **Én række = én transaktion = én linje.** Den kanoniske gl_entries-fil er
-    allerede linje-niveau (én GL-postering pr. række) — motoren forventer
-    transaktioner MED ``lines[]``, så hver række pakkes ind i en
-    1-linje-transaktion. Samme mønster som
-    ``data_adapter.adapt_excel_to_saft`` bruger for det flade Excel-udtræk.
+  * **Bilagsgruppering (GAP-12, rettet 2026-09-17, Bal-godkendt).** Den
+    kanoniske gl_entries-fil er linje-niveau (én GL-postering pr. række), men
+    BC/NAV's GL-poster balancerer PR. BILAG/journal-transaktion, ikke pr.
+    række — og den seedede mapping leverer ikke BC's Entry No./Transaction No.
+    Den pragmatiske bilagsnøgle er derfor ``(invoice_numbers, posting_dates)``:
+    rækker med samme, IKKE-TOMME ``invoice_numbers`` og samme ``posting_dates``
+    samles til ÉN transaktion med flere ``lines[]``. Rækker med tomt/manglende
+    ``invoice_numbers`` grupperes ALDRIG sammen (heller ikke med hinanden på
+    samme dato) — der er ingen evidens for en sammenhæng, så de forbliver hver
+    sin egen 1-linjes transaktion (samme fallback som før grupperingen fandtes,
+    og samme mønster som ``data_adapter.adapt_excel_to_saft`` bruger for det
+    flade Excel-udtræk uden bilagskolonne). Transaktions-id for en grupperet
+    transaktion er deterministisk af nøglen (``DOC_<invoice>_<dato>``); en
+    ugrupperet 1-linjes transaktion beholder det gamle ``ROW-<rækkenr>``-id.
+    Hver linje bærer sin oprindelige CSV-rækkenummer videre i det
+    canonical-only feltet ``source_row`` (samme sporbarhedsprincip som
+    ``credit_note_flag``/``supply_direction``/``tax_point`` nedenfor — ikke et
+    kontraktfelt, men bevaret for lineage). Se ``_group_key`` og
+    ``_build_transaction`` nedenfor samt known_gaps GAP-12 i
+    ``tools/data_contract_data.py`` for empirisk baggrund (125.885 kritiske
+    falsk-positive fund af 125.986 rækker på kontrol 10/transaktionsbalance,
+    FØR denne gruppering, på den rigtige BC/NAV-fil).
   * **Kendt gap, dokumenteret (ikke skjult):** den aktuelle BC/NAV-mapping
     (seedet 2026-09-16) producerer INGEN selvstændig momssats-kolonne
     (``tax_percentage``), INGEN kontoplan-metadata (``account_type`` /
@@ -46,16 +63,6 @@ Designprincipper (samme disciplin som ``saft_parser.py``):
     nuværende ``analytics_mapping.json``-dækning. Se
     ``catalog/data_contract.json``'s ``known_gaps`` (GAP-10/GAP-11) og
     ``tools/data_contract_data.py``.
-  * **Kendt, bekræftet støjkilde (GAP-12, udviklings-E2E 2026-09-17):** uden en
-    dokument-/bilagsgrupperingsnøgle er hver 1-linjes "transaktion" typisk
-    ENSIDET (kun debit ELLER credit, aldrig begge) — kontrol 10
-    (transaktionsbalance, kategori 1) vil derfor flage NÆSTEN HVER transaktion
-    som "ubalanceret". Bekræftet på den rigtige BC/NAV-fil: 125.885 kritiske
-    fund af 125.986 transaktioner i udviklings-E2E'en. Strukturelt
-    falsk-positivt-mønster, IKKE 125.885 reelle bogføringsfejl — se
-    known_gaps GAP-12 for begrundelse og Bal-anbefaling (overvej at nedvægte
-    kontrol 10 for ``parse_info.kilde == "canonical"``-kørsler, indtil en
-    grupperingsnøgle findes). Rettes IKKE her.
 
 Motoren importeres IKKE her — parseren producerer kun data.
 """
@@ -150,6 +157,68 @@ def _split_vat_period(value) -> tuple:
     return "", ""
 
 
+# --- Bilagsgruppering (GAP-12) -----------------------------------------------
+
+def _group_key(invoice_number: str, posting_date: str, source_row: int):
+    """Den pragmatiske bilagsnøgle: ``(invoice_numbers, posting_dates)``, når
+    ``invoice_numbers`` faktisk er udfyldt. Et tomt/manglende bilagsnummer
+    giver ALDRIG en gruppering på tværs af rækker (heller ikke ved samme
+    dato) — vi gætter aldrig en sammenhæng, der ikke er evidens for. I stedet
+    får hver sådan række en unik nøgle (sit eget rækkenummer), så den forbliver
+    sin egen 1-linjes transaktion, præcis som før grupperingen fandtes."""
+    if invoice_number:
+        return ("DOC", invoice_number, posting_date)
+    return ("ROW", source_row)
+
+
+def _build_transaction(group_key: tuple, members: list) -> dict:
+    """Byg én transaktion (med et eller flere ``lines[]``) af de rækker, der
+    deler en bilagsnøgle. Aggregat-felter (total_debit/total_credit) summeres
+    over linjerne — samme konvention som ``data_adapter.adapt_excel_to_saft``
+    og ``saft_parser.parse_saft`` bruger (record_id positionelt ``L<n>`` inden
+    for transaktionen; ``total_debit``/``total_credit`` = sum af linjernes
+    debit-/kreditbeløb)."""
+    lines = []
+    for pos, member in enumerate(members):
+        line = dict(member["line"])
+        line["record_id"] = f"L{pos + 1}"
+        # Række-lineage: canonical-only felt (ikke i data_contract.json, samme
+        # status som credit_note_flag/supply_direction/tax_point) -- så en
+        # grupperet transaktions linjer altid kan spores tilbage til deres
+        # oprindelige CSV-række, uanset hvor mange rækker der er grupperet.
+        line["source_row"] = member["source_row"]
+        lines.append(line)
+
+    first = members[0]
+    period, period_year = _split_vat_period(first["vat_period"])
+    total_debit = round(sum(l["debit_amount"] for l in lines), 2)
+    total_credit = round(sum(l["credit_amount"] for l in lines), 2)
+
+    if group_key[0] == "DOC":
+        _, invoice_number, key_date = group_key
+        transaction_id = f"DOC_{invoice_number}_{key_date}"
+    else:
+        transaction_id = f"ROW-{group_key[1]}"
+
+    return {
+        "transaction_id": transaction_id,
+        "date": first["posting_date"],
+        # Samme document_date-logik som før grupperingen (§2a's document_date-
+        # ekstension): tax_point er den nærmeste kanoniske proxy for
+        # transaktionsdato adskilt fra bogføringsdato, fallback til
+        # posting_date. Grupperede rækker deler pr. definition posting_date;
+        # tax_point tages fra gruppens første række.
+        "document_date": first["tax_point"] or first["posting_date"],
+        "description": "",
+        "journal_id": "IMPORT",
+        "period": period,
+        "period_year": period_year,
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "lines": lines,
+    }
+
+
 # --- Summary/lineage-sidecar -----------------------------------------------
 
 def _read_transform_summary(summary_path: str) -> dict:
@@ -212,9 +281,16 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
 
     accounts_seen = {}
     tax_codes_seen = {}
-    transactions = []
     total_debit = total_credit = total_vat = 0.0
     min_date = max_date = ""
+
+    # Bilagsgruppering (GAP-12): rækker samles pr. bilagsnøgle
+    # ``_group_key(invoice_number, posting_date, source_row)`` i FØRSTE
+    # forekomst-rækkefølge, så transaktionsrækkefølgen i outputtet forbliver
+    # stabil/reproducerbar. ``groups`` samler linje-kandidaterne pr. nøgle;
+    # transaktionerne bygges bagefter af ``_build_transaction``.
+    group_order = []
+    groups: dict = {}
 
     for idx, row in enumerate(rows):
         gl_account = (row.get("gl_accounts") or "").strip()
@@ -241,7 +317,6 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
             tax_base = round(debit + credit, 2)
 
         currency = _currency_code(row.get("currency_fx"))
-        period, period_year = _split_vat_period(vat_period)
 
         if gl_account:
             accounts_seen.setdefault(gl_account, True)
@@ -254,7 +329,6 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
                 max_date = posting_date
 
         line = {
-            "record_id": "L1",
             "account_id": gl_account,
             # KENDT GAB (GAP-11): ingen kontoplan-fil på denne vej -> altid "".
             "account_type": "",
@@ -287,23 +361,20 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
         total_credit += credit
         total_vat += vat_amount
 
-        transactions.append({
-            "transaction_id": f"ROW-{idx + 2}",  # +2: header = række 1
-            "date": posting_date,
-            # tax_point er den nærmeste kanoniske proxy for "dokument-/
-            # transaktionsdato adskilt fra bogføringsdato" (§2a's document_date-
-            # ekstension) — begrundelse: TaxPointDate er SAF-T's periodiserings-
-            # felt, konceptuelt tættest på transaktionens afgiftsudløsende dato,
-            # ikke bogføringsdatoen. Falder tilbage til posting_date, hvis tom.
-            "document_date": tax_point or posting_date,
-            "description": "",
-            "journal_id": "IMPORT",
-            "period": period,
-            "period_year": period_year,
-            "total_debit": debit,
-            "total_credit": credit,
-            "lines": [line],
+        source_row = idx + 2  # +2: header = række 1
+        key = _group_key(invoice_number, posting_date, source_row)
+        if key not in groups:
+            groups[key] = []
+            group_order.append(key)
+        groups[key].append({
+            "line": line,
+            "source_row": source_row,
+            "posting_date": posting_date,
+            "tax_point": tax_point,
+            "vat_period": vat_period,
         })
+
+    transactions = [_build_transaction(key, groups[key]) for key in group_order]
 
     accounts = [
         {
@@ -358,8 +429,12 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
         "rows": len(rows),
         "accounts": len(accounts),
         "tax_table": len(tax_table),
+        # Efter bilagsgruppering (GAP-12): "transactions" = antal BILAG (kan
+        # være < rows, når flere linjer deler en bilagsnøgle); "lines" =
+        # samlet linjeantal, som altid er 1:1 med "rows" (grupperingen
+        # ændrer aldrig antallet af linjer, kun hvordan de er pakket).
         "transactions": len(transactions),
-        "lines": len(transactions),  # 1:1 i denne vej
+        "lines": len(rows),
     }
     info["lineage"] = {
         "mapping_version": mapping_version,
