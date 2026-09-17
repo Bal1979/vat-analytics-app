@@ -1,12 +1,12 @@
 # VAT Analytics — Sporbarhedsrapport
 
-> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.1.0** · 2026-09-08
+> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.2.0** · 2026-09-17
 
 ## Dækning
 
-- Kontroller i alt: **103** (aktive: **98**, inaktive: **5**)
+- Kontroller i alt: **103** (aktive: **99**, inaktive: **4**)
 - Præcis kilde udfyldt: **0 / 103** (resten viser kategoriens retsområde indtil den fagansvarlige pinner paragraffen)
-- Dækkende valideringstest udfyldt: **98 / 103** (valideringssuiten dækker alle 98 aktive kontroller; de 5 uden test er de inaktive)
+- Dækkende valideringstest udfyldt: **99 / 103** (valideringssuiten dækker alle 99 aktive kontroller; de 4 uden test er de inaktive)
 
 ## Analyse-moduler (momsrelevans-slankning)
 
@@ -103,7 +103,7 @@
 | VATA-079 | Købsmoms uden grundlag | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-080 | Indtægt uden momsbehandling | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-081 | Stor andel momsfri omsætning | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
-| VATA-082 | test_82_period_declaration | inaktiv_kraever_kildedata | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | (Fase C) |
+| VATA-082 | Periode-/rubrikafstemning mod momsangivelse | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-083 | test_83_partial_deduction | inaktiv_kraever_kildedata | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | (Fase C) |
 | VATA-084 | Missing trader-indikator | aktiv | Forensic & statistik | FRA | Svig/MTIC: solidarisk hæftelse og karruselindikatorer (momsloven, EU) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-085 | test_85_carousel_pattern | inaktiv_kraever_kildedata | Forensic & statistik | FRA | Svig/MTIC: solidarisk hæftelse og karruselindikatorer (momsloven, EU) | (Fase C) |
@@ -130,7 +130,6 @@
 
 | ID | Kontrol | Afhænger af | Beslutning |
 |----|---------|-------------|------------|
-| VATA-082 | test_82_period_declaration | indberettet momsangivelse for perioden | AKTIVERES via angivelses-input: upload af momsangivelse ELLER positiv indtastning (simuleret dansk momsangivelse). Motoren afstemmer beregnede totaler mod indberettede tal. |
 | VATA-083 | test_83_partial_deduction | delvis fradragsret (fordelingsnøgle) | AKTIVERES todelt: (1) fra data — udled og flag anvendt fradragsbrøk pr. linje + flere/uensartede brøker; (2) fuldt via toggle 'Virksomheden har 100% momspligtig aktivitet' (default til). Slås fra -> indtast foreløbig (anvendt i perioden) og evt. endelig fradragsret (efterregulering, kendes i juni-angivelsen året efter). |
 | VATA-085 | test_85_carousel_pattern | vareflow på tværs af virksomheder (multi-entity) | UDEN FOR SCOPE for single-entity-analyse — dokumenteret begrænsning. Proxy-signaler gives af de øvrige cat11-kontroller. |
 | VATA-090 | test_90_payment_pattern | fuld betalingsdata (modtagerkonto, betalingsdato, tredjepart) | PARKERET: kandidat til valgfrit betalingsdata-input (fraud: faktiske overførsler vs. bogførte tal). |

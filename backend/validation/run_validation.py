@@ -25,11 +25,11 @@ _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 _DOCS = os.path.join(_REPO, "docs")
 
 
-def _fired_ids(data):
+def _fired_ids(data, declarations=None):
     # Valideringssuiten validerer HVER kontrol uafhængigt af produktions-default,
     # så alle analyse-moduler tændes her (ellers ville fund fra default-fra
     # moduler blive filtreret bort og få scenarier til at fejle fejlagtigt).
-    report = run_all_tests(data, active_modules=modules.all_module_keys())
+    report = run_all_tests(data, active_modules=modules.all_module_keys(), declarations=declarations)
     return {f["test_id"] for f in report["all_findings"]}
 
 
@@ -37,8 +37,11 @@ def evaluate():
     results = []
     for s in SCENARIOS:
         tid = s["test_id"]
-        clean_fired = tid in _fired_ids(s["clean"])
-        defect_fired = tid in _fired_ids(s["defect"])
+        # Kontrol 82 (byggetrin 8, Del B): kræver et eksternt angivelses-input
+        # for overhovedet at kunne fyre — scenariet bærer det pr. variant
+        # (clean_declarations/defect_declarations), øvrige scenarier har ingen.
+        clean_fired = tid in _fired_ids(s["clean"], s.get("clean_declarations"))
+        defect_fired = tid in _fired_ids(s["defect"], s.get("defect_declarations"))
         results.append({
             "test_id": tid,
             "navn": s["navn"],

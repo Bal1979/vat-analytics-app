@@ -48,7 +48,8 @@ CATEGORIES = [
 
 # === TEST RUNNER ===
 
-def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) -> dict:
+def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None,
+                   declarations: Optional[dict] = None) -> dict:
     """
     Kør alle implementerede tests mod parsed SAF-T data.
     Returnerer en fuld analyserapport.
@@ -58,6 +59,11 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) ->
     miljøvariablen ANALYTICS_MODULES, ellers default (kun momskernen).
     Deaktiverede moduler kører teknisk stadig, men deres fund filtreres fra før
     rapporten bygges — så aggregater/scores kun afspejler de aktive kontroller.
+
+    ``declarations``: den indberettede momsangivelse (byggetrin 8, Del A/B,
+    Bal-godkendt 2026-09-17), parset af analytics.vat_declarations.
+    load_declarations. Sendes kun videre til kontrol 82 (cat10). None
+    (default) = uændret adfærd — kontrol 82 springer over, som hidtil.
     """
     all_findings = []
 
@@ -80,7 +86,6 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) ->
         ("amount & threshold (cat07)", run_amount_tests),
         ("statistical anomaly (cat08)", run_statistical_tests),
         ("reverse charge (cat09)", run_reverse_charge_tests),
-        ("vat reconciliation (cat10)", run_reconciliation_tests),
         ("fraud & MTIC (cat11)", run_fraud_tests),
         ("e-commerce & special schemes (cat12)", run_ecommerce_tests),
     ):
@@ -88,6 +93,13 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) ->
         cat_findings = runner(data)
         logger.info("%s: %d findings", label, len(cat_findings))
         all_findings.extend(cat_findings)
+
+    # cat10 (VAT-afstemning) kaldes separat — kontrol 82 kræver den valgfrie
+    # angivelses-input, som ikke skal sendes til de øvrige kategorier.
+    logger.info("Running vat reconciliation (cat10)")
+    cat10_findings = run_reconciliation_tests(data, declarations=declarations)
+    logger.info("vat reconciliation (cat10): %d findings", len(cat10_findings))
+    all_findings.extend(cat10_findings)
 
     logger.info("All tests complete: %d total findings", len(all_findings))
 
@@ -102,7 +114,12 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) ->
     # mangler. Beregnes FØR rapporten bygges (Del B, medium-fund-analysen,
     # Bal-godkendt 2026-09-17), fordi den nu også STYRER hvilke fund der
     # medtages — ikke kun rapporteres om.
-    datagrundlag = readiness.assess(data, active, CATEGORIES)
+    # Kontrol 82 er registreret i readiness.EXTERNAL_DATA (kræver eksternt
+    # input) — men når en angivelse RENT FAKTISK er givet, er kravet opfyldt,
+    # og kontrollen skal vurderes efter de normale felt-/modul-krav i stedet
+    # for at blive stemplet "kræver eksterne data" uanset udfald.
+    datagrundlag = readiness.assess(data, active, CATEGORIES,
+                                     external_data_provided={82: declarations is not None})
 
     # Del B-håndhævelse: kontroller markeret STATUS_IKKE_MAALBART (et påkrævet
     # felt er 0% udfyldt på en population stor nok til at udelukke tilfældighed,
@@ -269,10 +286,12 @@ def build_report(data: dict, findings: list) -> dict:
     }
 
 
-def run_analytics(data: dict, active_modules: Optional[Iterable[str]] = None) -> dict:
+def run_analytics(data: dict, active_modules: Optional[Iterable[str]] = None,
+                   declarations: Optional[dict] = None) -> dict:
     """
     Hovedfunktion: Kør alle analytics tests mod parsed data.
-    Alias for run_all_tests — bruges af main.py. ``active_modules`` sendes videre
-    (ellers styres modulerne af ANALYTICS_MODULES / default).
+    Alias for run_all_tests — bruges af main.py. ``active_modules``/
+    ``declarations`` sendes videre (ellers styres modulerne af
+    ANALYTICS_MODULES / default, og kontrol 82 springer over som hidtil).
     """
-    return run_all_tests(data, active_modules=active_modules)
+    return run_all_tests(data, active_modules=active_modules, declarations=declarations)

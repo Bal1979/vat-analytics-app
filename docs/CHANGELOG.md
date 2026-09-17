@@ -3,6 +3,97 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Byggetrin 8, Del A–D: kontrol 82 aktiveret + tre kanoniske stamdata-filer — 2026-09-17 (catalog v1.2.0, data_contract v0.3.0)
+
+Bal-godkendt opgave: operationalisér kontrol 82 (afstemning mod den
+indberettede momsangivelse) og modtagelsen af tre nye valgfrie kanoniske
+stamdata-filer. 99/99 aktive kontroller (op fra 98/98) i valideringssuiten;
+306 automatiserede tests (op fra 300); afstemningsgaten forbliver 208/208 på
+den rigtige BC/NAV-fil.
+
+**Del A — Angivelses-input (`analytics/vat_declarations.py`, ny fil):**
+`load_declarations()` læser/validerer `vat_declarations.json`
+(`declarations_version: "1.0.0"`, `periods: [{period, output_vat, input_vat,
+rc_services, rc_goods, energy_taxes, total}]`) — snitfladen aftalt med
+vat-extract. Fejler ALDRIG med exception (samme filosofi som
+`reconciliation_gate.py`): en teknisk fejl må aldrig fremstå som et fagligt
+afslag.
+
+**Del B — Kontrol 82 aktiveret (`analytics/categories/cat10_vat_reconciliation.py`):**
+`test_82_period_declaration` beregner tre rubrikker pr. periode
+(`transactions[].period_year`/`period`) og afstemmer dem mod angivelsen:
+- **udgående-rubrik** = -sum(vat, sale) + \|sum(vat, DKRC-købslinjer)\|
+- **rc_services-rubrik** = \|sum(vat, SERVICE_VAT-købslinjer)\|
+- **input-rubrik** = sum(vat, øvrige købslinjer)
+
+Rettelser undervejs, EMPIRISK fanget på den rigtige BC/NAV-fil (Del D):
+(1) sale/køb afgøres af den kanoniske CSV's eget `supply_direction`-felt
+("sale"/"purchase"), IKKE debet-/kredit-siden — debet/kredit gav en kraftigt
+oppustet udgående-rubrik, fordi kilden kopierer invoice-niveau momsmetadata
+ud på modpost-/betalingslinjer af samme bilag. Debet/kredit er bevaret som
+fallback (`_line_direction`), for Excel-/SAF-T-oprindelse, der ikke bærer
+`supply_direction`. (2) hver rubrik summeres MED FORTEGN over linjerne, og
+abs()/negering anvendes ÉN GANG på summen (ikke pr. linje), så en
+kreditnota/reversering netter korrekt i stedet for at blive lagt oveni.
+DKRC-/SERVICE_VAT-kodegenkendelse er konfigurerbar
+(`materiality.VAT_DECLARATION_DKRC_PATTERNS`/`..._SERVICE_VAT_PATTERNS`,
+defaults `["DKRC"]`/`["SERVICE_VAT"]`) — IKKE hårdkodet til én kundes
+kode-taksonomi. V1-håndtering af timing: sammenlignes pr. periode OG
+årstotal — resolves differencen over året, er den timing (severity low),
+ellers et reelt fund (severity high). Uden en angivelsesfil springer
+kontrollen fortsat over, UÆNDRET adfærd (`readiness.EXTERNAL_DATA[82]`,
+skærpet med et nyt `external_data_provided`-flag der kun løftes, når en
+angivelse faktisk er leveret).
+
+**Del C — Tre valgfrie kanoniske stamdata-filer (`parsers/canonical_masterdata.py`, ny fil):**
+Auto-opdaget ved siden af `gl_entries.csv` (samme mønster som
+`transform_summary.json`), berigelse EFTER `parse_canonical()`:
+- `vat_setup.csv` (join: `vat_codes`-strengen) → reel `tax_percentage`/`rate`
+  i `tax_table[]` OG `transactions[].lines[]` — kategori 3 (kontrol 19-26)
+  får et reelt grundlag (GAP-10 delvist lukket).
+- `chart_of_accounts.csv` (join: kontonummeret/`gl_accounts`) → reel
+  `account_type`/`standard_account_id`/saldi i `accounts[]` OG linjerne —
+  `vat_rules.is_non_vat_account` (kontrol 80's momsrelevans-scope) kan
+  aktiveres (GAP-11 delvist lukket). `vat_rules._NON_VAT_ACCOUNT_TYPES`
+  udvidet med BC/NAV's PLURALE konvention (`"assets"`/`"liabilities"`,
+  observeret på den rigtige fil) ved siden af SAF-T's ental
+  (`"asset"`/`"liability"`/`"equity"`).
+- `customers.csv` (fleksible kolonnenavne — bekræftet mod vat-extracts
+  reelle transform-output: `ext_customer_id`/`ext_customer_name`/
+  `counterparty_country`, samt en simplere `customer_id`/`name`/`country`
+  som fallback) → fylder den selvstændige `customers[]`-liste STRUKTURELT.
+  **Kendt, fortsat åben begrænsning (ikke skjult):** `gl_entries` bærer
+  ingen `customer_id`-kolonne på selve linjerne, så `cat12_ecommerce_special.
+  _cust_country()`'s join er altid tomt på den kanoniske vej — `customers.csv`
+  aktiverer IKKE kontrol 94-97 alene. `ext_vat_bus_posting_group` (en
+  BC-postgruppekode, fx "EU"/"DOMESTIC") mappes bevidst IKKE til
+  `vat_number` (ville være misvisende).
+
+`catalog/data_contract.json` **v0.3.0** (fra v0.2.1): `kilder.canonical` for
+de berørte felter ændret til `"partial"` (afhænger af om sidecar-filen
+leveres); GAP-10/GAP-11 status `delvist_lukket`; tre nye
+`MATERIALITY_RUN_CONFIG`-knapper. 69 felter (uændret antal).
+
+**Del D — E2E-verifikation** (den rigtige BC/NAV-fil, 125.986 rækker, 50.479
+bilag efter gruppering), før/efter Del A-C:
+
+| Kontrol | Før | Efter | Kommentar |
+|---|---|---|---|
+| 19 (ugyldig sats) | 0 | 642 | reelt grundlag fra vat_setup.csv |
+| 22 (manglende udgående moms) | 0 | 147 | reelt grundlag fra vat_setup.csv |
+| 80 (indtægt uden momsbehandling) | 30.863 | 24.152 | chart_of_accounts.csv fjerner falske positive på balancekonti |
+| 82 (rubrik-afstemning) | sprunget over | 12 fund | output_vat + rc_services: 0 fund (afstemmer til < 1 kr. alle 12 mdr. 2025); input_vat: 12 fund, ALLE severity high (reel, IKKE timing — se Del B) |
+| 94-97 (e-handel/OSS) | 0 | 0 | uændret — kendt gab (customers.csv joiner ikke til linjer) |
+
+Total: 55.216 → 49.308 fund (kritisk 0→0, høj 166→969, medium 46.668→39.957,
+lav uændret 8.382). Afstemningsgate uændret **208/208** konti afstemt.
+**Input_vat-observationen (12 fund, severity high) er en ægte
+reconciliation-observation at forelægge Bal** — ikke en kodefejl: GL-baseret
+input-moms og den indberettede input_vat afviger systematisk (~4 mio. DKK
+over året), hvilket ligger uden for denne kontrols datagrundlag at forklare
+(mulige årsager: delvis fradragsret/§42, manuelle korrektioner i angivelsen,
+poster uden for GL-udtrækkets vindue).
+
 ## Medium-fund-analysen, punkt 1+2: description-modtagelse + "ikke målbar"-gating — 2026-09-17 (ikke-katalog)
 Bal-godkendt opfølgning på GAP-12-mitigeringen (samme dag). Den fulde E2E på
 den rigtige BC/NAV-fil (v2, uden description) gav 128.978 fund, heraf 114.575

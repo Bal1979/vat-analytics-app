@@ -23,10 +23,28 @@ Resultatfilosofi (vigtig): **RØD = handling krævet** — ingen falske alarmer
 (jf. VIES: 37 røde → 4 reelle). Konservativ mod falske negativer. Prioriteret
 handlingsliste, ikke en mur af flag.
 
-## Status (pr. 2026-09-08)
+## Status (pr. 2026-09-17)
 
-- Regelkatalog **v1.1.0**. 103 kontroller (98 aktive; 82, 83, 85, 90, 99 bevidst
-  inaktive med dokumenteret beslutning).
+- **Kontrol 82 aktiveret + tre kanoniske stamdata-filer (byggetrin 8, Del
+  A-D, 2026-09-17, Bal-godkendt):** regelkatalog **v1.2.0**. 103 kontroller
+  (**99 aktive**; 83, 85, 90, 99 fortsat bevidst inaktive). Kontrol 82
+  (periode-/rubrikafstemning mod den indberettede momsangivelse) kræver
+  `vat_declarations.json` (`analytics/vat_declarations.py`) — springer
+  fortsat pænt over uden. Tre VALGFRIE kanoniske stamdata-sidecar-filer
+  (`vat_setup.csv`/`chart_of_accounts.csv`/`customers.csv`, se
+  `parsers/canonical_masterdata.py`) beriger den kanoniske vej (GAP-10/
+  GAP-11 delvist lukket): reel momssats (kontrol 19-26), reel kontoplan
+  (kontrol 80's momsrelevans-scope), kunde-stamdata (strukturelt — se
+  kendt gab for kontrol 94-97 i `canonical_masterdata.py`'s docstring).
+  Empirisk verificeret på den rigtige BC/NAV-fil (125.986 rækker):
+  udgående moms + RC-ydelser afstemmer til < 1 kr. for alle 12 måneder
+  2025; input_vat viser en ægte (ikke timing-) difference på ~4 mio. DKK
+  årligt — se `docs/CHANGELOG.md` for hele før/efter-tabellen og analysen.
+  `catalog/data_contract.json` **v0.3.0**. Valideringssuite **99/99**,
+  **306 automatiserede tests**.
+- Regelkatalog-historik: **v1.1.0** (2026-09-08). 103 kontroller (98 aktive;
+  82, 83, 85, 90, 99 bevidst inaktive med dokumenteret beslutning) — se
+  ovenstående for opdateringen.
 - **Momsrelevans-slankning (analyse-moduler):** de 103 kontroller er delt i moduler.
   **Momskernen (60 kontroller) er default TIL**; resten (43) ligger i moduler der er
   **default FRA**: `forensic_statistik` (26), `ehandel_saerordninger` (10),
@@ -74,9 +92,9 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **256 automatiserede tests** (251 + 5 nye GAP-12-grupperingstests) +
-  uafhængig valideringssuite (**98/98 aktive kontroller**, én plantet defekt
-  pr. kontrol, gated i CI).
+- **306 automatiserede tests** + uafhængig valideringssuite (**99/99 aktive
+  kontroller**, én plantet defekt pr. kontrol, gated i CI) — se byggetrin
+  8/Del A-D ovenfor for den seneste opdatering (2026-09-17).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).
@@ -87,10 +105,10 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 169 tests
+python -m pytest -q                            # 306 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
-python -m validation.run_validation            # 98/98 uafhængig validering
+python -m validation.run_validation            # 99/99 uafhængig validering
 ```
 Bemærk: Railway auto-deployer ved `git push`. Bal kører pytest lokalt og
 committer/pusher (SSH ligger kun på hans Mac).
@@ -233,9 +251,14 @@ Postgres), `AUTH_BASE_URL` (default `https://auth.balai.dk`), `AUTH_DB_PATH`,
   nature (balance ≥ 5000 / resultat 1000–4999) i `analytics/standard_accounts.py`,
   wiret ind i `vat_rules.is_non_vat_account`, så scopet bider på rigtige filer, hvor
   `AccountType` er mislabeled "Other". Bekræftet på den fejlmærkede v1.0-fil.
-- **Features 82/83** (besluttet, afklar UI-form): 82 = periode vs. angivelse
-  (angivelses-input); 83 = delvis fradragsret (fradragsbrøk + toggle "100%
-  momspligtig"). 90 (betalingsmønstre) parkeret.
+- **Feature 82:** motor-/CLI-siden implementeret (byggetrin 8/Del A-D,
+  2026-09-17) — `analyze_canonical.py` og `run_all_tests(declarations=...)`.
+  Web-UI'ens upload-flow (`main.py`/`upload_router.py`) understøtter i dag
+  KUN én fil ad gangen og har derfor endnu ingen vej til at modtage
+  `vat_declarations.json` (eller de tre stamdata-sidecar-filer) — afklares i
+  en senere UI-runde. **Feature 83** (delvis fradragsret, fradragsbrøk +
+  toggle "100% momspligtig") fortsat kun besluttet, ikke implementeret. 90
+  (betalingsmønstre) parkeret.
 - **`kilde`-pinning** pr. kontrol i `rule_notes.json` — fagansvarlig bekræfter
   paragraffer; Claude laver kun kategori-udkast.
 - **Tophuller fra Fabian-dialogen (G1–G4):** fradragsbegrænsning (§42), udenlandske

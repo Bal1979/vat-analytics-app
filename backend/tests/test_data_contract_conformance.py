@@ -295,11 +295,19 @@ def test_saft_path_conforms_to_data_contract(tmp_path):
 
 # --- Kanonisk CSV-fixture (byggetrin 8) --------------------------------------
 
-def _write_canonical_fixture(tmp_path, with_summary=True):
+def _write_canonical_fixture(tmp_path, with_summary=True, with_masterdata=True):
     """Lille, selvstændig kanonisk gl_entries-CSV -- samme kolonnenavne som
     dataextract.transform's BC/NAV-mapping producerer i praksis (bekræftet mod
     det rigtige transform_summary.json fra 2026-09-16-kørslen). Ingen
-    kundedata -- opdigtede beløb/konti."""
+    kundedata -- opdigtede beløb/konti.
+
+    ``with_masterdata`` (byggetrin 8, Del C): skriver også de tre valgfrie
+    stamdata-sidecar-filer (vat_setup.csv/chart_of_accounts.csv/customers.csv)
+    ved siden af CSV'en, så conformance-testen kan bevise, at de kanoniske
+    felter, kontrakten nu lover "partial" fra (tax_percentage/account_type/
+    standard_account_id/customers[]), rent faktisk udfyldes korrekt, når
+    filerne leveres -- se parsers/canonical_masterdata.py.
+    """
     headers = [
         "posting_dates", "tax_point", "vat_period", "credit_note_flag",
         "invoice_numbers", "gl_accounts", "vat_codes", "vat_amount",
@@ -329,6 +337,23 @@ def _write_canonical_fixture(tmp_path, with_summary=True):
         (tmp_path / "transform_summary.json").write_text(
             json.dumps(summary), encoding="utf-8"
         )
+
+    if with_masterdata:
+        with open(tmp_path / "vat_setup.csv", "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["vat_codes", "tax_percentage", "description"])
+            writer.writerow(["U25", "25.0", "Salgsmoms 25%"])
+        with open(tmp_path / "chart_of_accounts.csv", "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["gl_accounts", "account_type", "standard_account_id",
+                             "opening_balance", "closing_balance"])
+            writer.writerow(["1000", "Revenue", "1000", "0", "0"])
+            writer.writerow(["2100", "Asset", "5820", "0", "0"])
+        with open(tmp_path / "customers.csv", "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["customer_id", "name", "vat_number", "country"])
+            writer.writerow(["K001", "Testkunde ApS", "DK12345678", "DK"])
+
     return str(path)
 
 

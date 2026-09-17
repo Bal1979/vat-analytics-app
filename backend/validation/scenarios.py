@@ -622,7 +622,7 @@ SCENARIOS = [
                            for i in range(4)]),
     },
 
-    # === cat10: Ind-/udgående moms-afstemning (resten: 76, 77, 78, 81) ===
+    # === cat10: Ind-/udgående moms-afstemning (resten: 76, 77, 78, 81, 82) ===
     {
         "test_id": 76, "navn": "Højt købsmoms/salgsmoms-forhold",
         "clean": mk_data([
@@ -656,6 +656,32 @@ SCENARIOS = [
         "clean": mk_data(mk_txn(mk_line(credit_amount=20000.0, tax_code="U25", tax_percentage=25.0,
                                         tax_base=20000.0, tax_amount=5000.0))),
         "defect": mk_data(mk_txn(mk_line(credit_amount=20000.0, tax_code="N0", tax_percentage=0.0))),
+    },
+    {
+        # Byggetrin 8, Del B (Bal-godkendt 2026-09-17): kontrol 82 kræver et
+        # eksternt angivelses-input for overhovedet at kunne fyre — se
+        # cat10_vat_reconciliation.test_82_period_declaration. Sale-linjens
+        # tax_amount er NEGATIV (samme signerede konvention som den rigtige
+        # BC/NAV-fil, jf. rubrik-formlen "-sum(vat, sale)"), så den beregnede
+        # udgående-rubrik bliver +250.0 -- matcher en angivet output_vat=250.0
+        # i det rene scenarie. Det defekte scenarie angiver en helt anden
+        # værdi, som IKKE nulstilles over årstotalen (kun én periode i alt),
+        # så differencen klassificeres som reel (severity high), ikke timing.
+        "test_id": 82, "navn": "Periode-/rubrikafstemning mod momsangivelse",
+        "clean": mk_data(mk_txn(mk_line(credit_amount=1000.0, tax_amount=-250.0),
+                                period="03", period_year="2024")),
+        "clean_declarations": {
+            "declarations_version": "1.0.0", "source": "test", "generated": "2024-04-01",
+            "periods": [{"period": "2024-03", "output_vat": 250.0, "input_vat": 0.0,
+                         "rc_services": 0.0, "rc_goods": 0.0, "energy_taxes": 0.0, "total": 250.0}],
+        },
+        "defect": mk_data(mk_txn(mk_line(credit_amount=1000.0, tax_amount=-250.0),
+                                 period="03", period_year="2024")),
+        "defect_declarations": {
+            "declarations_version": "1.0.0", "source": "test", "generated": "2024-04-01",
+            "periods": [{"period": "2024-03", "output_vat": 999999.0, "input_vat": 0.0,
+                         "rc_services": 0.0, "rc_goods": 0.0, "energy_taxes": 0.0, "total": 999999.0}],
+        },
     },
 
     # === cat12: E-handel, digitale ydelser & særordninger (94-98, 100-103; 99 inaktiv) ===

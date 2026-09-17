@@ -20,6 +20,17 @@ def test_is_non_vat_account():
     assert not vr.is_non_vat_account({})
 
 
+def test_is_non_vat_account_bc_nav_plural_convention():
+    """Byggetrin 8/Del C (Bal-godkendt 2026-09-17): bekræftet mod den rigtige
+    chart_of_accounts.csv (BC/NAV) — account_type er PLURAL ("assets"/
+    "liabilities"), ikke SAF-T's ental. Begge konventioner skal genkendes."""
+    assert vr.is_non_vat_account({"account_type": "assets"})
+    assert vr.is_non_vat_account({"account_type": "liabilities"})
+    assert vr.is_non_vat_account({"account_type": "equity"})
+    assert not vr.is_non_vat_account({"account_type": "income"})
+    assert not vr.is_non_vat_account({"account_type": "expense"})
+
+
 def test_80_suppressed_on_balance_account():
     line = mk_line(credit_amount=10000.0, country="DK", tax_code="", tax_amount=0.0,
                    account_type="Liability")

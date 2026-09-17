@@ -322,11 +322,16 @@ def is_round_amount(value, base=1000):
 
 # === LINJE-HELPERS ===
 
-# Kontotyper (SAF-T AccountType) der er balanceposter — IKKE momsbærende.
-# Momsrelevans-scope: en momskontrol må kun undertrykke et fund, når vi POSITIVT
-# kan se, at linjen er en balancekonto (asset/liability/equity). Er kontotypen
-# ukendt (fx Excel-import uden kontoplan), undertrykkes intet — adfærden er uændret.
-_NON_VAT_ACCOUNT_TYPES = {"asset", "liability", "equity"}
+# Kontotyper der er balanceposter — IKKE momsbærende. Momsrelevans-scope: en
+# momskontrol må kun undertrykke et fund, når vi POSITIVT kan se, at linjen er
+# en balancekonto. Er kontotypen ukendt (fx Excel-import uden kontoplan),
+# undertrykkes intet — adfærden er uændret. To ERP-konventioner er kendte og
+# begge understøttet: SAF-T's AccountType-enum (ental: "asset"/"liability"/
+# "equity") OG BC/NAV's egen kontoplan-eksport (flertal: "assets"/
+# "liabilities" — bekræftet på den kanoniske vejs chart_of_accounts.csv,
+# byggetrin 8/Del C, Bal-godkendt 2026-09-17). "income"/"expense" er IKKE
+# balanceposter og indgår bevidst ikke her.
+_NON_VAT_ACCOUNT_TYPES = {"asset", "liability", "equity", "assets", "liabilities"}
 
 
 def is_non_vat_account(line):

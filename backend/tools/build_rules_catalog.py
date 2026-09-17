@@ -26,7 +26,7 @@ import os
 import re
 import sys
 
-CATALOG_VERSION = "1.1.0"
+CATALOG_VERSION = "1.2.0"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)

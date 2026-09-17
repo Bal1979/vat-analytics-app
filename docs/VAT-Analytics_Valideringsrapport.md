@@ -2,7 +2,7 @@
 
 > Auto-genereret af `python -m validation.run_validation` · 2026-09-17
 
-✅ **BESTÅET** — 98/98 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 99/99 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -87,6 +87,7 @@
 | 79 | Købsmoms uden grundlag | ja | ja | ✅ |
 | 80 | Indtægt uden momsbehandling | ja | ja | ✅ |
 | 81 | Stor andel momsfri omsætning | ja | ja | ✅ |
+| 82 | Periode-/rubrikafstemning mod momsangivelse | ja | ja | ✅ |
 | 84 | Missing trader-indikator | ja | ja | ✅ |
 | 86 | Hurtig gennemstrømning | ja | ja | ✅ |
 | 87 | Højrisikovare | ja | ja | ✅ |
@@ -105,5 +106,5 @@
 | 102 | Rejseydelse med fuld moms | ja | ja | ✅ |
 | 103 | Brugtmoms-vare med fuld moms | ja | ja | ✅ |
 
-Dækning: **98** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **99** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 

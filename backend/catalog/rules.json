@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.1.0",
+  "catalog_version": "1.2.0",
   "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 103 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
   "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
   "antal_kontroller": 103,
@@ -2010,19 +2010,23 @@
     {
       "id": "VATA-082",
       "test_id": 82,
-      "navn": "test_82_period_declaration",
+      "navn": "Periode-/rubrikafstemning mod momsangivelse",
       "kategori_id": 10,
       "kategori": "Indgående/Udgående Moms Afstemning",
-      "impact_type": [],
-      "severity": [],
-      "status": "inaktiv_kraever_kildedata",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "dynamisk"
+      ],
+      "status": "aktiv",
       "analyse_modul": "moms_kerne",
       "analyse_modul_navn": "Momskerne",
       "default_aktiv": true,
       "modul": "analytics/categories/cat10_vat_reconciliation.py",
       "funktion": "test_82_period_declaration",
       "kilde": "",
-      "test": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "indberettet momsangivelse for perioden",
       "scope_beslutning": "AKTIVERES via angivelses-input: upload af momsangivelse ELLER positiv indtastning (simuleret dansk momsangivelse). Motoren afstemmer beregnede totaler mod indberettede tal."
     },

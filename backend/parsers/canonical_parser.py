@@ -65,15 +65,21 @@ Designprincipper (samme disciplin som ``saft_parser.py``):
     ``analytics/readiness.py`` (Del B) for hvordan motoren undgår at flage
     50.479 falske "mangler Description"-fund, når kolonnen slet ikke findes
     i datagrundlaget.
-  * **Kendt gap, dokumenteret (ikke skjult):** den aktuelle BC/NAV-mapping
-    (seedet 2026-09-16) producerer INGEN selvstændig momssats-kolonne
-    (``tax_percentage``), INGEN kontoplan-metadata (``account_type`` /
-    ``standard_account_id`` / saldi), og INGEN leverandør-/kundestamdata. Disse
-    kontraktfelter er derfor strukturelt tomme på den kanoniske vej i dag —
-    ikke en fejl i denne parser, men et reelt datahul i objekt-modellens
-    nuværende ``analytics_mapping.json``-dækning. Se
-    ``catalog/data_contract.json``'s ``known_gaps`` (GAP-10/GAP-11) og
-    ``tools/data_contract_data.py``.
+  * **Kendt gap, dokumenteret (ikke skjult) — DELVIST LUKKET (byggetrin 8,
+    Del C, Bal-godkendt 2026-09-17):** den seedede BC/NAV-mapping (2026-09-16)
+    producerer selv INGEN selvstændig momssats-kolonne (``tax_percentage``),
+    INGEN kontoplan-metadata (``account_type``/``standard_account_id``/
+    saldi) og INGEN leverandør-/kundestamdata på ``gl_entries``-niveau. Tre
+    VALGFRIE stamdata-sidecar-filer (``vat_setup.csv``, ``chart_of_accounts.csv``,
+    ``customers.csv``, se ``parsers/canonical_masterdata.py``) kan nu levere
+    dette som en separat berigelse EFTER selve parsningen, når filerne
+    findes ved siden af CSV'en. Fravær af én eller alle tre filer giver
+    UÆNDRET adfærd (samme strukturelle 0.0/""-tomhed som før). ``customers.csv``
+    fylder kun den selvstændige ``customers[]``-liste — den kan IKKE joines
+    til linjerne (intet ``customer_id``-felt i ``gl_entries``), så kontrol
+    94-97 er fortsat blinde på den kanoniske vej (se ``canonical_masterdata.py``'s
+    docstring). Se ``catalog/data_contract.json``'s ``known_gaps``
+    (GAP-10/GAP-11) og ``tools/data_contract_data.py`` for status.
 
 Motoren importeres IKKE her — parseren producerer kun data.
 """
@@ -83,6 +89,8 @@ from __future__ import annotations
 import csv
 import json
 import os
+
+from parsers import canonical_masterdata
 
 
 # --- Kolonner ----------------------------------------------------------------
@@ -268,13 +276,24 @@ def _default_summary_path(csv_path: str) -> str:
 
 # --- Parsning ----------------------------------------------------------------
 
-def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
+def parse_canonical(csv_path: str, summary_path: str | None = None,
+                     vat_setup_path: str | None = None,
+                     chart_of_accounts_path: str | None = None,
+                     customers_path: str | None = None) -> tuple:
     """Parse en kanonisk gl_entries-CSV til (canonical_dict, info).
 
     ``summary_path``: valgfri sti til transform_summary.json (lineage). Hvis
     ikke angivet, forsøges filen ved siden af ``csv_path`` automatisk; findes
     den ikke, køres analysen alligevel (blot uden lineage-stempel) — jf.
     opgavens krav om at afstemnings-/lineage-lag er valgfrie, ikke blokerende.
+
+    ``vat_setup_path``/``chart_of_accounts_path``/``customers_path``: valgfrie
+    stier til de tre kanoniske stamdata-sidecar-filer (byggetrin 8, Del C).
+    Ikke angivet -> forsøges ved siden af ``csv_path`` under de aftalte navne
+    (``vat_setup.csv``/``chart_of_accounts.csv``/``customers.csv``). Se
+    parsers/canonical_masterdata.py for berigelseslogikken. Alle tre er
+    uafhængigt valgfrie — fravær af én ændrer intet for de øvrige eller for
+    resten af parsningen.
     """
     info = {"errors": [], "warnings": [], "sections": {}, "kilde": "canonical"}
 
@@ -490,8 +509,9 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
         "accounts": accounts,
         "tax_table": tax_table,
         "transactions": transactions,
-        "suppliers": [],  # KENDT GAB (GAP-11): ingen leverandørstamdata på denne vej i dag.
-        "customers": [],  # KENDT GAB (GAP-11): ingen kundestamdata på denne vej i dag.
+        "suppliers": [],  # KENDT GAB (GAP-11, uændret): ingen leverandørstamdata-fil i dag.
+        "customers": [],  # GAP-11 (delvist lukket nedenfor, hvis customers.csv findes ved
+                          # siden af CSV'en — se canonical_masterdata.enrich_canonical).
         "summary": {
             "total_transactions": len(transactions),
             "total_debit": round(total_debit, 2),
@@ -503,6 +523,21 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
         },
         "parse_info": info,
     }
+
+    # Del C (byggetrin 8, Bal-godkendt 2026-09-17): tre valgfrie kanoniske
+    # stamdata-sidecar-filer (vat_setup.csv/chart_of_accounts.csv/
+    # customers.csv), auto-opdaget ved siden af CSV'en (eller eksplicit
+    # angivet) — samme mønster som transform_summary.json. Ingen af filerne
+    # er obligatoriske; fravær giver uændret adfærd (GAP-10/GAP-11 forbliver
+    # åbne som hidtil for det datasæt). Se parsers/canonical_masterdata.py.
+    stamdata = canonical_masterdata.enrich_canonical(
+        canonical, csv_path,
+        vat_setup_path=vat_setup_path, chart_of_accounts_path=chart_of_accounts_path,
+        customers_path=customers_path,
+    )
+    info["stamdata"] = stamdata
+    info["warnings"].extend(stamdata["advarsler"])
+
     return canonical, info
 
 

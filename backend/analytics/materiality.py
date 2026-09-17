@@ -37,6 +37,13 @@ def _list(env, default):
         return list(default)
 
 
+def _strlist(env, default):
+    raw = os.environ.get(env)
+    if not raw:
+        return list(default)
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
 # Severity-vægte til kategori-/overordnet score (engine.build_report).
 SEVERITY_WEIGHTS = {
     "critical": _i("MATERIALITY_WEIGHT_CRITICAL", 25),
@@ -75,3 +82,26 @@ INVOICE_POSTING_LAG_DAYS = _i("MATERIALITY_INVOICE_POSTING_LAG_DAYS", 30)
 
 # Fjernsalgstærskel for EU B2C i DKK (~10.000 EUR) (cat12 test_95).
 DISTANCE_SELLING_THRESHOLD_DKK = _f("MATERIALITY_DISTANCE_SELLING_DKK", 74500.0)
+
+# Kontrol 82 (periode-/rubrikafstemning mod momsangivelsen, byggetrin 8/Del B,
+# Bal-godkendt 2026-09-17): mønstre der klassificerer en KØBSLINJES momskode
+# til henholdsvis indenlandsk omvendt betalingspligt (DKRC — tælles med i
+# UDGÅENDE moms, jf. rubrik-logikken i cat10_vat_reconciliation.py) og
+# RC-ydelser fra udlandet (egen rubrik). Delstrengs-match, case-insensitivt
+# (vat_rules.text_matches_any — mønstrene holdes lowercase her).
+# KENDT BEGRÆNSNING (bevidst, ikke skjult): mønstrene er kalibreret til den
+# observerede BC/NAV-kode-taksonomi (fx "DOMESTIC|REDUCED_PRIVATE_DKRC",
+# "*SERVICE_VAT_EU*"/"*SERVICE_VAT_NOT_EU*") — IKKE en universel standard for
+# alle kunders momskode-navngivning. En klient med en anden taksonomi kræver
+# en engagement-specifik override via env (komma-separeret liste).
+VAT_DECLARATION_DKRC_PATTERNS = [
+    p.lower() for p in _strlist("MATERIALITY_VAT_DECLARATION_DKRC_PATTERNS", ["DKRC"])
+]
+VAT_DECLARATION_SERVICE_VAT_PATTERNS = [
+    p.lower() for p in _strlist("MATERIALITY_VAT_DECLARATION_SERVICE_VAT_PATTERNS", ["SERVICE_VAT"])
+]
+
+# Tolerance (DKK) for periode-/rubrikafstemningen i kontrol 82 — under denne
+# betragtes en beregnet rubrik og den angivne værdi som matchende (afrundings-
+# differencer, ikke et reelt fund).
+VAT_DECLARATION_TOLERANCE = _f("MATERIALITY_VAT_DECLARATION_TOLERANCE", 1.0)

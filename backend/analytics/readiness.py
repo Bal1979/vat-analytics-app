@@ -224,12 +224,21 @@ def _category_of(test_id: int, categories: list):
     return None, None
 
 
-def assess(data: dict, active_modules: set, categories: list) -> dict:
+def assess(data: dict, active_modules: set, categories: list,
+           external_data_provided: dict = None) -> dict:
     """Afgør pr. kontrol den effektive datagrundlags-status + kategori-rollup.
 
     ``categories`` er engine.CATEGORIES (id/name/test_range). ``active_modules`` er
     det sæt analyse-moduler, motoren rent faktisk kørte med.
+
+    ``external_data_provided``: {test_id: bool} — for en kontrol i
+    EXTERNAL_DATA, der RENT FAKTISK har fået sit eksterne input i denne
+    kørsel (fx kontrol 82 med en angivelsesfil, byggetrin 8/Del B,
+    Bal-godkendt 2026-09-17), springes STATUS_EKSTERNE_DATA-branchen over —
+    kontrollen vurderes i stedet efter de normale felt-/modul-krav. Ukendt/
+    ikke angivet test_id = uændret adfærd (samme som i dag).
     """
+    external_data_provided = external_data_provided or {}
     prof = profile_dataset(data)
     cov = prof["felter"]
     few_tx = prof["transaktioner"] < _MIN_TX_FOR_STATISTIK
@@ -251,7 +260,7 @@ def assess(data: dict, active_modules: set, categories: list) -> dict:
         # et-transaktions-scenarier og øvrige eksisterende tests.
         gated_fields = [f for f in mangler if field_is_gated(data, f)]
 
-        if tid in EXTERNAL_DATA:
+        if tid in EXTERNAL_DATA and not external_data_provided.get(tid, False):
             status = STATUS_EKSTERNE_DATA
             aarsag = EXTERNAL_DATA[tid]
         elif not modul_aktiv:

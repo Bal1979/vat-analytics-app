@@ -1,5 +1,5 @@
 {
-  "contract_version": "0.2.1",
+  "contract_version": "0.3.0",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
@@ -203,7 +203,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "vat_rules.is_non_vat_account signal 1 -> kontrol 80 (revenue_without_output_vat); kategori 2 test_15 (duplicate_payment, filtrerer \"Asset\"-konti).",
@@ -218,7 +218,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "vat_rules.is_non_vat_account signal 2 (robust scope) via standard_accounts.account_nature() -> kontrol 80 + hele momskernens balancekonto-udelukkelse.",
@@ -233,7 +233,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol i dag.",
@@ -248,7 +248,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Kontrol 77 (vat_account_reconciliation, kategori 10) — afstemmer beregnet moms mod kontoens closing_balance.",
@@ -298,11 +298,11 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Kategori 3 (momssats-validering); readiness FIELD_INFO.",
-          "noter": "Nøglenavnet motoren forventer. For Excel-oprindelse skrives det af data_adapter fra 'rate' hvis 'tax_percentage' mangler (se 'rate' nedenfor); for SAF-T-oprindelse er det nativt."
+          "noter": "Nøglenavnet motoren forventer. For Excel-oprindelse skrives det af data_adapter fra 'rate' hvis 'tax_percentage' mangler (se 'rate' nedenfor); for SAF-T-oprindelse er det nativt. Byggetrin 8/Del C (Bal-godkendt 2026-09-17, GAP-10 delvist lukket): den VALGFRIE ``vat_setup.csv``-sidecar-fil (join-nøgle: vat_codes-strengen) kan levere en reel værdi på den kanoniske vej — se parsers/canonical_masterdata.py. Uden filen: fortsat 0.0 (uændret)."
         },
         {
           "navn": "rate",
@@ -313,7 +313,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte (kun bro-felt til tax_percentage).",
@@ -548,11 +548,11 @@
             "kilder": {
               "excel": true,
               "saft": true,
-              "canonical": false
+              "canonical": "partial"
             },
             "ekstension": false,
             "kraeves_af": "vat_rules.is_non_vat_account signal 1 -> kontrol 80.",
-            "noter": "Joinet fra accounts[].account_type via account_id. Trin 3 (GAP-03, delvist lukket): data_adapter joiner nu den samme værdi som accounts[].account_type — reel på Excel-vejen, når kildefilen har kontotype-kolonnen; ellers \"\" (uændret adfærd)."
+            "noter": "Joinet fra accounts[].account_type via account_id. Trin 3 (GAP-03, delvist lukket): data_adapter joiner nu den samme værdi som accounts[].account_type — reel på Excel-vejen, når kildefilen har kontotype-kolonnen; ellers \"\" (uændret adfærd). Byggetrin 8/Del C (GAP-11 delvist lukket): på den kanoniske vej joiner ``chart_of_accounts.csv`` (join-nøgle: kontonummeret) feltet direkte ind på linjen, hvis sidecar-filen findes."
           },
           {
             "navn": "standard_account_id",
@@ -563,11 +563,11 @@
             "kilder": {
               "excel": true,
               "saft": true,
-              "canonical": false
+              "canonical": "partial"
             },
             "ekstension": false,
             "kraeves_af": "vat_rules.is_non_vat_account signal 2 -> kontrol 80 + momskerne-scope.",
-            "noter": "Trin 3 (GAP-03, delvist lukket): data_adapter joiner nu standard_account_id fra accounts[] via account_id — nøglen er altid til stede (tidligere manglede den helt på Excel-vejen; line.get(\"standard_account_id\") returnerede None). Tom streng når kildefilen ikke har kolonnen."
+            "noter": "Trin 3 (GAP-03, delvist lukket): data_adapter joiner nu standard_account_id fra accounts[] via account_id — nøglen er altid til stede (tidligere manglede den helt på Excel-vejen; line.get(\"standard_account_id\") returnerede None). Tom streng når kildefilen ikke har kolonnen. Byggetrin 8/Del C: samme ``chart_of_accounts.csv``-join som account_type ovenfor."
           },
           {
             "navn": "description",
@@ -638,11 +638,11 @@
             "kilder": {
               "excel": true,
               "saft": true,
-              "canonical": false
+              "canonical": "partial"
             },
             "ekstension": false,
             "kraeves_af": "Kategori 3 (momssats-validering) — readiness FIELD_INFO.",
-            "noter": ""
+            "noter": "Byggetrin 8/Del C: ``vat_setup.csv`` (join-nøgle: vat_codes-strengen) joiner en reel værdi direkte ind på linjen på den kanoniske vej, hvis sidecar-filen findes. Se tax_table.tax_percentage."
           },
           {
             "navn": "tax_base",
@@ -919,11 +919,11 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Join-nøgle fra lines[].customer_id i kategori 12.",
-          "noter": ""
+          "noter": "Byggetrin 8/Del C (Bal-godkendt 2026-09-17): den VALGFRIE ``customers.csv``-sidecar-fil fylder customers[] STRUKTURELT på den kanoniske vej (parsers/canonical_masterdata.py). KENDT, ÅBEN BEGRÆNSNING (ikke skjult): den seedede gl_entries-mapping bærer INGEN customer_id-kolonne på selve transaktionslinjerne — join-nøglen ovenfor (lines[].customer_id) er derfor altid \"\" på den kanoniske vej, uafhængigt af om customers.csv leveres. customers.csv aktiverer dermed IKKE kontrol 94-97 alene (se GAP-11 og canonical_masterdata.py's docstring for detaljer)."
         },
         {
           "navn": "name",
@@ -934,11 +934,11 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte.",
-          "noter": ""
+          "noter": "Byggetrin 8/Del C: se customer_id ovenfor for begrænsningen."
         },
         {
           "navn": "vat_number",
@@ -949,11 +949,11 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol læser customers[].vat_number direkte i dag — cat04's customer_lookup falder kun tilbage til suppliers[] (ikke customers[]), og cat12/cat06 (kontrol 52) bruger udelukkende linje-niveau vat_number. En reel motorændring kræves for at en kontrol skal KONSUMERE feltet — det er uden for denne opgaves scope (kun parsere/adapter/kontrakt/tests). Feltet er nu leveret strukturelt, klar til brug.",
-          "noter": "Trin 3 (GAP-05, lukket): excel_parser har nu en dedikeret \"customer_vat_number\"-kolonne-alias, med fallback til den generiske \"vat_number\"-kolonne (samme mønster som supplier_info). Tom streng, håndteret pænt, når ingen af kolonnerne findes."
+          "noter": "Trin 3 (GAP-05, lukket): excel_parser har nu en dedikeret \"customer_vat_number\"-kolonne-alias, med fallback til den generiske \"vat_number\"-kolonne (samme mønster som supplier_info). Tom streng, håndteret pænt, når ingen af kolonnerne findes. Byggetrin 8/Del C: se customer_id ovenfor for den kanoniske vejs join-begrænsning."
         },
         {
           "navn": "country",
@@ -964,7 +964,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "cat12._cust_country() — kontrol 94/95/96/97 (e-handel/OSS/fjernsalg/digitale ydelser, kategori 12). RETTELSE til tidligere version af denne kontrakt: _cust_country() tjekker FAKTISK lines[].country FØRST og falder kun tilbage til customers[].country, hvis linjens eget country-felt er tomt — ikke omvendt.",
@@ -1100,9 +1100,9 @@
       },
       {
         "felt": "ekstern_indberettet_momsangivelse",
-        "sti": "(intet fysisk hjem endnu)",
-        "status": "planned",
-        "begrundelse": "Kontrol 82 (afstemning periode vs. angivelse) — findes pr. definition ikke i et enkelt-virksomheds-udtræk; kræver eksternt input (angivelses-tal). Kontrol 82 er registreret i readiness.EXTERNAL_DATA og i modules som bevidst inaktiv."
+        "sti": "(separat sidecar-fil: vat_declarations.json)",
+        "status": "implemented_partial",
+        "begrundelse": "Kontrol 82 (periode-/rubrikafstemning) — byggetrin 8, Del A/B (Bal-godkendt 2026-09-17): AKTIVERET. Findes pr. definition ikke i et enkelt-virksomheds-udtræk; kræver stadig eksternt input (analytics/vat_declarations.py, declarations_version 1.0.0). Uden filen forbliver kontrollen 'kræver eksterne data' (readiness.EXTERNAL_DATA), uændret adfærd for eksisterende input-veje. Rubrik-logikken (ikke retningslogik) og DKRC/SERVICE_VAT-mønster-genkendelsen er dokumenteret i analytics/categories/cat10_vat_reconciliation.py."
       },
       {
         "felt": "ekstern_fradragsbroek",
@@ -1279,6 +1279,28 @@
           "kode_navn": "DISTANCE_SELLING_THRESHOLD_DKK",
           "default": 74500.0,
           "beskrivelse": "Fjernsalgstærskel EU B2C (DKK, ~10.000 EUR) — kontrol 95."
+        },
+        {
+          "env": "MATERIALITY_VAT_DECLARATION_DKRC_PATTERNS",
+          "kode_navn": "VAT_DECLARATION_DKRC_PATTERNS",
+          "default": [
+            "DKRC"
+          ],
+          "beskrivelse": "Delstrengs-mønstre der klassificerer en købslinjes momskode som indenlandsk omvendt betalingspligt (tælles i UDGÅENDE moms) — kontrol 82, byggetrin 8/Del B."
+        },
+        {
+          "env": "MATERIALITY_VAT_DECLARATION_SERVICE_VAT_PATTERNS",
+          "kode_navn": "VAT_DECLARATION_SERVICE_VAT_PATTERNS",
+          "default": [
+            "SERVICE_VAT"
+          ],
+          "beskrivelse": "Delstrengs-mønstre der klassificerer en købslinjes momskode som RC-ydelser fra udlandet (egen rubrik) — kontrol 82."
+        },
+        {
+          "env": "MATERIALITY_VAT_DECLARATION_TOLERANCE",
+          "kode_navn": "VAT_DECLARATION_TOLERANCE",
+          "default": 1.0,
+          "beskrivelse": "Tolerance (DKK) for periode-/rubrikafstemningen — kontrol 82."
         }
       ]
     }
@@ -1380,9 +1402,9 @@
     },
     {
       "id": "GAP-10",
-      "status": "aaben",
+      "status": "delvist_lukket",
       "titel": "Kanonisk vej har ingen momssats — tax_table/lines uden tax_percentage/rate",
-      "beskrivelse": "Byggetrin 8 (2026-09-17): den Bal-godkendte BC/NAV-mapping (dataextract/mappings/, seedet 2026-09-16) producerer i dag KUN den sammensatte ``vat_codes`` (D1-kombinationen) — ingen selvstændig kolonne for den numeriske momssats. canonical_parser.parse_canonical sætter derfor tax_percentage=0.0/rate=0.0 på hele den kanoniske vej, både i tax_table[] og transactions[].lines[] — bevidst ikke gættet/udledt (jf. §2a designprincip 5: motoren 'auto-healer' aldrig manglende data). Konsekvens: kategori 3 (satsvalidering, kontrol 19-26) er strukturelt blind på den kanoniske vej i dag, akkurat som et fladt Excel-udtræk uden momssats-kolonne. Lukkes når vat-extracts objekt-model/mapping-lager begynder at levere en selvstændig tax_percentage-kanonisk kolonne (uden for denne opgaves scope — vat-extract-ansvar).",
+      "beskrivelse": "Byggetrin 8 (2026-09-17): den Bal-godkendte BC/NAV-mapping (dataextract/mappings/, seedet 2026-09-16) producerer i dag KUN den sammensatte ``vat_codes`` (D1-kombinationen) — ingen selvstændig kolonne for den numeriske momssats i selve gl_entries-CSV'en. canonical_parser.parse_canonical sætter derfor stadig tax_percentage=0.0/rate=0.0, HVIS ikke andet leveres — bevidst ikke gættet/udledt (jf. §2a designprincip 5: motoren 'auto-healer' aldrig manglende data). DELVIST LUKKET, byggetrin 8/Del C (2026-09-17, Bal-godkendt): en VALGFRI sidecar-fil ``vat_setup.csv`` (join-nøgle: vat_codes-strengen, samme opake streng som gl_entries' vat_codes-kolonne) kan nu joine en reel tax_percentage/rate ind i BÅDE tax_table[] og transactions[].lines[] — se parsers/canonical_masterdata.py. Kategori 3 (satsvalidering, kontrol 19-26) får dermed et reelt grundlag, NÅR filen leveres. Delvist, ikke helt, lukket: uden vat_setup.csv forbliver adfærden strukturelt 0.0, uændret — filen er vat-extracts/klientens leverance, ikke noget motoren kan garantere findes.",
       "beroerte_felter": [
         "tax_table[].tax_percentage",
         "tax_table[].rate",
@@ -1391,9 +1413,9 @@
     },
     {
       "id": "GAP-11",
-      "status": "aaben",
+      "status": "delvist_lukket",
       "titel": "Kanonisk vej har ingen stamdata — kontoplan-metadata og leverandør-/kundeoplysninger altid tomme",
-      "beskrivelse": "Byggetrin 8 (2026-09-17): den seedede BC/NAV-mapping producerer udelukkende ``gl_entries`` (transaktionslinjer) — intet target_object for kontoplan (accounts[].account_type/standard_account_id/opening_balance/closing_balance), leverandører eller kunder (jf. mapping_og_transformation.md's 'Ét target_object pr. transformations-kørsel'-begrænsning). canonical_parser afleder derfor kun accounts[].account_id (distinkte gl_accounts) og lader resten stå tomt/\"\", og suppliers[]/customers[] er altid tomme lister. Konsekvens: momsrelevans-scopet (vat_rules.is_non_vat_account, kontrol 80) og leverandør-/kundevalidering (kategori 6, kontrol 47-54) kan strukturelt ikke aktiveres på den kanoniske vej i dag — samme, allerede kendte begrænsning som et fladt Excel-udtræk uden kontoplan-/stamdata-faner. Lukkes når vat-extract enten udvider mappingen til flere target_objects, eller CLI'en (tools/analyze_canonical.py) gives yderligere sidecar-filer at joine.",
+      "beskrivelse": "Byggetrin 8 (2026-09-17): den seedede BC/NAV-mapping producerer udelukkende ``gl_entries`` (transaktionslinjer) — intet target_object for kontoplan (accounts[].account_type/standard_account_id/opening_balance/closing_balance), leverandører eller kunder (jf. mapping_og_transformation.md's 'Ét target_object pr. transformations-kørsel'-begrænsning). canonical_parser afleder derfor kun accounts[].account_id (distinkte gl_accounts) fra selve gl_entries-filen. DELVIST LUKKET, byggetrin 8/Del C (2026-09-17, Bal-godkendt): to VALGFRIE sidecar-filer kan nu berige dette EFTER parsningen (se parsers/canonical_masterdata.py): (1) ``chart_of_accounts.csv`` (join-nøgle: kontonummeret) joiner account_type/standard_account_id/opening_balance/closing_balance ind i BÅDE accounts[] og transactions[].lines[] — vat_rules.is_non_vat_account (kontrol 80's momsrelevans-scope) KAN dermed aktiveres, når filen leveres. (2) ``customers.csv`` fylder den SELVSTÆNDIGE customers[]-liste (customer_id/name/vat_number/country). KENDT, FORTSAT ÅBEN BEGRÆNSNING for kunde-siden (ikke skjult): gl_entries bærer INGEN customer_id-kolonne på selve linjerne, så cat12._cust_country()'s join (line.get('customer_id')) altid er \"\" på den kanoniske vej — customers.csv alene aktiverer IKKE kontrol 94-97 (kræver at gl_entries-mappingen også leverer en kunde-reference pr. linje, uden for denne opgaves scope). Leverandørstamdata (suppliers[]) har fortsat ingen sidecar-fil og er derfor uændret altid tom.",
       "beroerte_felter": [
         "accounts[].account_type",
         "accounts[].standard_account_id",
