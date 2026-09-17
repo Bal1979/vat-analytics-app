@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.2.0"
+CONTRACT_VERSION = "0.2.1"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -345,9 +345,20 @@ TRANSACTION_FIELDS = [
     },
     {
         "navn": "description", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
-        "kraeves_af": "Ingen kontrol direkte — kontekst i finding-tekster.",
-        "noter": "",
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
+        "kraeves_af": "Kontrol 4 (faktura-feltfuldstændighed, kategori 1) læser "
+                       "txn['description'] direkte — tidligere fejlagtigt "
+                       "dokumenteret som 'ingen kontrol direkte'.",
+        "noter": "GAP-13 (lukket 2026-09-17, Bal-godkendt): canonical_parser læser "
+                 "nu en valgfri description-kolonne fra den kanoniske CSV og "
+                 "sætter transaktionens description til den FØRSTE ikke-tomme "
+                 "linje-description i bilaget (samme fallback-princip som "
+                 "document_date). Kolonnen kan mangle på ældre kanoniske filer "
+                 "(v2) — da er feltet fortsat \"\" (uændret, ingen crash). Se "
+                 "analytics/readiness.py: kontrol 4's Description-delcheck gates "
+                 "(rapporterer 'ikke målbar' i stedet for per-bilag-støj), når "
+                 "feltet er 0% udfyldt på en population stor nok til at udelukke "
+                 "tilfældighed.",
     },
     {
         "navn": "journal_id", "type": "string", "obligatorisk": False, "format": "",
@@ -431,9 +442,12 @@ LINE_FIELDS = [
     },
     {
         "navn": "description", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
-        "kraeves_af": "Ingen kontrol direkte.",
-        "noter": "",
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
+        "kraeves_af": "Ingen kontrol direkte — kontekst i finding-tekster.",
+        "noter": "GAP-13 (lukket 2026-09-17, Bal-godkendt): canonical_parser "
+                 "læser nu en valgfri description-kolonne pr. linje, samme "
+                 "mønster som account_type/standard_account_id — fraværende "
+                 "kolonne giver fortsat \"\" (uændret adfærd).",
     },
     {
         "navn": "debit_amount", "type": "number", "obligatorisk": True, "format": "DKK, >= 0",
@@ -1155,5 +1169,33 @@ KNOWN_GAPS = [
                        "eventuel anbefaling om at justere nøglen yderligere.",
         "beroerte_felter": ["transactions[].total_debit", "transactions[].total_credit",
                              "transactions[].lines[].record_id"],
+    },
+    {
+        "id": "GAP-13",
+        "status": "lukket",
+        "titel": "Kanonisk vej læste ikke description — kontrol 4 flagede systematisk 50.479 bilag",
+        "beskrivelse": "Medium-fund-analysen af den fulde E2E på den rigtige "
+                       "BC/NAV-fil (2026-09-17, 114.575 medium-fund) viste at "
+                       "kontrol 4 (faktura-feltfuldstændighed) alene stod for "
+                       "50.479 fund — ALLE bilag — fordi canonical_parser aldrig "
+                       "læste en description-værdi (hardkodet \"\" på både "
+                       "linje- og transaktionsniveau), uafhængigt af om kilden "
+                       "reelt havde en beskrivelse. LUKKET 2026-09-17, "
+                       "Bal-godkendt: canonical_parser læser nu en valgfri "
+                       "description-kolonne (fraværende kolonne -> fortsat \"\", "
+                       "ingen crash, jf. best-effort-designprincippet), og "
+                       "sætter den PRÆCIS som Excel-/SAF-T-vejen på begge "
+                       "niveauer. Motor-siden er dermed fuldt lukket; om den "
+                       "kanoniske FIL rent faktisk bærer kolonnen er "
+                       "vat-extracts mapping-ansvar (uden for denne opgaves "
+                       "scope — hovedsessionen orkestrerer synkroniseringen). "
+                       "Suppleret af en Del B-gating i analytics/readiness.py: "
+                       "så længe kolonnen mangler i kilden (v2-filer), "
+                       "rapporterer kontrol 4's Description-delcheck 'ikke "
+                       "målbar' ÉN gang i stedet for at generere støj pr. bilag "
+                       "— en anden, tests-uafhængig sikkerhedslinje mod at "
+                       "denne 50.479-regression kan gentage sig med et andet "
+                       "strukturelt fraværende felt.",
+        "beroerte_felter": ["transactions[].description", "transactions[].lines[].description"],
     },
 ]

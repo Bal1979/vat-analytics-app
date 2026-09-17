@@ -317,3 +317,66 @@ def test_grouped_transaction_multiline_amounts_and_document_date(tmp_path):
     assert txn["document_date"] == "2024-01-28"
     assert [l["record_id"] for l in txn["lines"]] == ["L1", "L2", "L3"]
     assert [l["source_row"] for l in txn["lines"]] == [2, 3, 4]
+
+
+# --- Description (GAP-13, Bal-godkendt 2026-09-17) ---------------------------
+
+_HEADERS_WITH_DESCRIPTION = _HEADERS + ["description"]
+
+
+def test_parse_canonical_without_description_column_is_empty_not_crash(tmp_path):
+    """v2-filer (uden description-kolonnen) skal fortsat parses uden fejl --
+    feltet er bare tomt, på både linje- og transaktionsniveau (GAP-13)."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F1", "1000", "U25", "250.0", "0", "1250.0", "sale", ""],
+    ])
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+    txn = canonical["transactions"][0]
+    assert txn["description"] == ""
+    assert txn["lines"][0]["description"] == ""
+
+
+def test_parse_canonical_reads_description_column_when_present(tmp_path):
+    """v3-filer (med description-kolonnen) skal føre værdien ind på BÅDE
+    linje- og transaktionsniveau, præcis som Excel-/SAF-T-vejen."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F1", "1000", "U25", "250.0", "0", "1250.0",
+         "sale", "", "Salg af varer"],
+    ], headers=_HEADERS_WITH_DESCRIPTION)
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+    txn = canonical["transactions"][0]
+    assert txn["description"] == "Salg af varer"
+    assert txn["lines"][0]["description"] == "Salg af varer"
+
+
+def test_parse_canonical_description_empty_value_is_empty_string(tmp_path):
+    """Kolonnen er til stede, men værdien er tom på denne række -- en reel
+    tom description, IKKE en manglende kolonne. Skal fortsat give ""."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F1", "1000", "U25", "250.0", "0", "1250.0",
+         "sale", "", ""],
+    ], headers=_HEADERS_WITH_DESCRIPTION)
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+    assert canonical["transactions"][0]["description"] == ""
+
+
+def test_grouped_transaction_uses_first_nonempty_line_description(tmp_path):
+    """Et grupperet flerlinje-bilag (GAP-12) tager den FØRSTE ikke-tomme
+    linje-description -- ingen gætning på tværs af linjer, samme
+    fallback-mønster som document_date."""
+    path = _write_csv(tmp_path, [
+        ["2024-02-01", "2024-01-28", "2024-02", "false", "F-77", "1000", "U25", "100.0", "0", "500.0",
+         "sale", "", ""],
+        ["2024-02-01", "2024-01-29", "2024-02", "false", "F-77", "2100", "", "0", "500.0", "0",
+         "purchase", "", "Køb af varer"],
+    ], headers=_HEADERS_WITH_DESCRIPTION)
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+    txn = canonical["transactions"][0]
+    assert len(txn["lines"]) == 2
+    assert txn["description"] == "Køb af varer"
+    assert txn["lines"][0]["description"] == ""
+    assert txn["lines"][1]["description"] == "Køb af varer"

@@ -3,6 +3,101 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Medium-fund-analysen, punkt 1+2: description-modtagelse + "ikke målbar"-gating — 2026-09-17 (ikke-katalog)
+Bal-godkendt opfølgning på GAP-12-mitigeringen (samme dag). Den fulde E2E på
+den rigtige BC/NAV-fil (v2, uden description) gav 128.978 fund, heraf 114.575
+medium — 80% deraf var datagrundlags-støj: kontrol 4 flagede ALLE 50.479
+bilag for manglende Description (feltet blev aldrig læst af
+`canonical_parser`, uafhængigt af om kilden havde en beskrivelse), og
+kontrol 25 gav 10.671 "ingen udenlandsk modpart"-fund, fordi `country` er
+strukturelt fraværende i et GL-udtræk. To ændringer, motorsiden:
+
+**Punkt 1 — Description-modtagelse (GAP-13, lukket):**
+- `canonical_parser.py` læser nu en valgfri `description`-kolonne fra den
+  kanoniske CSV og fører den ind på BÅDE linje- og transaktionsniveau,
+  præcis som Excel-/SAF-T-vejen (`data_adapter.py`/`saft_parser.py`). En
+  grupperet flerlinje-transaktion (bilagsgruppering, GAP-12) bruger den
+  FØRSTE ikke-tomme linje-description i bilaget. Kolonnen kan mangle på
+  ældre kanoniske filer (v2) — da er feltet fortsat `""` (uændret adfærd,
+  ingen crash).
+- `tools/data_contract_data.py`: `kilder.canonical` for `description`
+  (transaction- og line-niveau) rettet til `True`; `kraeves_af` på
+  transaktionsniveau rettet (kontrol 4 læser faktisk feltet — tidligere
+  fejlagtigt dokumenteret som "ingen kontrol direkte"). Ny known_gaps-post
+  **GAP-13** (`lukket`). `catalog/data_contract.json` **v0.2.1** (fra
+  v0.2.0) — 69 felter (uændret antal; kun `kilder`-flag + known_gaps
+  opdateret, ingen nye felter).
+
+**Punkt 2 — "Ikke målbar"-gating (kernen):**
+Bals "ingen falske alarmer"-filosofi udvidet til medium-laget: når et felt,
+en kontrol (eller én delcheck i en multi-felt-kontrol) hårdt afhænger af, er
+**0% udfyldt i HELE datasættet** — og populationen er stor nok til at
+udelukke en enkeltstående/tilfældig tomhed (`MIN_TX_FOR_GATING = 30`, samme
+begrundelse som den eksisterende `_MIN_TX_FOR_STATISTIK`-guard) — rapporterer
+kontrollen "ikke målbar" ÉN gang i stedet for at generere fund pr.
+transaktion.
+- `analytics/readiness.py`: ny status `STATUS_IKKE_MAALBART` ("ikke_maalbar")
+  — en skærpet variant af den eksisterende `STATUS_SPRUNGET_DATA` (samme
+  0%-betingelse, men KUN håndhævet når populationen er stor nok).
+  `STATUS_SPRUNGET_DATA` er UÆNDRET (fortsat rent informativ, ingen
+  størrelses-guard) — det er derfor valideringssuitens og testsuitens mange
+  et-transaktions-scenarier (der bevidst tømmer ét felt for at plante en ægte
+  defekt) forbliver upåvirkede. Ny genbrugelig primitiv `field_is_gated()`.
+  `CONTROL_REQUIREMENTS[25] = ["country"]` tilføjet (kategori 3's default
+  kræver kun tax_code — kontrol 25 tjekker `line["country"]` direkte).
+  Ny `SUBCHECK_FIELDS`/`subcheck_gates()` for multi-felt-kontroller, der IKKE
+  kan gates som helhed (kontrol 4: TransactionID/TransactionDate/AccountID-
+  delcheckene skal blive ved med at køre, selvom Description mangler) —
+  eksponeret som `datagrundlag["delkontrol_gates"]`.
+- `analytics/categories/cat01_transaction_integrity.py` (`test_04`): kalder
+  `readiness.field_is_gated(data, "description", level="transaction")` og
+  springer KUN Description-delchecket over, når det er sandt. De øvrige tre
+  delcheck er uændrede.
+- `analytics/engine.py` (`run_all_tests`): beregner `readiness.assess()` FØR
+  rapporten bygges og fjerner fund fra kontroller markeret
+  `STATUS_IKKE_MAALBART` (generisk, gælder alle `CATEGORY_REQUIREMENTS`/
+  `CONTROL_REQUIREMENTS`-styrede kontroller, ikke kun 25) — erstattet af ÉN
+  note i `datagrundlag`. Ny rapport-nøgle `ikke_maalbare_fund_fjernet`
+  (transparens, additiv — ændrer ikke `filtrerede_fund`, som fortsat kun
+  tæller modul-filtrering).
+- **v1-tærskel (bevidst, dokumenteret):** kun 0%-fravær gates — INGEN fuzzy
+  mellemtærskler. Et felt der er delvist udfyldt (fx land kun på nogle
+  linjer) gates ALDRIG, uanset hvor lav dækningen er.
+
+**Empirisk verifikation på den rigtige BC/NAV-fil (v2, uden description,
+125.986 rækker, 50.479 bilag efter GAP-12-gruppering — samme kørsel som
+GAP-12-tabellen ovenfor), alle analyse-moduler tændt, før/efter denne opgave:**
+
+| Nøgletal | Før (denne opgave) | Efter |
+|---|---|---|
+| Kontrol 4 (Faktura-feltfuldstændighed) | 50.479 medium | **0** — status `ikke_maalbar`, delcheck-note |
+| Kontrol 25 (Nulsats på indenlandsk handel) | 10.671 medium | **0** — status `ikke_maalbar` |
+| Øvrige system-bredt gatede kontroller (32, 71, 73, 86, 92 — kategori 4/9/11, kræver `country`) | 12.613 fund (blandet severity) | **0** |
+| Medium i alt | 114.575 | **46.667** |
+| Høj / lav i alt | 2.366 / 12.037 | 166 / 8.382 |
+| Fund i alt | 128.978 | 55.215 |
+| `ikke_maalbare_fund_fjernet` | — | 23.284 |
+| Kontroller med status `ikke_maalbar` (`datagrundlag.opsummering`) | 0 (fandtes ikke) | 44 af 103 |
+| Afstemningsgate | afstemt, 208/208 | afstemt, 208/208 (uændret) |
+| Transaktioner analyseret | 50.479 | 50.479 (uændret) |
+
+De øvrige ~46.667 medium-fund er IKKE rørt af denne opgave — de er reelle
+kandidater på de felter, der rent faktisk ER til stede i udtrækket (beløb,
+momskoder, datoer m.v.), og skal fortsat vurderes fagligt en for en.
+
+**Opfølgende kørsel på v3 (samme fil, MED description-kolonne tilføjet af
+vat-extract parallelt, mapping v1.2.0, 126.035 rækker):** kontrol 4 går fra
+"ikke målbar" til **`koert`** med **2** reelle medium-fund (description
+faktisk tom på 2 ud af 125.963 udfyldte linjer, dækning 100,0%) — bekræfter
+at gatingen kun undertrykker støj, ALDRIG en reel defekt, når feltet rent
+faktisk er til stede. Kontrol 25 forbliver `ikke_maalbar` (v3 tilføjede kun
+description, ikke `country`). Afstemningsgate fortsat 208/208.
+
+Testdisciplin: 256/256 automatiserede tests + 98/98 uafhængig
+valideringssuite grønne uændret (ingen eksisterende scenarie ændrede
+resultat — `MIN_TX_FOR_GATING` holder alle valideringssuitens
+et-transaktions-scenarier uden for gatingen, jf. `readiness.py`).
+
 ## GAP-12 mitigeret: bilagsgruppering i den kanoniske parser — 2026-09-17 (ikke-katalog)
 Bal-godkendt opfølgning på byggetrin 8 (se afsnittet nedenfor). Kontrol 10
 (transaktionsbalance, kategori 1) gav 125.885 strukturelle falsk-positive fund

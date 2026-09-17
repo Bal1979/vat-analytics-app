@@ -63,6 +63,17 @@ handlingsliste, ikke en mur af flag.
   udfyldt bilagsnummer); 125.986 → 50.479 transaktioner (Ø 2,5 linjer/bilag);
   afstemningsgaten uændret 208/208 (afstemning er konto-/linjebaseret, ikke
   transaktionsbaseret). GAP-12 status `delvist_lukket` i `data_contract_data.py`.
+- **Medium-fund-analysen, punkt 1+2 (2026-09-17, Bal-godkendt):** GAP-13
+  lukket (`canonical_parser` læser nu `description` på linje-/
+  transaktionsniveau, kontrakt v0.2.1) + ny **"ikke målbar"-gating**
+  (`analytics/readiness.py`: `STATUS_IKKE_MAALBART`, `field_is_gated()`,
+  `MIN_TX_FOR_GATING=30`) — en kontrol (eller delcheck) rapporterer nu "kan
+  ikke måles: X findes ikke i datagrundlaget" ÉN gang i stedet for
+  per-transaktions-støj, når et påkrævet felt er 0% udfyldt på en
+  population stor nok til at udelukke tilfældighed. Empirisk på den rigtige
+  BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
+  25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
+  afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
 - **256 automatiserede tests** (251 + 5 nye GAP-12-grupperingstests) +
   uafhængig valideringssuite (**98/98 aktive kontroller**, én plantet defekt
   pr. kontrol, gated i CI).
@@ -140,7 +151,7 @@ committer/pusher (SSH ligger kun på hans Mac).
 
 ## Maskinlæsbar datakontrakt (motorens input)
 
-`catalog/data_contract.json` (v0.2.0) beskriver hele motorens kanoniske
+`catalog/data_contract.json` (v0.2.1) beskriver hele motorens kanoniske
 inputstruktur — de 7 objekter `header/accounts/tax_table/transactions
 (+lines)/suppliers/customers/summary`, 69 felter i alt (heraf to nye
 lineage-felter på `header`: `mapping_version`/`schema_fingerprint`, byggetrin
@@ -164,14 +175,15 @@ document_date, non_deductible_amount, samt en version-triple
 (erklæret/strukturelt detekteret/mål — kun "erklæret" er implementeret i dag).
 Et `run_config`-afsnit dokumenterer `ANALYTICS_MODULES` (hentet direkte fra
 `analytics/modules.py`, aldrig hånd-duplikeret) og `MATERIALITY_*`-tærsklerne.
-Et `known_gaps`-afsnit lister elleve konkrete, evidensbaserede
+Et `known_gaps`-afsnit lister tretten konkrete, evidensbaserede
 uoverensstemmelser på tværs af de tre input-veje (fx: `customers[].vat_number/
 country` er hårdkodet tomme på Excel-vejen, hvilket gør kontrol 94-97
 strukturelt ude af stand til at finde kundens land på Excel-oprindelse;
 `summary` mangler total_debit/credit/vat på SAF-T-vejen; `source_document_id`
 betyder fakturanummer på Excel-vejen men transaktionsbeskrivelse på
 SAF-T-vejen; GAP-10/GAP-11: den kanoniske vej mangler momssats hhv.
-kontoplan-/leverandør-/kundestamdata, jf. dagens vat-extract-mapping).
+kontoplan-/leverandør-/kundestamdata, jf. dagens vat-extract-mapping; GAP-13:
+canonical_parser læste ikke description, lukket 2026-09-17).
 Regenerér efter ændringer i `tools/data_contract_data.py`:
 `python tools/build_data_contract.py`.
 

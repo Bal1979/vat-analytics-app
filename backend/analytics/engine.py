@@ -98,12 +98,35 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None) ->
     logger.info("Aktive moduler: %s — beholdt %d fund, filtreret %d fra",
                 sorted(active), len(kept), suppressed)
 
-    # Byg rapport på de aktive fund
+    # Datagrundlag: hvilke kontroller kunne køre på dette datasæt, og hvad
+    # mangler. Beregnes FØR rapporten bygges (Del B, medium-fund-analysen,
+    # Bal-godkendt 2026-09-17), fordi den nu også STYRER hvilke fund der
+    # medtages — ikke kun rapporteres om.
+    datagrundlag = readiness.assess(data, active, CATEGORIES)
+
+    # Del B-håndhævelse: kontroller markeret STATUS_IKKE_MAALBART (et påkrævet
+    # felt er 0% udfyldt på en population stor nok til at udelukke tilfældighed,
+    # jf. readiness.field_is_gated) fjernes fra fundene — kontrollen kan pr.
+    # konstruktion kun generere falske alarmer på dette datagrundlag (fx
+    # kontrol 25 på et GL-udtræk uden landekolonne: 10.671 fund -> 0). Erstattes
+    # af ÉN note i datagrundlag["kontroller"]/["delkontrol_gates"], ikke en
+    # finding pr. transaktion. STATUS_SPRUNGET_DATA (små datasæt, herunder hele
+    # valideringssuiten) håndhæves IKKE — kun rapporteres, som hidtil.
+    unmaalbare_ids = {c["test_id"] for c in datagrundlag["kontroller"]
+                       if c["status"] == readiness.STATUS_IKKE_MAALBART}
+    gated = [f for f in kept if f["test_id"] not in unmaalbare_ids]
+    ikke_maalbare_fjernet = len(kept) - len(gated)
+    if ikke_maalbare_fjernet:
+        logger.info("Ikke målbart datagrundlag: fjernede %d fund fra kontrol(ler) %s",
+                    ikke_maalbare_fjernet, sorted(unmaalbare_ids))
+    kept = gated
+
+    # Byg rapport på de aktive, målbare fund
     report = build_report(data, kept)
     report["moduler"] = modules.module_summary(active)
     report["filtrerede_fund"] = suppressed
-    # Datagrundlag: hvilke kontroller kunne køre på dette datasæt, og hvad mangler.
-    report["datagrundlag"] = readiness.assess(data, active, CATEGORIES)
+    report["ikke_maalbare_fund_fjernet"] = ikke_maalbare_fjernet
+    report["datagrundlag"] = datagrundlag
     return report
 
 

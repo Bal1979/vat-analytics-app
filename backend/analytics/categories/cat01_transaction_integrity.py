@@ -6,6 +6,7 @@ Verificerer grundlæggende datakvalitet og integritet i transaktioner.
 
 from datetime import datetime
 from analytics.models import make_finding
+from analytics import readiness
 
 
 def run_transaction_integrity_tests(data: dict) -> list:
@@ -208,8 +209,18 @@ def test_03_vat_rounding(data: dict) -> list:
 def test_04_invoice_field_completeness(data: dict) -> list:
     """
     Verificér at alle transaktioner har de påkrævede felter udfyldt.
+
+    Del B-gating (medium-fund-analysen, Bal-godkendt 2026-09-17): kontrol 4 er
+    en "multi-felt"-kontrol — TransactionID/TransactionDate/AccountID-delcheckene
+    skal blive ved med at køre uændret, uanset om Description er strukturelt
+    fraværende i kilden (fx den kanoniske vejs v2-filer uden description-kolonne,
+    GAP-13). Derfor gates KUN Description-delchecket, og kun når feltet er 0%
+    udfyldt på en population stor nok til at udelukke en enkeltstående defekt
+    (se readiness.field_is_gated — under den grænse, fx valideringssuitens
+    et-transaktions-scenarie, gates IKKE, så den plantede defekt stadig fanges).
     """
     findings = []
+    description_gated = readiness.field_is_gated(data, "description", level="transaction")
 
     for txn in data["transactions"]:
         missing = []
@@ -217,7 +228,7 @@ def test_04_invoice_field_completeness(data: dict) -> list:
             missing.append("TransactionID")
         if not txn["date"]:
             missing.append("TransactionDate")
-        if not txn["description"]:
+        if not description_gated and not txn["description"]:
             missing.append("Description")
 
         for line in txn["lines"]:

@@ -54,6 +54,17 @@ Designprincipper (samme disciplin som ``saft_parser.py``):
     ``tools/data_contract_data.py`` for empirisk baggrund (125.885 kritiske
     falsk-positive fund af 125.986 rækker på kontrol 10/transaktionsbalance,
     FØR denne gruppering, på den rigtige BC/NAV-fil).
+  * **Description (GAP-13, lukket 2026-09-17, Bal-godkendt).** Motorsidens
+    del af medium-fund-analysen (kontrol 4 flagede 50.479 bilag for
+    manglende Description på v2-filen, fordi feltet slet ikke blev læst her
+    -- ikke fordi det manglede i kilden). Parseren læser nu en valgfri
+    ``description``-kolonne og fører den ind på BÅDE linje- og
+    transaktionsniveau, præcis som Excel-/SAF-T-vejen (``data_adapter.py``/
+    ``saft_parser.py``). Kolonnen kan mangle på ældre kanoniske filer (v2) --
+    da er feltet fortsat "" (uændret adfærd, ingen crash). Se
+    ``analytics/readiness.py`` (Del B) for hvordan motoren undgår at flage
+    50.479 falske "mangler Description"-fund, når kolonnen slet ikke findes
+    i datagrundlaget.
   * **Kendt gap, dokumenteret (ikke skjult):** den aktuelle BC/NAV-mapping
     (seedet 2026-09-16) producerer INGEN selvstændig momssats-kolonne
     (``tax_percentage``), INGEN kontoplan-metadata (``account_type`` /
@@ -90,6 +101,10 @@ KNOWN_CANONICAL_COLUMNS = {
     "tax_percentage", "tax_base_amount", "ship_from", "ship_to",
     "counterparty_country", "vat_registration_numbers",
     "account_type", "standard_account_id",
+    # GAP-13 (lukket 2026-09-17, Bal-godkendt): vat-extract tilføjer en
+    # description-kolonne parallelt med denne opgave. Valgfri -- se
+    # kolonnehåndteringen i parse_canonical nedenfor.
+    "description",
 }
 
 # Minimumssæt for overhovedet at genkende filen som "kanonisk gl_entries" i
@@ -200,6 +215,17 @@ def _build_transaction(group_key: tuple, members: list) -> dict:
     else:
         transaction_id = f"ROW-{group_key[1]}"
 
+    # GAP-13 (lukket 2026-09-17, Bal-godkendt): transaktionens description er
+    # samme kilde-værdi som linjernes (kolonnen er række-/linjeniveau i den
+    # kanoniske CSV, ligesom Excel-vejens flade description -- se
+    # data_adapter.adapt_excel_to_saft, der spejler linje- og
+    # transaktionsniveau fra samme kildefelt). For en grupperet
+    # flerlinje-transaktion (samme bilagsnøgle) tages den FØRSTE
+    # ikke-tomme description blandt de grupperede linjer -- ingen gætning på
+    # tværs af linjer, bare det første reelle signal, samme mønster som
+    # document_date-fallbacket ovenfor.
+    description = next((l["description"] for l in lines if l["description"]), "")
+
     return {
         "transaction_id": transaction_id,
         "date": first["posting_date"],
@@ -209,7 +235,7 @@ def _build_transaction(group_key: tuple, members: list) -> dict:
         # posting_date. Grupperede rækker deler pr. definition posting_date;
         # tax_point tages fra gruppens første række.
         "document_date": first["tax_point"] or first["posting_date"],
-        "description": "",
+        "description": description,
         "journal_id": "IMPORT",
         "period": period,
         "period_year": period_year,
@@ -328,12 +354,19 @@ def parse_canonical(csv_path: str, summary_path: str | None = None) -> tuple:
             if not max_date or posting_date > max_date:
                 max_date = posting_date
 
+        # GAP-13 (lukket 2026-09-17, Bal-godkendt): description er en valgfri
+        # kolonne -- fraværende kolonne giver "" (uændret adfærd), en
+        # tilstedeværende kolonne læses og føres med, PRÆCIS som Excel-/
+        # SAF-T-vejen bærer description på linjeniveau (data_adapter.py /
+        # saft_parser.py). Ingen gætning/udledning ved fravær.
+        description = (row.get("description") or "").strip() if "description" in row else ""
+
         line = {
             "account_id": gl_account,
             # KENDT GAB (GAP-11): ingen kontoplan-fil på denne vej -> altid "".
             "account_type": "",
             "standard_account_id": "",
-            "description": "",
+            "description": description,
             "debit_amount": debit,
             "credit_amount": credit,
             "tax_code": vat_code,
