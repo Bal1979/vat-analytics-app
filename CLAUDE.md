@@ -43,9 +43,16 @@ handlingsliste, ikke en mur af flag.
 - **SAF-T-input (produktion):** værktøjet accepterer nu også dansk SAF-T Financial
   (`.xml`, v1.0/2.0/2.1) ved siden af Excel/CSV — se `parsers/saft_parser.py` +
   `upload_router.py`. Best-effort, XML-hærdet.
-- **169 automatiserede tests** (+ ~14 nye SAF-T-parser-tests) + uafhængig
-  valideringssuite (**98/98 aktive kontroller**, én plantet defekt pr. kontrol,
-  gated i CI).
+- **Kanonisk CSV-input (byggetrin 8, 2026-09-17):** TREDJE input-vej —
+  `parsers/canonical_parser.py` læser output fra vat-extracts deterministiske
+  `dataextract.transform` (Bal-godkendt mapping pr. schema-fingerprint) direkte,
+  uden en mellemliggende SAF-T-oversætter. Kendte gaps (GAP-10/GAP-11 i
+  `catalog/data_contract.json`): ingen momssats, ingen kontoplan-/leverandør-/
+  kundestamdata på denne vej i dag. Ny afstemningsgate
+  (`analytics/reconciliation_gate.py`, §8.3) + offline-CLI
+  (`tools/analyze_canonical.py`) kører hele motoren uden webserver.
+- **251 automatiserede tests** + uafhængig valideringssuite (**98/98 aktive
+  kontroller**, én plantet defekt pr. kontrol, gated i CI).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).
@@ -120,9 +127,11 @@ committer/pusher (SSH ligger kun på hans Mac).
 
 ## Maskinlæsbar datakontrakt (motorens input)
 
-`catalog/data_contract.json` (v0.1.0) beskriver hele motorens kanoniske
+`catalog/data_contract.json` (v0.2.0) beskriver hele motorens kanoniske
 inputstruktur — de 7 objekter `header/accounts/tax_table/transactions
-(+lines)/suppliers/customers/summary`, 67 felter i alt. Samme mønster som
+(+lines)/suppliers/customers/summary`, 69 felter i alt (heraf to nye
+lineage-felter på `header`: `mapping_version`/`schema_fingerprint`, byggetrin
+8). Samme mønster som
 regelkataloget: **hånd-vedligeholdt single source** `tools/data_contract_data.py`
 → generator `tools/build_data_contract.py` → `catalog/data_contract.json`,
 drift-gated i CI (`tests/test_data_contract_fresh.py`: committet == genereret,
@@ -133,20 +142,23 @@ pydantic er indført i parserne (det er et senere byggetrin, jf.
 `balai-platform/BALAI-dataflow-arkitektur.md` §7).
 
 Pr. felt: type, obligatorisk/valgfri, format/gyldige værdier, hvilke
-kontroller/kategorier/features der kræver det, og om hver af de to
-input-veje (Excel/CSV, SAF-T XML) reelt udfylder det i dag (`kilder`). Et
-eksplicit `balai_extensions`-afsnit markerer de felter, der IKKE er native
-SAF-T Financial-elementer (§2a i dataflow-arkitekturen): ship_from/to_country,
+kontroller/kategorier/features der kræver det, og om hver af de TRE
+input-veje (Excel/CSV, SAF-T XML, kanonisk CSV — byggetrin 8) reelt udfylder
+det i dag (`kilder.excel`/`kilder.saft`/`kilder.canonical`). Et eksplicit
+`balai_extensions`-afsnit markerer de felter, der IKKE er native SAF-T
+Financial-elementer (§2a i dataflow-arkitekturen): ship_from/to_country,
 document_date, non_deductible_amount, samt en version-triple
 (erklæret/strukturelt detekteret/mål — kun "erklæret" er implementeret i dag).
 Et `run_config`-afsnit dokumenterer `ANALYTICS_MODULES` (hentet direkte fra
 `analytics/modules.py`, aldrig hånd-duplikeret) og `MATERIALITY_*`-tærsklerne.
-Et `known_gaps`-afsnit lister ni konkrete, evidensbaserede uoverensstemmelser
-mellem Excel- og SAF-T-input-vejene (fx: `customers[].vat_number/country` er
-hårdkodet tomme på Excel-vejen, hvilket gør kontrol 94-97 strukturelt ude af
-stand til at finde kundens land på Excel-oprindelse; `summary` mangler
-total_debit/credit/vat på SAF-T-vejen; `source_document_id` betyder
-fakturanummer på Excel-vejen men transaktionsbeskrivelse på SAF-T-vejen).
+Et `known_gaps`-afsnit lister elleve konkrete, evidensbaserede
+uoverensstemmelser på tværs af de tre input-veje (fx: `customers[].vat_number/
+country` er hårdkodet tomme på Excel-vejen, hvilket gør kontrol 94-97
+strukturelt ude af stand til at finde kundens land på Excel-oprindelse;
+`summary` mangler total_debit/credit/vat på SAF-T-vejen; `source_document_id`
+betyder fakturanummer på Excel-vejen men transaktionsbeskrivelse på
+SAF-T-vejen; GAP-10/GAP-11: den kanoniske vej mangler momssats hhv.
+kontoplan-/leverandør-/kundestamdata, jf. dagens vat-extract-mapping).
 Regenerér efter ændringer i `tools/data_contract_data.py`:
 `python tools/build_data_contract.py`.
 

@@ -3,6 +3,75 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kanonisk ingestion-vej + afstemningsgate — 2026-09-17 (ikke-katalog)
+Byggetrin 8 i den aftalte rækkefølge (`balai-platform/BALAI-dataflow-arkitektur.md`
+§2a/§7, Bal-godkendt 2026-09-17). Tredje input-vej ved siden af Excel/CSV og
+SAF-T XML — output fra vat-extracts deterministiske `dataextract.transform`
+(mapping-lager, Bal-godkendte mappings pr. schema-fingerprint) kan nu analyseres
+uden en mellemliggende SAF-T XML-oversætter. Kun parsere/gate/rapportmetadata/
+CLI — ingen ændring af `analytics/categories/*.py`-kontrollogikken.
+
+- **`backend/parsers/canonical_parser.py` (ny):** læser kanonisk gl_entries-CSV
+  (+ valgfri `transform_summary.json`-sidecar for lineage) og bygger samme
+  kontrakt-struktur som de to andre veje. Separator-agnostisk over for
+  `vat_codes` (D1-kombinationen) — behandles altid som en opaque streng, aldrig
+  splittet, uanset om vat-extract bruger `/` eller `|`. Én række = én
+  transaktion = én linje (samme mønster som `data_adapter` for Excel-vejen).
+  `document_date` afledes af `tax_point`-kolonnen (nærmeste kanoniske proxy for
+  transaktionsdato adskilt fra bogføringsdato), med fallback til `posting_dates`.
+- **`backend/parsers/upload_router.py`:** ny routing-gren `is_canonical()` —
+  `.csv`/`.tsv` OG header indeholder de kanoniske markørkolonner
+  (`gl_accounts`/`vat_codes`/`posting_dates`). Ingen kollision med et fladt
+  Excel/CSV-udtræks kolonnenavne (`excel_parser.COLUMN_ALIASES` bruger andre
+  navne). SAF-T-routing uændret, tjekkes først.
+- **`catalog/data_contract.json` v0.2.0 (fra v0.1.0):** ny `kilder.canonical`
+  pr. felt (69 felter, op fra 67 — to nye lineage-felter på `header`:
+  `mapping_version`, `schema_fingerprint`). To nye `known_gaps`: **GAP-10**
+  (kanonisk vej har ingen momssats — `tax_table`/`lines[].tax_percentage`
+  altid 0.0, da den seedede BC/NAV-mapping ikke leverer en selvstændig
+  satskolonne) og **GAP-11** (kanonisk vej har ingen kontoplan-/leverandør-/
+  kundestamdata — `suppliers`/`customers` altid tomme, `accounts[]` kun
+  `account_id`). En TREDJE ny gap tilføjet efter udviklings-E2E'en (se
+  nedenfor): **GAP-12** (kontrol 10/transaktionsbalance er strukturelt
+  støjende på denne vej, ingen bilagsgrupperingsnøgle). Alle tre dokumenterer
+  reelle, kendte begrænsninger i dagens vat-extract-mapping/kilde-data, ikke
+  fejl i denne parser.
+- **`tests/test_data_contract_conformance.py`:** udvidet med den kanoniske vej
+  (egen fixture + assert-helper, der bevidst SPRINGER objekter over, hvor
+  kontrakten lover kanonisk-vejen intet felt — fx `suppliers`/`customers`,
+  jf. GAP-11 — frem for at tvinge fabrikerede stamdata ind i fixturen).
+- **`backend/analytics/reconciliation_gate.py` (ny):** afstemningsgate, §8.3
+  ("afstemt mod kontroltotaler"). Sammenligner NETTO `debit_amount -
+  credit_amount` pr. `account_id` mod en ekstern kontroltotal-fil
+  (`{reconciliation_version, source, generated, accounts: [{account_id,
+  amount}]}` — aftalt snitflade med vat-extract). Konfigurerbar tolerance
+  (default 0,01 DKK). Blokerer IKKE analysen ved brud (v1-adfærd) — stempler
+  rapporten tydeligt "IKKE_AFSTEMT" med detaljer pr. konto; ingen fil givet =
+  "afstemning_ikke_udfoert". Teknisk fejl (ugyldig/manglende fil) rapporteres
+  adskilt fra et fagligt afstemningsbrud.
+- **`backend/tools/analyze_canonical.py` (ny CLI):** offline-kørsel af HELE
+  motoren (`run_all_tests`, alle analyse-moduler som CLI-default — modsat
+  webappens produktions-default på kun momskernen) på en kanonisk fil, uden
+  webserver. Stempler rapporten med `catalog_version` (fra `catalog/rules.json`),
+  `data_contract_version`, `mapping_version` og `schema_fingerprint`. Kør:
+  `python tools/analyze_canonical.py <gl_entries.csv> [--reconciliation <json>]
+  [--tolerance 0.01] [--modules alle|default|<liste>] --out <rapport.json>`.
+- **Udviklings-E2E (2026-09-17):** kørt lokalt mod den rigtige BC/NAV-fil via
+  `tools/analyze_canonical.py` (125.986 kanoniske rækker, gammel `/`-separator
+  — den friske kørsel med den nye `|`-separator orkestreres separat efter
+  vat-extracts parallelspor). Lineage stemplet korrekt (mapping_version 1.0.0,
+  fuld schema_fingerprint matcher transform_summary.json). Parsing 0,28 s,
+  analyse 5,57 s (alle 5 moduler/103 kontroller, ingen sprunget over). 346.083
+  fund i alt — heraf **GAP-12 opdaget og dokumenteret pga. denne kørsel**:
+  125.885 af de 125.885 kritiske fund kommer fra kontrol 10
+  (transaktionsbalance), fordi hver CSV-række i dag bliver sin egen 1-linjes
+  "transaktion" uden modpostering (se GAP-12). Rapport-JSON gemt i scratchpad,
+  IKKE i repoet (kundedata i `all_findings`). Ingen kundedata i denne log.
+- **Tests:** 29 nye (`test_canonical_parser.py` 12, `test_reconciliation_gate.py`
+  10, `test_analyze_canonical_cli.py` 5, `test_data_contract_conformance.py`
+  +2). Fuld suite: **251 tests**, alle grønne + uafhængig valideringssuite
+  (98/98) grøn.
+
 ## Forsoning af input-veje mod datakontrakten — 2026-09-14 (ikke-katalog)
 Trin 3 i byggerækkefølgen (`balai-platform/BALAI-dataflow-arkitektur.md` §7),
 mod `catalog/data_contract.json` v0.1.0's ni `known_gaps`. Kun parsere/adapter/

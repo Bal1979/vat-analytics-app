@@ -1,10 +1,10 @@
 {
-  "contract_version": "0.1.0",
+  "contract_version": "0.2.0",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
   "antal_objekter": 7,
-  "antal_felter": 67,
+  "antal_felter": 69,
   "objekter": {
     "header": {
       "beskrivelse": "Fil-/regnskabs-metadata. Ét objekt pr. upload.",
@@ -17,7 +17,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": false,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol låser sig op af feltet i dag; vises i UI/rapport-header.",
@@ -31,7 +32,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": false,
-            "saft": false
+            "saft": false,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol i dag — nøglen er altid \"\" på begge veje.",
@@ -45,7 +47,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "summary.currency; ingen kontrol læser header.currency direkte.",
@@ -59,7 +62,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "summary.period_start; grundlag for header.period (kontrol 9).",
@@ -73,7 +77,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "summary.period_end; grundlag for header.period (kontrol 9).",
@@ -87,7 +92,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Kontrol 9 (tax point / periode-check, kategori 5).",
@@ -101,7 +107,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol — diagnostik/UI (\"Excel/CSV import\"/\"SAF-T XML import\").",
@@ -115,11 +122,42 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": false,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": true,
           "kraeves_af": "Del af balai_extensions-versionstriplen (se BALAI_EXTENSIONS nedenfor) — endnu ikke konsumeret af nogen kontrol.",
           "noter": "Svarer til SAF-T's native, selvangivne AuditFileVersion — det er netop dette ENE felt, BAL-004/BAL-005-erfaringen viser kan være forkert (Danoil/Føniksbyen erklærede v1.0, indeholdt v2.0-data). Trin 3 (GAP-08, delvist lukket): nøglen er nu til stede (tom streng) i Excel-vejens header for nøglesæt-symmetri — men bærer ingen reel værdi dér (semantisk umuligt: der er intet selvangivet AuditFileVersion at læse fra et fladt udtræk), så kilder.excel forbliver False."
+        },
+        {
+          "navn": "mapping_version",
+          "type": "string",
+          "obligatorisk": false,
+          "format": "semver, fx \"1.0.0\"",
+          "status": "implemented_partial",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": true
+          },
+          "ekstension": false,
+          "kraeves_af": "Ingen kontrol — reproducerbarheds-/lineage-stempel i analyserapporten (byggetrin 8, den billige reproducerbarheds-forbedring anbefalet i trin 3-runden).",
+          "noter": "NY (0.2.0, byggetrin 8, Bal-godkendt 2026-09-17). IKKE et SAF-T- eller balai_extensions-felt — det er pipeline-lineage for den kanoniske vej: hvilken Bal-godkendt mapping (dataextract/mappings/, vat-extract) der producerede gl_entries-CSV'en. Læses fra transform_summary.json ved siden af CSV'en (parsers/canonical_parser.py). Tom streng på Excel-/SAF-T-vejen (findes pr. definition ikke der)."
+        },
+        {
+          "navn": "schema_fingerprint",
+          "type": "string",
+          "obligatorisk": false,
+          "format": "\"sha256:<hex>\"",
+          "status": "implemented_partial",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": true
+          },
+          "ekstension": false,
+          "kraeves_af": "Ingen kontrol — reproducerbarheds-/lineage-stempel, samme begrundelse som mapping_version.",
+          "noter": "NY (0.2.0, byggetrin 8). Hash af kildefilens kolonnenavne+typer (dataextract.profiling, vat-extract) — identificerer PRÆCIS hvilket kilde-skema (ERP-udtræksformat) mappingen blev godkendt til. Ingen kundedata i hash'en. Tom streng på Excel-/SAF-T-vejen."
         }
       ]
     },
@@ -134,7 +172,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Nøgle til linje-join (account_type/standard_account_id-opslag) i data_adapter/saft_parser; kategori 2 (test_15, Asset-filter).",
@@ -148,7 +187,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte — kontekst i rapport.",
@@ -162,7 +202,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "vat_rules.is_non_vat_account signal 1 -> kontrol 80 (revenue_without_output_vat); kategori 2 test_15 (duplicate_payment, filtrerer \"Asset\"-konti).",
@@ -176,7 +217,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "vat_rules.is_non_vat_account signal 2 (robust scope) via standard_accounts.account_nature() -> kontrol 80 + hele momskernens balancekonto-udelukkelse.",
@@ -190,7 +232,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol i dag.",
@@ -204,7 +247,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Kontrol 77 (vat_account_reconciliation, kategori 10) — afstemmer beregnet moms mod kontoens closing_balance.",
@@ -223,7 +267,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Kategori 3 (momssats-validering, 19-26); kategori 9 (reverse charge, 70-75); kategori 10 (afstemning, 76-83); readiness signal-felt for kategori 3/9/10.",
@@ -237,7 +282,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte.",
@@ -251,7 +297,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Kategori 3 (momssats-validering); readiness FIELD_INFO.",
@@ -265,7 +312,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte (kun bro-felt til tax_percentage).",
@@ -279,7 +327,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": false,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol i dag (potentiel bro til feature 82, rubrik-afstemning).",
@@ -293,7 +342,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": false,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol i dag — relevant for udenlandske momskoder.",
@@ -312,7 +362,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Kategori 2 (dubletdetektion, 11-18) som transaktions-nøgle; gennemgående som finding-reference i alle kategorier.",
@@ -326,7 +377,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Kategori 5 (timing & periodetest, 39-46); period/period_year-udledning.",
@@ -340,7 +392,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": true,
           "kraeves_af": "Kontrol 46 (faktura-/bogføringslag, kategori 5).",
@@ -354,7 +407,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte — kontekst i finding-tekster.",
@@ -368,7 +422,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte — kontekst/reference.",
@@ -382,7 +437,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Kategori 5 (timing/periodetest).",
@@ -396,7 +452,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Kategori 5 (timing/periodetest).",
@@ -410,7 +467,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "summary.total_debit (kun Excel-vejen, se summary-uoverensstemmelse); diverse beløbskontroller i kategori 7/10.",
@@ -424,7 +482,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Samme som total_debit.",
@@ -438,7 +497,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Alle 103 kontroller itererer transactions[].lines[].",
@@ -457,7 +517,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Ingen kontrol direkte — finding-reference.",
@@ -471,7 +532,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Join til accounts[] (account_type/standard_account_id).",
@@ -485,7 +547,8 @@
             "status": "implemented_partial",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "vat_rules.is_non_vat_account signal 1 -> kontrol 80.",
@@ -499,7 +562,8 @@
             "status": "implemented_partial",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "vat_rules.is_non_vat_account signal 2 -> kontrol 80 + momskerne-scope.",
@@ -513,7 +577,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Ingen kontrol direkte.",
@@ -527,7 +592,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Stort set alle 103 kontroller (beløbsgrundlag).",
@@ -541,7 +607,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Samme som debit_amount.",
@@ -555,7 +622,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kategori 3, 9, 10 (readiness signal-felt).",
@@ -569,7 +637,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kategori 3 (momssats-validering) — readiness FIELD_INFO.",
@@ -583,7 +652,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kategori 3 (satskontrol mod grundlag); feature 83 (fremtidig fradragsbrøk-beregning).",
@@ -597,7 +667,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kategori 3, 9, 10 — momsbeløb er kernen i afstemningen.",
@@ -611,7 +682,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kontrol 33 (currency/country-konsistens, kategori 4).",
@@ -625,7 +697,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kategori 4 (EU/grænseoverskridende), 6 (parts-validering), 9 (reverse charge), 11 (MTIC) — join til suppliers[].",
@@ -639,7 +712,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kontrol 47 (manglende partsnavn, kategori 6).",
@@ -653,7 +727,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kategori 12 (e-handel) — join til customers[]; kategori 6.",
@@ -667,7 +742,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kontrol 47 (manglende partsnavn), kontrol 52 (kunde uden moms-nr).",
@@ -681,7 +757,8 @@
             "status": "implemented_partial",
             "kilder": {
               "excel": true,
-              "saft": "partial"
+              "saft": "partial",
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kontrol 2/kategori 2 (dubletdetektion, 11-18) — readiness signal-felt CATEGORY_REQUIREMENTS[2].",
@@ -695,7 +772,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kategori 4 (grænseoverskridende/EU), 9, 11, 12 — readiness signal-felt for kategori 4/9/11/12.",
@@ -709,7 +787,8 @@
             "status": "implemented_partial",
             "kilder": {
               "excel": true,
-              "saft": false
+              "saft": false,
+              "canonical": false
             },
             "ekstension": true,
             "kraeves_af": "Kontrol 36 (triangulation/place-of-supply, kategori 4) — CONTROL_REQUIREMENTS[36] i readiness.py.",
@@ -723,7 +802,8 @@
             "status": "implemented_partial",
             "kilder": {
               "excel": true,
-              "saft": false
+              "saft": false,
+              "canonical": false
             },
             "ekstension": true,
             "kraeves_af": "Kontrol 36 (triangulation/place-of-supply, kategori 4).",
@@ -737,7 +817,8 @@
             "status": "implemented",
             "kilder": {
               "excel": true,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": false,
             "kraeves_af": "Kategori 4 (EU-momsnummerformat), kategori 6 (leverandør/kunde-validering, inkl. kontrol 49 CONTROL_REQUIREMENTS) — readiness signal-felt.",
@@ -751,7 +832,8 @@
             "status": "implemented_partial",
             "kilder": {
               "excel": false,
-              "saft": true
+              "saft": true,
+              "canonical": false
             },
             "ekstension": true,
             "kraeves_af": "Feature 83 (delvis fradragsret — pt. registreret inaktiv/kræver eksterne data i readiness.EXTERNAL_DATA); BAL-055 (SAF-T Validator-siden af samme felt).",
@@ -771,7 +853,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Join-nøgle fra lines[].supplier_id i kategori 4/6/9/11.",
@@ -785,7 +868,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte.",
@@ -799,7 +883,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "cat04._vat_of() fallback (linje-niveau har forrang); kategori 6/9/11 supplier_lookup.",
@@ -813,7 +898,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "cat04._country_of() fallback (linje-niveau har forrang).",
@@ -832,7 +918,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Join-nøgle fra lines[].customer_id i kategori 12.",
@@ -846,7 +933,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte.",
@@ -860,7 +948,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol læser customers[].vat_number direkte i dag — cat04's customer_lookup falder kun tilbage til suppliers[] (ikke customers[]), og cat12/cat06 (kontrol 52) bruger udelukkende linje-niveau vat_number. En reel motorændring kræves for at en kontrol skal KONSUMERE feltet — det er uden for denne opgaves scope (kun parsere/adapter/kontrakt/tests). Feltet er nu leveret strukturelt, klar til brug.",
@@ -874,7 +963,8 @@
           "status": "implemented_partial",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": false
           },
           "ekstension": false,
           "kraeves_af": "cat12._cust_country() — kontrol 94/95/96/97 (e-handel/OSS/fjernsalg/digitale ydelser, kategori 12). RETTELSE til tidligere version af denne kontrakt: _cust_country() tjekker FAKTISK lines[].country FØRST og falder kun tilbage til customers[].country, hvis linjens eget country-felt er tomt — ikke omvendt.",
@@ -893,7 +983,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Readiness _MIN_TX_FOR_STATISTIK-tærskel (kategori 8).",
@@ -907,7 +998,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol læser summary.total_debit direkte i dag (informativt/rapport-niveau).",
@@ -921,7 +1013,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Samme som total_debit.",
@@ -935,7 +1028,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Samme som total_debit/total_credit.",
@@ -949,7 +1043,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte — rapport-header.",
@@ -963,7 +1058,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte — rapport-header.",
@@ -977,7 +1073,8 @@
           "status": "implemented",
           "kilder": {
             "excel": true,
-            "saft": true
+            "saft": true,
+            "canonical": true
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte — rapport-header.",
@@ -1279,6 +1376,43 @@
         "tax_table[].rate",
         "tax_table[].standard_tax_code",
         "tax_table[].country"
+      ]
+    },
+    {
+      "id": "GAP-10",
+      "status": "aaben",
+      "titel": "Kanonisk vej har ingen momssats — tax_table/lines uden tax_percentage/rate",
+      "beskrivelse": "Byggetrin 8 (2026-09-17): den Bal-godkendte BC/NAV-mapping (dataextract/mappings/, seedet 2026-09-16) producerer i dag KUN den sammensatte ``vat_codes`` (D1-kombinationen) — ingen selvstændig kolonne for den numeriske momssats. canonical_parser.parse_canonical sætter derfor tax_percentage=0.0/rate=0.0 på hele den kanoniske vej, både i tax_table[] og transactions[].lines[] — bevidst ikke gættet/udledt (jf. §2a designprincip 5: motoren 'auto-healer' aldrig manglende data). Konsekvens: kategori 3 (satsvalidering, kontrol 19-26) er strukturelt blind på den kanoniske vej i dag, akkurat som et fladt Excel-udtræk uden momssats-kolonne. Lukkes når vat-extracts objekt-model/mapping-lager begynder at levere en selvstændig tax_percentage-kanonisk kolonne (uden for denne opgaves scope — vat-extract-ansvar).",
+      "beroerte_felter": [
+        "tax_table[].tax_percentage",
+        "tax_table[].rate",
+        "transactions[].lines[].tax_percentage"
+      ]
+    },
+    {
+      "id": "GAP-11",
+      "status": "aaben",
+      "titel": "Kanonisk vej har ingen stamdata — kontoplan-metadata og leverandør-/kundeoplysninger altid tomme",
+      "beskrivelse": "Byggetrin 8 (2026-09-17): den seedede BC/NAV-mapping producerer udelukkende ``gl_entries`` (transaktionslinjer) — intet target_object for kontoplan (accounts[].account_type/standard_account_id/opening_balance/closing_balance), leverandører eller kunder (jf. mapping_og_transformation.md's 'Ét target_object pr. transformations-kørsel'-begrænsning). canonical_parser afleder derfor kun accounts[].account_id (distinkte gl_accounts) og lader resten stå tomt/\"\", og suppliers[]/customers[] er altid tomme lister. Konsekvens: momsrelevans-scopet (vat_rules.is_non_vat_account, kontrol 80) og leverandør-/kundevalidering (kategori 6, kontrol 47-54) kan strukturelt ikke aktiveres på den kanoniske vej i dag — samme, allerede kendte begrænsning som et fladt Excel-udtræk uden kontoplan-/stamdata-faner. Lukkes når vat-extract enten udvider mappingen til flere target_objects, eller CLI'en (tools/analyze_canonical.py) gives yderligere sidecar-filer at joine.",
+      "beroerte_felter": [
+        "accounts[].account_type",
+        "accounts[].standard_account_id",
+        "accounts[].opening_balance",
+        "accounts[].closing_balance",
+        "transactions[].lines[].account_type",
+        "transactions[].lines[].standard_account_id",
+        "suppliers[]",
+        "customers[]"
+      ]
+    },
+    {
+      "id": "GAP-12",
+      "status": "aaben",
+      "titel": "Kanonisk vej har ingen dokument-/bilagsgrupperingsnøgle — kontrol 10 (transaktionsbalance) er strukturelt støjende",
+      "beskrivelse": "Byggetrin 8, bekræftet på udviklings-E2E'en mod den rigtige BC/NAV-fil (2026-09-17, 125.986 rækker): den kanoniske gl_entries-fil har ingen kolonne, der grupperer flere linjer til ÉT bilag/dokument (BC's 'Document No.'/journal-transaktionsnøgle indgår ikke i den seedede mappings producerende felter). canonical_parser pakker derfor HVER RÆKKE som sin egen 1-linjes transaktion (samme mønster som data_adapter bruger for et fladt Excel-udtræk uden bilagskolonne) — men i modsætning til et typisk fladt udtræk, hvor debit/credit ofte allerede er nettet pr. linje, er BC/NAV-postering pr. linje ÉNSIDET (enten debit eller credit, sjældent begge). Konsekvens: kontrol 10 (transaktionsbalance, kategori 1) flager næsten HVER eneste 'transaktion' som ubalanceret — 125.885 kritiske fund af 125.986 transaktioner i udviklings-E2E'en, dvs. et strukturelt falsk-positivt-mønster, IKKE 125.885 reelle bogføringsfejl. Dette bryder isoleret set 'RØD = handling krævet'-filosofien for netop denne kontrol på denne vej. IKKE rettet her: at gruppere linjer til bilag kræver enten (a) en pålidelig dokument-nøgle fra vat-extracts mapping (uden for denne opgaves scope — vat-extract-ansvar), eller (b) en ændring af motorens transaktionsbegreb for enkeltlinje-kilder (kontrollogik-ændring — eksplicit uden for denne opgaves disciplin, jf. opgavebeskrivelsen). Anbefaling til Bal: overvej at deaktivere/nedvægte kontrol 10 specifikt for `parse_info.kilde == \"canonical\"` kørsler, indtil en grupperingsnøgle findes.",
+      "beroerte_felter": [
+        "transactions[].total_debit",
+        "transactions[].total_credit"
       ]
     }
   ],

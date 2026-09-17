@@ -21,11 +21,15 @@ Fixtures er selvstændige og dækker de fleste felter i kontrakten, inkl. de
 nye kolonne-aliaser fra trin 3 (GAP-03/04/05) og SAF-T-siden af GAP-07/09.
 """
 
+import csv
+import json
+
 import openpyxl
 
 from parsers.excel_parser import parse_excel
 from parsers.data_adapter import adapt_excel_to_saft
 from parsers import saft_parser
+from parsers import canonical_parser
 from tools import build_data_contract as gen
 
 
@@ -91,6 +95,37 @@ def _assert_canonical_conforms(canonical: dict, source: str, contract: dict):
             _assert_object_conforms(
                 f"{obj_name}.{sub['navn']}", sub["felter"], lines, source
             )
+
+
+def _assert_canonical_source_conforms(canonical: dict, contract: dict):
+    """Samme konformans-check som ``_assert_canonical_conforms`` ovenfor (navn
+    bevidst forskelligt for ikke at kollidere med den funktion, der validerer
+    excel/saft), men for den kanoniske CSV-vej (byggetrin 8).
+
+    Forskel fra excel/saft: den kanoniske vej lover STRUKTURELT INTET for hele
+    objekter (suppliers/customers, jf. GAP-11) -- kilder.canonical er False for
+    ALLE felter på de objekter. At kræve mindst én fixture-instans dér (som den
+    delte ``_assert_object_conforms`` gør) ville tvinge en fabrikeret kunde-/
+    leverandørrække ind i fixturen for et objekt, kontrakten selv siger den
+    kanoniske vej aldrig udfylder -- så disse objekter springes bevidst helt
+    over, når intet felt er lovet.
+    """
+    objekter = contract["objekter"]
+    for obj_name, obj in objekter.items():
+        felter = obj["felter"]
+        if any(f["kilder"].get("canonical") is not False for f in felter):
+            _assert_object_conforms(
+                obj_name, felter, _instances_for(obj_name, canonical), "canonical"
+            )
+        if "sub_objekt" in obj:
+            sub = obj["sub_objekt"]
+            if any(f["kilder"].get("canonical") is not False for f in sub["felter"]):
+                lines = [
+                    l for t in canonical.get("transactions", []) for l in t.get("lines", [])
+                ]
+                _assert_object_conforms(
+                    f"{obj_name}.{sub['navn']}", sub["felter"], lines, "canonical"
+                )
 
 
 # --- Fixtures ----------------------------------------------------------------
@@ -256,3 +291,63 @@ def test_saft_path_conforms_to_data_contract(tmp_path):
     canonical, _info = saft_parser.parse_saft(path)
     assert canonical is not None
     _assert_canonical_conforms(canonical, "saft", contract)
+
+
+# --- Kanonisk CSV-fixture (byggetrin 8) --------------------------------------
+
+def _write_canonical_fixture(tmp_path, with_summary=True):
+    """Lille, selvstændig kanonisk gl_entries-CSV -- samme kolonnenavne som
+    dataextract.transform's BC/NAV-mapping producerer i praksis (bekræftet mod
+    det rigtige transform_summary.json fra 2026-09-16-kørslen). Ingen
+    kundedata -- opdigtede beløb/konti."""
+    headers = [
+        "posting_dates", "tax_point", "vat_period", "credit_note_flag",
+        "invoice_numbers", "gl_accounts", "vat_codes", "vat_amount",
+        "debit_amount", "credit_amount", "supply_direction", "currency_fx",
+    ]
+    rows = [
+        ["2024-03-15", "2024-03-10", "2024-03", "false", "F-100", "1000",
+         "U25", "250.0", "0", "1250.0", "sale", ""],
+        ["2024-03-16", "2024-03-16", "2024-03", "false", "7000123", "2100",
+         "", "0", "800.0", "0", "purchase", ""],
+    ]
+    path = tmp_path / "canonical_gl_entries.csv"
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+    if with_summary:
+        summary = {
+            "mapping_version": "1.0.0",
+            "schema_fingerprint": "sha256:testfixture0000000000000000000000000000000000000000000000",
+            "source_erp": "Test ERP",
+            "profile_version": "1.0.0",
+            "rows_in": 2,
+            "rows_out": 2,
+        }
+        (tmp_path / "transform_summary.json").write_text(
+            json.dumps(summary), encoding="utf-8"
+        )
+    return str(path)
+
+
+def test_canonical_path_conforms_to_data_contract(tmp_path):
+    contract, _ = gen.build_contract()
+    path = _write_canonical_fixture(tmp_path)
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+    _assert_canonical_source_conforms(canonical, contract)
+
+
+def test_canonical_path_without_summary_still_conforms(tmp_path):
+    """Lineage-sidecar er valgfri (§ opgavens Del 1/3) -- ingen
+    transform_summary.json må ikke ændre kontrakt-konformansen, kun tømme
+    mapping_version/schema_fingerprint."""
+    contract, _ = gen.build_contract()
+    path = _write_canonical_fixture(tmp_path, with_summary=False)
+    canonical, info = canonical_parser.parse_canonical(path)
+    assert canonical is not None, info
+    assert canonical["header"]["mapping_version"] == ""
+    assert canonical["header"]["schema_fingerprint"] == ""
+    _assert_canonical_source_conforms(canonical, contract)
