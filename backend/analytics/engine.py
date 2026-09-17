@@ -23,7 +23,9 @@ from analytics.categories.cat06_party_validation import run_party_tests
 from analytics.categories.cat07_amount_threshold import run_amount_tests
 from analytics.categories.cat08_statistical_anomaly import run_statistical_tests
 from analytics.categories.cat09_reverse_charge import run_reverse_charge_tests
-from analytics.categories.cat10_vat_reconciliation import run_reconciliation_tests
+from analytics.categories.cat10_vat_reconciliation import (
+    run_reconciliation_tests, build_declaration_reconciliation_table,
+)
 from analytics.categories.cat11_fraud_mtic import run_fraud_tests
 from analytics.categories.cat12_ecommerce_special import run_ecommerce_tests
 
@@ -144,6 +146,11 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None,
     report["filtrerede_fund"] = suppressed
     report["ikke_maalbare_fund_fjernet"] = ikke_maalbare_fjernet
     report["datagrundlag"] = datagrundlag
+    # Byggetrin ~9, Del C (Bal-godkendt 2026-09-17): den FULDE periode-/
+    # rubrik-afstemningstabel (kontrol 82, alle måneder x rubrikker, ikke kun
+    # afvigelserne) til "tillidsanker"-tabellen i kundedialog-rapporten
+    # (tools/generate_report.py). None uden en angivelse (uændret filosofi).
+    report["declaration_reconciliation"] = build_declaration_reconciliation_table(data, declarations)
     return report
 
 

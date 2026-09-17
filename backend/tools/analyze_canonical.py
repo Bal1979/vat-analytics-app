@@ -34,6 +34,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)
@@ -121,6 +122,11 @@ def build_report(csv_path: str, summary_path: str | None, reconciliation_path: s
             "schema_fingerprint": lineage.get("schema_fingerprint", ""),
             "source_erp": lineage.get("source_erp", ""),
             "profile_version": lineage.get("profile_version", ""),
+            # Byggetrin ~9, Del C (Bal-godkendt 2026-09-17): kørselstidspunkt
+            # til rapportens lineage-footer (tools/generate_report.py) — ISO
+            # 8601 UTC, sat NÅR analysen faktisk kører (ikke når HTML'en
+            # senere genereres fra rapport-JSON'en).
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         },
         "afstemning": gate_result,
         "angivelse": {

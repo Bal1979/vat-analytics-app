@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.3.0"
+CONTRACT_VERSION = "0.3.1"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -171,6 +171,28 @@ HEADER_FIELDS = [
                  "hvilket kilde-skema (ERP-udtræksformat) mappingen blev "
                  "godkendt til. Ingen kundedata i hash'en. Tom streng på "
                  "Excel-/SAF-T-vejen.",
+    },
+    {
+        "navn": "vat_setup_loaded", "type": "boolean", "obligatorisk": False, "format": "",
+        "status": "implemented",
+        "kilder": {"excel": False, "saft": False, "canonical": True},
+        "ekstension": False,
+        "kraeves_af": "Kontrol 19 (cat03_vat_rate_validation.test_19_invalid_rate, "
+                       "byggetrin 8, Del A, Bal-godkendt 2026-09-17): vælger "
+                       "valideringsvej — True = validér mod kundens EGEN vat_setup "
+                       "(pr. momskode, se tax_table[].setup_matched); False = "
+                       "uændret adfærd (kun 0%/25% er gyldige danske satser).",
+        "noter": "NY (0.3.1). Nøglesæt-symmetri (samme princip som resten af "
+                 "canonical_parser.py): ALTID til stede på den kanoniske vej, "
+                 "default False, sat af canonical_parser.parse_canonical ved "
+                 "opbygning af header. Sættes til True af parsers/"
+                 "canonical_masterdata.enrich_canonical NÅR ``vat_setup.csv`` "
+                 "findes og indeholder mindst én gyldig række (uafhængigt af om "
+                 "DENNE fils konkrete momskoder rent faktisk matcher — se GAP-10). "
+                 "Findes ALDRIG på Excel-/SAF-T-vejen i dag (ingen vat_setup-"
+                 "koncept dér) — nøglen er derfor fraværende, ikke False, på disse "
+                 "veje; kontrol 19 bruger \"header.get('vat_setup_loaded')\" så "
+                 "fravær og False giver samme (uændrede) adfærd.",
     },
 ]
 
@@ -314,6 +336,22 @@ TAX_TABLE_FIELDS = [
                  "Bærer stadig ingen reel værdi dér — Excel-parseren har ingen "
                  "kolonne-alias for momskodens land (adskilt fra transaktionens "
                  "modparts-land, som allerede findes som lines[].country).",
+    },
+    {
+        "navn": "setup_matched", "type": "boolean", "obligatorisk": False, "format": "",
+        "status": "implemented",
+        "kilder": {"excel": False, "saft": False, "canonical": True},
+        "ekstension": False,
+        "kraeves_af": "Kontrol 19 (byggetrin 8, Del A): skelner \"kode kendt i "
+                       "vat_setup, sats 0%\" fra \"kode findes slet ikke i "
+                       "opsætningen\" — begge ville ellers dele tax_percentage==0.0 "
+                       "(den strukturelle default) og være umulige at skelne.",
+        "noter": "NY (0.3.1). Nøglesæt-symmetri: ALTID til stede på HVER "
+                 "tax_table-entry på den kanoniske vej, default False (sat af "
+                 "canonical_parser.parse_canonical). Sættes til True af "
+                 "enrich_canonical, KUN når header.vat_setup_loaded også er True "
+                 "OG denne specifikke kode findes i vat_setup.csv. Findes aldrig "
+                 "på Excel-/SAF-T-vejen.",
     },
 ]
 
@@ -1133,9 +1171,18 @@ KNOWN_GAPS = [
                        "leveres. Delvist, ikke helt, lukket: uden vat_setup.csv "
                        "forbliver adfærden strukturelt 0.0, uændret — filen er "
                        "vat-extracts/klientens leverance, ikke noget motoren kan "
-                       "garantere findes.",
+                       "garantere findes. Byggetrin 8/Del A (2026-09-17, "
+                       "Bal-godkendt): kontrol 19 (cat03_vat_rate_validation) "
+                       "konsumerer nu ``header.vat_setup_loaded``/``tax_table[]."
+                       "setup_matched`` direkte og validerer MOD OPSÆTNINGEN pr. "
+                       "momskode i stedet for den hardkodede 0/25-liste, når filen "
+                       "er indlæst — se felt-dokumentationen for disse to nye "
+                       "felter. Løste 642 falske HØJ-fund fra bevidste delvis-"
+                       "fradragsret-satser (fx 13,63636%/5,26316%) i kundens VAT "
+                       "Posting Setup.",
         "beroerte_felter": ["tax_table[].tax_percentage", "tax_table[].rate",
-                             "transactions[].lines[].tax_percentage"],
+                             "transactions[].lines[].tax_percentage",
+                             "header.vat_setup_loaded", "tax_table[].setup_matched"],
     },
     {
         "id": "GAP-11",

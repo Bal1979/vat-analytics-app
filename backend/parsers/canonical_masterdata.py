@@ -23,6 +23,16 @@ disciplin som resten af canonical_parser.py. Ingen ændring af rådata
                                 validering, kontrol 19-26) får et REELT
                                 grundlag på den kanoniske vej, i stedet for
                                 det strukturelle 0.0 GAP-10 dokumenterer.
+                                Sætter desuden ``header.vat_setup_loaded =
+                                True`` og ``tax_table[].setup_matched``
+                                (byggetrin 8, Del A, Bal-godkendt
+                                2026-09-17): kontrol 19 validerer herefter
+                                MOD OPSÆTNINGEN i stedet for den hardkodede
+                                0/25-liste, så bevidste delvis-fradragsret-
+                                konstruktioner (fx 13,63636 %/5,26316 %) ikke
+                                giver falske HØJ-fund — se
+                                cat03_vat_rate_validation.py for
+                                valideringslogikken og dens begrundelse.
 
     * chart_of_accounts.csv  — kontoplan (join-nøgle: kontonummeret, SAMME
                                 streng som gl_entries' ``gl_accounts``-
@@ -240,8 +250,22 @@ def enrich_canonical(canonical: dict, csv_path: str,
     warnings = [*w1, *w2, *w3]
 
     if vat_lookup:
+        # Kontrol 19-signal (byggetrin 8, Del A, Bal-godkendt 2026-09-17):
+        # ``header.vat_setup_loaded`` fortæller kontrol 19 (cat03_vat_rate_
+        # validation.test_19_invalid_rate), at kundens EGEN vat_setup er til
+        # stede, og at satsen derfor skal valideres mod OPSÆTNINGEN (pr.
+        # momskode) i stedet for den hardkodede 0/25-liste. Sat uafhængigt af
+        # om DENNE linjes kode faktisk matcher et opslag -- det er netop
+        # meningen: en kode der ikke findes i opsætningen, er selv et fund
+        # ("ukendt kode"), ikke en grund til at falde tilbage til 0/25.
+        canonical.setdefault("header", {})["vat_setup_loaded"] = True
         for entry in canonical.get("tax_table", []):
             info = vat_lookup.get(entry.get("tax_code", ""))
+            # setup_matched: True hvis DENNE kode findes i vat_setup.csv.
+            # Skelner "kendt kode, sats 0%" fra "kode ukendt i opsætning" --
+            # begge ville ellers have tax_percentage==0.0 (den strukturelle
+            # default) og være umulige at skelne for kontrol 19.
+            entry["setup_matched"] = info is not None
             if not info:
                 continue
             entry["tax_percentage"] = info["tax_percentage"]

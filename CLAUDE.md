@@ -25,6 +25,22 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-17)
 
+- **Kontrol 19 mod vat_setup + kontrol 80 pr. konto + HTML-kundedialograpport
+  (byggetrin 9, Del A-D, 2026-09-17, Bal-godkendt):** regelkatalog **v1.3.0**,
+  datakontrakt **v0.3.1**, **349 automatiserede tests**. Kontrol 19
+  validerer nu mod kundens egen `vat_setup.csv` når den er indlæst
+  (`header.vat_setup_loaded`/`tax_table[].setup_matched`) — delvis-
+  fradragsret-satser (fx 13,63636 %) matcher opsætningen i stedet for at
+  blive flaget mod den hardkodede 0/25-liste; uden vat_setup: uændret. Kontrol
+  80 udsteder nu ÉT fund pr. KONTO (ikke pr. postering), severity gradueret
+  efter beløb (`materiality.CONTROL_80_*`). Ny `backend/tools/generate_report.py`
+  bygger én selvbærende, mailbar HTML-kundedialograpport fra en rapport-JSON
+  (tillidsanker/kontrol 82-tabel, ledelsesresumé, aggregerede fundtabeller,
+  datagrundlag/lineage). Verificeret på den rigtige BC/NAV-fil: HØJ 957→375,
+  fund i alt 49.308→24.612, kontrol 80 24.152→77 fund, afstemningsgate
+  uændret 208/208 — se `docs/CHANGELOG.md` for det fulde før/efter og en
+  bevidst afvigelse fra det oprindeligt skønnede HØJ-tal (kontrol 80's nye
+  beløbsgraduering giver 39 NYE høj-fund, som tidligere altid var "medium").
 - **Kontrol 82 aktiveret + tre kanoniske stamdata-filer (byggetrin 8, Del
   A-D, 2026-09-17, Bal-godkendt):** regelkatalog **v1.2.0**. 103 kontroller
   (**99 aktive**; 83, 85, 90, 99 fortsat bevidst inaktive). Kontrol 82
@@ -92,9 +108,9 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **306 automatiserede tests** + uafhængig valideringssuite (**99/99 aktive
+- **349 automatiserede tests** + uafhængig valideringssuite (**99/99 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se byggetrin
-  8/Del A-D ovenfor for den seneste opdatering (2026-09-17).
+  9/Del A-D ovenfor for den seneste opdatering (2026-09-17).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).
@@ -105,10 +121,12 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 306 tests
+python -m pytest -q                            # 349 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 99/99 uafhængig validering
+python tools/analyze_canonical.py <gl.csv> --out <rapport.json>      # offline E2E-kørsel
+python tools/generate_report.py <rapport.json> --out <rapport.html>  # kundedialog-HTML
 ```
 Bemærk: Railway auto-deployer ved `git push`. Bal kører pytest lokalt og
 committer/pusher (SSH ligger kun på hans Mac).

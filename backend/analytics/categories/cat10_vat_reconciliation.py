@@ -3,6 +3,9 @@ Kategori 10: Indgående/Udgående Moms Afstemning (Tests 76-83)
 
 Afstemmer købsmoms (indgående) og salgsmoms (udgående) på tværs af
 regnskabet og mod momskonti, og afdækker usædvanlige forhold mellem dem.
+
+Kontrol 80 (byggetrin ~9, Del B, Bal-godkendt 2026-09-17): aggregeret PR.
+KONTO, ikke pr. postering — se test_80_revenue_without_output_vat.
 """
 
 from collections import defaultdict
@@ -167,11 +170,51 @@ def test_79_input_vat_no_purchase(data):
 
 
 # === TEST 80: Salgsmoms mangler på indtægt ===
+#
+# AGGREGERET PR. KONTO (byggetrin ~9, Del B, Bal-godkendt 2026-09-17), IKKE
+# pr. postering. Diagnose (verificeret manuelt): 24.152 per-posterings-fund
+# fordelte sig på blot 77 konti; top-10 konti udgjorde 97 % af fundene
+# (typisk interne allokeringskonti som 319160/381360, hvor "uden momskode"
+# er en systematisk kontobrug, ikke N individuelle fejl). Den faglige
+# beslutning ("er denne konto håndteret korrekt momsmæssigt?") træffes pr.
+# KONTO, ikke pr. postering — så kontrollen udsteder nu ÉT fund pr. konto:
+# kontonummer(+navn hvis kendt), antal kvalificerende posteringer, deres
+# samlede grundlag, og andelen af KONTOENS posteringer (alle, ikke kun de
+# kvalificerende) der mangler en momskode. Et lille udsnit af transaktions-
+# referencer (materiality.CONTROL_80_MAX_REFS, default 10) følger med til
+# drill-down; resten opsummeres i beskrivelsen.
+#
+# Dette er en BEVIDST granularitetsændring på tværs af ALLE input-veje
+# (Bal-godkendt) — ikke en ny betingelse for hvornår kontrollen fyrer.
+# Severity gradueres efter kontoens samlede beløb (materiality.
+# CONTROL_80_HIGH_THRESHOLD/CONTROL_80_MEDIUM_THRESHOLD), så et fund på en
+# konto med et beskedent beløb ikke vejer lige så tungt som ét på en konto
+# med millionbeløb.
 
 def test_80_revenue_without_output_vat(data):
     findings = []
+
+    # Kontoens "andel uden momskode": nævner er ALLE linjer bogført på
+    # kontoen (ikke kun dem der udløser kontrollen) — et generelt
+    # datakvalitetssignal for, om manglende momskode er systematisk for
+    # kontoen eller isoleret til få posteringer.
+    account_line_totals = defaultdict(lambda: {"lines": 0, "no_code": 0})
+    account_names = {}
+    for acc in data.get("accounts", []):
+        if acc.get("description"):
+            account_names[acc.get("account_id")] = acc["description"]
+
+    per_account = defaultdict(lambda: {"count": 0, "base_sum": 0.0, "refs": []})
+
     for txn in data["transactions"]:
         for line in txn["lines"]:
+            acc_id = line.get("account_id")
+            if acc_id:
+                totals = account_line_totals[acc_id]
+                totals["lines"] += 1
+                if not line.get("tax_code"):
+                    totals["no_code"] += 1
+
             credit = line.get("credit_amount", 0) or 0
             if credit <= 0:
                 continue
@@ -184,16 +227,46 @@ def test_80_revenue_without_output_vat(data):
             country = vr.normalize_country(line.get("country", ""))
             # Indtægt uden moms OG uden momskode OG uden udenlandsk forklaring
             if vat == 0 and not code and not vr.is_foreign(country) and credit >= 5000:
-                findings.append(make_finding(
-                    test_id=80, test_name="Indtægt uden momsbehandling",
-                    impact_type="economic", direction="positive", severity="medium",
-                    description=f"Indtægt på {credit:.2f} (transaktion {txn['transaction_id']}) er bogført "
-                                f"uden moms og uden momskode.",
-                    fix_suggestion="Bekræft om salget er momspligtigt (25%), momsfrit eller udenlandsk. "
-                                   "Manglende salgsmoms på indenlandsk salg er en fejl.",
-                    estimated_amount=round(credit * vr.STANDARD_RATE / 100, 2),
-                    transactions=[_ref(txn, line, highlighted_field="tax_code")],
-                ))
+                bucket = per_account[acc_id]
+                bucket["count"] += 1
+                bucket["base_sum"] += credit
+                if len(bucket["refs"]) < materiality.CONTROL_80_MAX_REFS:
+                    bucket["refs"].append(_ref(txn, line, highlighted_field="tax_code"))
+
+    for acc_id, bucket in per_account.items():
+        totals = account_line_totals.get(acc_id, {"lines": 0, "no_code": 0})
+        total_lines = totals["lines"] or bucket["count"]
+        no_code_share = totals["no_code"] / total_lines if total_lines else 0.0
+        base_sum = round(bucket["base_sum"], 2)
+        name = account_names.get(acc_id, "")
+        acc_label = f"{acc_id} ({name})" if name else (acc_id or "(ukendt konto)")
+
+        if base_sum >= materiality.CONTROL_80_HIGH_THRESHOLD:
+            severity = "high"
+        elif base_sum >= materiality.CONTROL_80_MEDIUM_THRESHOLD:
+            severity = "medium"
+        else:
+            severity = "low"
+
+        more = bucket["count"] - len(bucket["refs"])
+        more_note = f" Viser {len(bucket['refs'])} eksempler — og {more} flere posteringer på kontoen." \
+            if more > 0 else ""
+
+        findings.append(make_finding(
+            test_id=80, test_name="Indtægt uden momsbehandling (pr. konto)",
+            impact_type="economic", direction="positive", severity=severity,
+            description=(
+                f"Konto {acc_label}: {bucket['count']} posteringer for i alt {base_sum:.2f} bogført "
+                f"uden moms og uden momskode ({no_code_share * 100:.0f}% af kontoens posteringer "
+                f"mangler momskode)." + more_note
+            ),
+            fix_suggestion="Bekræft på KONTONIVEAU om posteringerne er momspligtige (25%), momsfrie "
+                           "eller udenlandske. Vurdér kontoens generelle brug frem for hver enkelt "
+                           "postering — ofte er dette en systematisk kontobrug (fx interne "
+                           "allokeringskonti), ikke N individuelle fejl.",
+            estimated_amount=round(base_sum * vr.STANDARD_RATE / 100, 2),
+            transactions=bucket["refs"],
+        ))
     return findings
 
 
@@ -392,6 +465,95 @@ def _compute_period_rubrics(data: dict) -> dict:
             "input_vat": round(v["input"] + v["dkrc"] + v["service"], 2),
         }
         for key, v in raw.items()
+    }
+
+
+def build_declaration_reconciliation_table(data, declarations=None):
+    """Byg den FULDE periode-/rubrik-afstemningstabel (kontrol 82) til
+    "tillidsanker"-tabellen i kundedialog-rapporten (byggetrin ~9, Del C,
+    Bal-godkendt 2026-09-17, ``backend/tools/generate_report.py``).
+
+    Modsat ``test_82_period_declaration`` (som kun udsteder ET FUND pr.
+    afvigende periode/rubrik), viser denne funktion ALLE perioder x rubrikker
+    — inkl. dem der matcher ("grønne") — så rapporten kan vise den fulde
+    12-måneders afstemning, ikke kun undtagelserne. Samme beregningsgrundlag
+    og samme timing-klassifikation som test_82 (se dens docstring/kommentarer
+    ovenfor for baggrunden); holdt som en selvstændig funktion (ikke en
+    delt hjælper) for ikke at risikere at ændre test_82's allerede
+    validerede/testede adfærd ved en delt refaktorering.
+
+    Returnerer None hvis ingen deklaration/ingen perioder er givet (samme
+    "spring pænt over"-filosofi som resten af kontrol 82). Ellers:
+        {
+          "perioder": [{"periode": "2025-01",
+                        "rubrikker": {"output_vat": {"beregnet", "angivet",
+                                                      "difference", "status"},
+                                      "rc_services": {...}, "input_vat": {...}}}, ...],
+          "aarstotaler": {rubrik: {"beregnet", "angivet", "difference"}},
+          "rubrik_labels": {...},
+        }
+    ``status`` pr. rubrik/periode: "match" (grøn), "timing" (kun input_vat —
+    nulstilles over årstotalen), "afvigelse" (reel), eller "ingen_angivelse"
+    (perioden findes i de bogførte data, men er ikke angivet).
+    """
+    if not declarations or not declarations.get("periods"):
+        return None
+
+    computed = _compute_period_rubrics(data)
+    declared_by_period = {
+        p["period"]: p for p in declarations["periods"] if p.get("period")
+    }
+    all_periods = sorted(set(computed) | set(declared_by_period))
+    if not all_periods:
+        return None
+
+    tolerance = materiality.VAT_DECLARATION_TOLERANCE
+
+    annual_computed = {r: 0.0 for r in _DECLARATION_RUBRICS}
+    annual_declared = {r: 0.0 for r in _DECLARATION_RUBRICS}
+    for key in all_periods:
+        d = declared_by_period.get(key)
+        if d is None:
+            continue
+        c = computed.get(key, {})
+        for r in _DECLARATION_RUBRICS:
+            annual_computed[r] += c.get(r, 0.0)
+            annual_declared[r] += float(d.get(r) or 0.0)
+    annual_diff = {r: round(annual_computed[r] - annual_declared[r], 2) for r in _DECLARATION_RUBRICS}
+
+    periods_out = []
+    for key in all_periods:
+        d = declared_by_period.get(key)
+        c = computed.get(key, {"output_vat": 0.0, "rc_services": 0.0, "input_vat": 0.0})
+        rubrics_out = {}
+        for r in _DECLARATION_RUBRICS:
+            computed_amt = round(c.get(r, 0.0), 2)
+            if d is None:
+                rubrics_out[r] = {"beregnet": computed_amt, "angivet": None,
+                                   "difference": None, "status": "ingen_angivelse"}
+                continue
+            declared_amt = round(float(d.get(r) or 0.0), 2)
+            diff = round(computed_amt - declared_amt, 2)
+            if abs(diff) <= tolerance:
+                status = "match"
+            else:
+                annual_timing_cap = max(
+                    tolerance,
+                    materiality.VAT_DECLARATION_ANNUAL_TIMING_PCT / 100.0 * abs(annual_declared[r]),
+                )
+                status = "timing" if abs(annual_diff[r]) <= annual_timing_cap else "afvigelse"
+            rubrics_out[r] = {"beregnet": computed_amt, "angivet": declared_amt,
+                               "difference": diff, "status": status}
+        periods_out.append({"periode": key, "rubrikker": rubrics_out})
+
+    return {
+        "perioder": periods_out,
+        "aarstotaler": {
+            r: {"beregnet": round(annual_computed[r], 2), "angivet": round(annual_declared[r], 2),
+                "difference": annual_diff[r]}
+            for r in _DECLARATION_RUBRICS
+        },
+        "rubrik_labels": dict(_RUBRIC_LABELS),
     }
 
 

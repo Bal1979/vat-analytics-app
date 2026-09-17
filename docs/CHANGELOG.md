@@ -3,6 +3,106 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Byggetrin 9, Del A–D: kontrol 19 mod vat_setup, kontrol 80 pr. konto, HTML-kundedialograpport — 2026-09-17 (catalog v1.3.0, data_contract v0.3.1)
+
+Bal-godkendt opgave (kontekst: `BALAI-dataflow-arkitektur.md` §2a+§7 punkt
+8a/8b), tre dele i rækkefølge, verificeret på den rigtige BC/NAV-fil
+(v4-datasættet, 50.479 transaktioner/125.986 linjer, 208/208 afstemt).
+
+**Del A — Kontrol 19 valideres mod vat_setup-satser
+(`analytics/categories/cat03_vat_rate_validation.py`):** diagnose
+(verificeret manuelt): kunden bruger BEVIDSTE delvis-fradragsret-
+konstruktioner i sin VAT Posting Setup — `DOMESTIC|REDUCED_PRIVATE_VAT` =
+13,63636 % og `DOMESTIC|REDUCED_REP_VAT` = 5,26316 % (en BC-teknik: reduceret
+effektiv sats i stedet for 25 % + separat fradragsbegrænsning). Kontrol 19
+validerede hidtil ubetinget mod den hardkodede 0/25-liste, så disse to koder
+alene stod for 642 af 957 HØJ-fund. Rettelse: når kanonisk `vat_setup.csv` er
+indlæst (`header.vat_setup_loaded`, ny nøgle — nøglesæt-symmetri, altid til
+stede på den kanoniske vej, default False), validerer kontrol 19 i stedet en
+linjes sats mod OPSÆTNINGENS sats for linjens EGEN momskode
+(`tax_table[].setup_matched`, ny nøgle, samme symmetri-princip): match = ok
+(også 13,64 %), afvigelse fra kodens setup-sats = fund ("Sats afviger fra
+vat_setup"), kode helt ukendt i opsætningen = fund ("Ukendt momskode i
+opsætning"). UDEN vat_setup (Excel/SAF-T/ældre kanoniske filer uden
+sidecar): fuldstændig uændret adfærd (kun 0/25-validering) — ingen
+regression. `parsers/canonical_masterdata.enrich_canonical` sætter de to nye
+felter; `parsers/canonical_parser.py` initialiserer dem til False for
+nøglesæt-symmetri, samme mønster som resten af filen.
+
+**Del B — Kontrol 80 aggregeres pr. konto
+(`analytics/categories/cat10_vat_reconciliation.py`):** diagnose: 24.152
+per-posterings-fund fordelt på kun 77 konti; top-10 konti (typisk interne
+allokeringskonti som 319160/381360) udgjorde 97 %. Den faglige beslutning
+("er kontoen håndteret korrekt momsmæssigt?") træffes pr. KONTO, ikke pr.
+postering. Kontrollen udsteder nu ÉT fund pr. konto: kontonummer(+navn hvis
+`chart_of_accounts.csv` er leveret), antal kvalificerende posteringer, sum
+af grundlag, andel af KONTOENS posteringer (alle, ikke kun de
+kvalificerende) uden momskode, og op til `materiality.CONTROL_80_MAX_REFS`
+(default 10) transaktionsreferencer til drill-down. Severity gradueres efter
+kontoens samlede grundlag (`materiality.CONTROL_80_HIGH_THRESHOLD`/
+`CONTROL_80_MEDIUM_THRESHOLD`, defaults 500.000/100.000 DKK) i stedet for en
+fast "medium" — en bevidst granularitets- OG severity-ændring på tværs af
+ALLE input-veje (Bal-godkendt), ikke en ny betingelse for hvornår
+kontrollen fyrer. Eksisterende tests i `tests/test_vat_scope.py` er
+uændrede i deres forventninger (én kvalificerende linje giver stadig ét
+fund); ny dedikeret dækning i `tests/test_control80_aggregation.py`.
+
+**Del C — HTML-rapportgenerator (`backend/tools/generate_report.py`, ny
+fil):** CLI (`python tools/generate_report.py <rapport.json> --out
+<fil.html>`) der bygger ÉN selvbærende HTML-fil (inline CSS, ingen
+CDN/eksterne afhængigheder — kan mailes), dansk UI, BALAI-designsprog
+genbrugt fra `static/style.css` (navy #1B365D, sev-farver). Fem sektioner:
+(1) **tillidsanker** — kontrol 82 som 12-måneders tabel pr. rubrik
+(beregnet/angivet/difference/status, nyt `analytics.build_declaration_
+reconciliation_table` i `cat10_vat_reconciliation.py`, wiret ind i
+`engine.run_all_tests` som `report["declaration_reconciliation"]`),
+afstemningsgatens resultat, og debet==kredit-totalkontrollen; (2)
+**ledelsesresumé** — fund pr. severity, transaktioner/bilag, analyseperiode;
+(3) **aggregerede fundtabeller** — pr. kontrol → pr. konto (antal, beløb),
+sorteret efter væsentlighed, ALDRIG rå fund-dumps (cap ved 25 kontorækker/
+60 kontrol-sektioner med "…og N flere"); (4) **datagrundlag & metode** —
+ikke-målbare kontroller, relevante `known_gaps` (læst best-effort fra
+`catalog/data_contract.json`), lineage-footer (katalog-/kontrakt-/mapping-
+version, schema-fingerprint, kørselstidspunkt — ny `generated_at`-nøgle i
+`tools/analyze_canonical.py`s lineage) + AI-provenance-note (§2a: analysen
+er 100 % deterministisk, AI bruges kun til menneske-godkendte, frosne
+mapping-forslag); (5) print-CSS. Al kundedata HTML-escapes. Dækket af
+`tests/test_generate_report.py` + `tests/test_declaration_reconciliation_
+table.py`.
+
+**Del D — Verifikation (v4-datasættet, samme fil som Del A-diagnosen):**
+
+| Nøgletal | FØR | EFTER |
+|---|---|---|
+| Fund i alt | 49.308 | 24.612 |
+| HØJ | 957 | 375 |
+| MEDIUM | 39.957 | 15.830 |
+| LAV | 8.394 | 8.407 |
+| Kontrol 19-fund | 642 (alle falske — partial-deduction-koder) | 21 (alle ægte "ukendt kode") |
+| Kontrol 80-fund | 24.152 (pr. postering) | 77 (pr. konto: 39 høj/25 medium/13 lav) |
+| Afstemningsgate | 208/208 | 208/208 (uændret) |
+
+HØJ-faldet (957→375) er STØRRE end det oprindeligt anslåede "~315" i
+opgavebeskrivelsen: 642→21 for kontrol 19 (som ventet), kontrol 9/22/7/1
+uændrede (143/147/23/2, uden for denne opgaves scope), MEN kontrol 80
+bidrager nu 39 nye HØJ-fund (0 før — kontrollen havde tidligere en FAST
+"medium"-severity, uanset beløb). Dette er en tilsigtet konsekvens af Del
+B's beløbsgraduering (39 konti har hver et akkumuleret uden-moms-grundlag
+over 500.000 DKK) — ikke en fejl, men en afvigelse fra den oprindelige
+skønnede totalsum, som bør bekræftes eksplicit (se sporbarhedsnotat/
+hand-off). HTML-rapport genereret til
+`kunde_rapport_2025.html` (53,6 KB) fra den nye rapport-JSON — 5 sektioner,
+12-måneders kontrol 82-tabel (output/RC grøn alle 12 måneder, input_vat
+"timing" alle 12 måneder, årsresidual -326.212 DKK ≈ 0,56 % — matcher
+dokumentationen i kontrol 82-modulet), 29 kontrol-blokke med fund.
+
+Katalog **v1.3.0** (kontrol 19 "navn" ændret til "Sats afviger fra vat_setup"
+af den AST-baserede generator — nyt primært make_finding-kald opdaget
+først; kontrol 80 "severity" ændret til `["dynamisk"]`, jf. den nye
+beløbsgraduering). Datakontrakt **v0.3.1** (to nye felter:
+`header.vat_setup_loaded`, `tax_table[].setup_matched`; GAP-10 opdateret).
+349 automatiserede tests (op fra 306), valideringssuite fortsat 99/99.
+
 ## Byggetrin 8, Del A–D: kontrol 82 aktiveret + tre kanoniske stamdata-filer — 2026-09-17 (catalog v1.2.0, data_contract v0.3.0)
 
 Bal-godkendt opgave: operationalisér kontrol 82 (afstemning mod den

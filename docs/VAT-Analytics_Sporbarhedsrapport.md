@@ -1,6 +1,6 @@
 # VAT Analytics — Sporbarhedsrapport
 
-> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.2.0** · 2026-09-17
+> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.3.0** · 2026-09-17
 
 ## Dækning
 
@@ -40,7 +40,7 @@
 | VATA-016 | Kreditnota-dubletter | aktiv | Momskerne | TIL | Dobbelt fradrag / dublethåndtering (momsloven, fradragsret) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-017 | Tværgående enheds-dubletter | aktiv | Momskerne | TIL | Dobbelt fradrag / dublethåndtering (momsloven, fradragsret) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-018 | Sekventielle transaktionsnumre | aktiv | Dublet-recovery (bredt) | FRA | Dobbelt fradrag / dublethåndtering (momsloven, fradragsret) | tests/test_validation_suite.py + validation/scenarios.py |
-| VATA-019 | Ugyldig momssats | aktiv | Momskerne | TIL | Momssatser: standardsats 25% og 0-sats (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
+| VATA-019 | Sats afviger fra vat_setup | aktiv | Momskerne | TIL | Momssatser: standardsats 25% og 0-sats (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-020 | Sats afviger fra momstabel | aktiv | Momskerne | TIL | Momssatser: standardsats 25% og 0-sats (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-021 | Reduceret/udenlandsk momssats | aktiv | Momskerne | TIL | Momssatser: standardsats 25% og 0-sats (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-022 | Manglende salgsmoms | aktiv | Momskerne | TIL | Momssatser: standardsats 25% og 0-sats (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
@@ -101,7 +101,7 @@
 | VATA-077 | Momskonto afstemmer ikke | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-078 | Negativt momstilsvar | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-079 | Købsmoms uden grundlag | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
-| VATA-080 | Indtægt uden momsbehandling | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
+| VATA-080 | Indtægt uden momsbehandling (pr. konto) | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-081 | Stor andel momsfri omsætning | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-082 | Periode-/rubrikafstemning mod momsangivelse | aktiv | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-083 | test_83_partial_deduction | inaktiv_kraever_kildedata | Momskerne | TIL | Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven) | (Fase C) |

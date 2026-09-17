@@ -126,6 +126,42 @@ def test_parse_canonical_amounts_and_summary(tmp_path):
     assert line0["tax_base"] == 1250.0
 
 
+def test_parse_canonical_vat_setup_defaults_false_without_sidecar(tmp_path):
+    """Byggetrin 8, Del A (Bal-godkendt 2026-09-17): nøglesæt-symmetri --
+    header.vat_setup_loaded og tax_table[].setup_matched er ALTID til stede
+    på den kanoniske vej, default False uden en vat_setup.csv-sidecar."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F1", "1000", "U25", "250.0", "0", "1250.0", "sale", ""],
+    ])
+    canonical, _ = canonical_parser.parse_canonical(path)
+    assert canonical["header"]["vat_setup_loaded"] is False
+    assert canonical["tax_table"][0]["setup_matched"] is False
+
+
+def test_parse_canonical_vat_setup_sidecar_enables_kontrol_19_setup_path(tmp_path):
+    """Med en gyldig vat_setup.csv ved siden af CSV'en: header.vat_setup_loaded
+    bliver True, kendte koder får setup_matched=True + den REELLE sats (også
+    delvis-fradragsret-satser som 13,63636%), og kontrol 19 accepterer den
+    uden at flage den som "ugyldig" (den ville ellers fejle 0/25-testen)."""
+    path = _write_csv(tmp_path, [
+        ["2024-01-10", "2024-01-10", "2024-01", "false", "F1", "1000",
+         "DOMESTIC|REDUCED_PRIVATE_VAT", "136.3636", "0", "1000.0", "sale", ""],
+    ])
+    (tmp_path / "vat_setup.csv").write_text(
+        "vat_codes,tax_percentage\nDOMESTIC|REDUCED_PRIVATE_VAT,13.63636\n",
+        encoding="utf-8",
+    )
+    canonical, _ = canonical_parser.parse_canonical(path)
+    assert canonical["header"]["vat_setup_loaded"] is True
+    entry = canonical["tax_table"][0]
+    assert entry["setup_matched"] is True
+    assert entry["tax_percentage"] == 13.63636
+
+    from analytics.categories import cat03_vat_rate_validation as cat03
+    findings = cat03.test_19_invalid_rate(canonical)
+    assert findings == []  # matcher opsætningen -- intet fund, selvom satsen ikke er 0/25
+
+
 def test_parse_canonical_vat_codes_are_opaque_never_split(tmp_path):
     """Separator-agnostisk: uanset om D1-koden bruger "/" eller "|" (vat-extract
     skifter separator i skrivende stund), skal koden bevares uændret som ÉN

@@ -77,6 +77,19 @@ LARGE_VAT_NO_DOCUMENT = _f("MATERIALITY_LARGE_VAT_NO_DOCUMENT", 5000.0)
 # Forhold købsmoms/salgsmoms der udløser flag (cat10 test_76).
 INPUT_OUTPUT_RATIO = _f("MATERIALITY_INPUT_OUTPUT_RATIO", 3.0)
 
+# Kontrol 80 (indtægt uden momsbehandling, byggetrin ~9, Del B, Bal-godkendt
+# 2026-09-17): fundet aggregeres PR. KONTO (én postering-population, ikke én
+# postering ad gangen — se cat10_vat_reconciliation.test_80_revenue_without_
+# output_vat). Severity gradueres efter kontoens samlede uden-moms-grundlag
+# (sum af de kvalificerende posteringer), så en konto med et lille beløb
+# ikke automatisk vejer lige så tungt som en konto med millionbeløb.
+CONTROL_80_HIGH_THRESHOLD = _f("MATERIALITY_CONTROL_80_HIGH", 500000.0)
+CONTROL_80_MEDIUM_THRESHOLD = _f("MATERIALITY_CONTROL_80_MEDIUM", 100000.0)
+
+# Maks. antal transaktionsreferencer vist pr. kontrol-80-fund (drill-down-
+# udsnit). Resten opsummeres i beskrivelsen ("…og N flere").
+CONTROL_80_MAX_REFS = _i("MATERIALITY_CONTROL_80_MAX_REFS", 10)
+
 # Lag mellem faktura- og bogføringsdato i dage (cat05 test_46).
 INVOICE_POSTING_LAG_DAYS = _i("MATERIALITY_INVOICE_POSTING_LAG_DAYS", 30)
 

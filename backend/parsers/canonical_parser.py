@@ -447,6 +447,12 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "rate": 0.0,
             "standard_tax_code": "",
             "country": "",
+            # Byggetrin 8, Del A (Bal-godkendt 2026-09-17): nøglesæt-symmetri
+            # (samme princip som resten af filen) -- ALTID til stede, default
+            # False. Sættes til True af canonical_masterdata.enrich_canonical
+            # NÅR vat_setup.csv er indlæst OG denne kode findes deri (se
+            # kontrol 19, cat03_vat_rate_validation.py).
+            "setup_matched": False,
         }
         for code in sorted(tax_codes_seen)
     ]
@@ -467,6 +473,12 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         # producerede denne kanoniske fil. Se tools/data_contract_data.py.
         "mapping_version": mapping_version,
         "schema_fingerprint": schema_fingerprint,
+        # Byggetrin 8, Del A (Bal-godkendt 2026-09-17): nøglesæt-symmetri --
+        # ALTID til stede, default False. Sættes til True af
+        # canonical_masterdata.enrich_canonical NÅR vat_setup.csv findes og
+        # indeholder mindst én gyldig række -- se kontrol 19,
+        # cat03_vat_rate_validation.py, for hvordan flaget bruges.
+        "vat_setup_loaded": False,
     }
     if min_date and max_date:
         try:

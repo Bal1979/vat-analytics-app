@@ -4,6 +4,10 @@ Kategori 3: Momssats-validering (Tests 19-26)
 Kontrollerer at de anvendte momssatser er gyldige efter dansk momsret
 (kun 25% standardsats og 0% nulsats), at de matcher momstabellen, og at
 satsen er konsistent på tværs af samme momskode.
+
+Kontrol 19 (byggetrin 8, Del A, Bal-godkendt 2026-09-17): når kundens EGEN
+vat_setup-stamdata er indlæst (kanonisk vej), valideres i stedet mod
+opsætningens sats pr. momskode — se test_19_invalid_rate nedenfor.
 """
 
 from collections import defaultdict
@@ -38,28 +42,110 @@ def _txn_ref(txn, line, **extra):
 
 
 # === TEST 19: Ugyldig momssats ===
+#
+# TO valideringsveje (byggetrin 8, Del A, Bal-godkendt 2026-09-17):
+#
+#   - Kanonisk vej MED vat_setup-stamdata indlæst
+#     (``data["header"]["vat_setup_loaded"]``, se
+#     parsers/canonical_masterdata.enrich_canonical): validér mod SETUP'ETS
+#     sats for LINJENS EGEN momskode, ikke den hardkodede 0/25-liste.
+#     Diagnose (verificeret manuelt mod den rigtige BC/NAV-fil): kundens VAT
+#     Posting Setup indeholder BEVIDSTE delvis-fradragsret-konstruktioner
+#     (fx "DOMESTIC|REDUCED_PRIVATE_VAT" = 13,63636 % og
+#     "DOMESTIC|REDUCED_REP_VAT" = 5,26316 %) — en BC-teknik der bruger en
+#     reduceret EFFEKTIV sats i stedet for 25 % + separat fradrags-
+#     begrænsning. Disse satser er GYLDIGE, når de matcher opsætningen for
+#     koden — de udgjorde 642 af 957 HØJ-fund før denne rettelse. En kode der
+#     slet ikke findes i opsætningen, er fortsat et fund ("ukendt kode") — en
+#     afvigelse fra kodens setup-sats er den ÆGTE kontrol ("bogført sats ≠
+#     opsætningens sats").
+#   - UDEN vat_setup (Excel/SAF-T/ældre kanoniske filer uden sidecar):
+#     UÆNDRET adfærd — kun 0 %/25 % er gyldige danske satser. Ingen
+#     regression for de input-veje, der ikke har et opsætnings-grundlag.
 
 def test_19_invalid_rate(data: dict) -> list:
-    """Flag momssatser der ikke er gyldige i Danmark (≠ 0% og ≠ 25%)."""
+    """Flag momssatser der ikke er gyldige.
+
+    ÉN funktion, to grene — holdt samlet (i stedet for delegeret til
+    hjælpefunktioner) så det statiske regelkatalog (``tools/
+    build_rules_catalog.py``, AST-baseret) fortsat kan se alle
+    ``make_finding``-kald i selve ``test_19_``-funktionen.
+
+    Uden vat_setup (Excel/SAF-T/ældre kanoniske filer): uændret adfærd —
+    kun 0%/25% er gyldige danske satser (se modulets kommentar ovenfor).
+    """
+    header = data.get("header") or {}
+    if not header.get("vat_setup_loaded"):
+        findings = []
+        for txn in data["transactions"]:
+            for line in txn["lines"]:
+                rate = line["tax_percentage"]
+                if not line["tax_code"] or rate is None:
+                    continue
+                if rate in vr.VALID_DK_RATES:
+                    continue
+                findings.append(make_finding(
+                    test_id=19,
+                    test_name="Ugyldig momssats",
+                    impact_type="compliance",
+                    direction="neutral",
+                    severity="high",
+                    description=f"Momssats {rate}% på linje {line['record_id']} i transaktion "
+                                f"{txn['transaction_id']} er ikke en gyldig dansk sats (0% eller 25%).",
+                    fix_suggestion="Ret momssatsen til 25% (standard) eller 0% (nulsats). "
+                                   "Danmark har ingen reducerede momssatser.",
+                    transactions=[_txn_ref(txn, line, tax_rate=rate, highlighted_field="tax_percentage")],
+                ))
+        return findings
+
+    # vat_setup indlæst (kanonisk vej) -- validér mod OPSÆTNINGEN pr. momskode
+    # i stedet for den hardkodede 0/25-liste. En linjes sats er OK, når den
+    # matcher setup'ets sats for linjens EGEN kode (uanset om det er 25%, 0%
+    # eller en delvis-fradragsret-sats som 13,63636%). Findes koden slet ikke
+    # i opsætningen (``setup_matched`` mangler/False på tax_table-opslaget),
+    # er DET et fund -- vi kan ikke verificere en sats uden en opsætning at
+    # holde den op imod.
     findings = []
+    setup_by_code = {t["tax_code"]: t for t in data.get("tax_table", [])}
     for txn in data["transactions"]:
         for line in txn["lines"]:
+            code = line["tax_code"]
             rate = line["tax_percentage"]
-            if not line["tax_code"] or rate is None:
+            if not code or rate is None:
                 continue
-            if rate in vr.VALID_DK_RATES:
+            entry = setup_by_code.get(code)
+            if entry is None or not entry.get("setup_matched"):
+                findings.append(make_finding(
+                    test_id=19,
+                    test_name="Ukendt momskode i opsætning",
+                    impact_type="compliance",
+                    direction="neutral",
+                    severity="high",
+                    description=f"Momskode '{code}' på linje {line['record_id']} i transaktion "
+                                f"{txn['transaction_id']} findes ikke i kundens vat_setup "
+                                f"(VAT Posting Setup) — satsen kan ikke verificeres mod en kendt "
+                                f"opsætning.",
+                    fix_suggestion="Tilføj momskoden til VAT Posting Setup-udtrækket, eller ret den "
+                                   "bogførte kode til en kendt/aktiv momskode.",
+                    transactions=[_txn_ref(txn, line, tax_rate=rate, highlighted_field="tax_code")],
+                ))
                 continue
+            setup_rate = entry["tax_percentage"]
+            if abs(rate - setup_rate) <= vr.RATE_TOLERANCE:
+                continue  # matcher opsætningen -- ok, også ved delvis fradragsret (fx 13,64%)
             findings.append(make_finding(
                 test_id=19,
-                test_name="Ugyldig momssats",
+                test_name="Sats afviger fra vat_setup",
                 impact_type="compliance",
                 direction="neutral",
                 severity="high",
                 description=f"Momssats {rate}% på linje {line['record_id']} i transaktion "
-                            f"{txn['transaction_id']} er ikke en gyldig dansk sats (0% eller 25%).",
-                fix_suggestion="Ret momssatsen til 25% (standard) eller 0% (nulsats). "
-                               "Danmark har ingen reducerede momssatser.",
-                transactions=[_txn_ref(txn, line, tax_rate=rate, highlighted_field="tax_percentage")],
+                            f"{txn['transaction_id']} afviger fra opsætningens sats for momskode "
+                            f"'{code}' ({setup_rate}%).",
+                fix_suggestion="Ret den bogførte sats så den matcher VAT Posting Setup for koden, "
+                               "eller undersøg om opsætningen selv er forkert/forældet.",
+                transactions=[_txn_ref(txn, line, tax_rate=rate, setup_rate=setup_rate,
+                                       highlighted_field="tax_percentage")],
             ))
     return findings
 

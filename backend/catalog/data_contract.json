@@ -1,10 +1,10 @@
 {
-  "contract_version": "0.3.0",
+  "contract_version": "0.3.1",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
   "antal_objekter": 7,
-  "antal_felter": 69,
+  "antal_felter": 71,
   "objekter": {
     "header": {
       "beskrivelse": "Fil-/regnskabs-metadata. Ét objekt pr. upload.",
@@ -158,6 +158,21 @@
           "ekstension": false,
           "kraeves_af": "Ingen kontrol — reproducerbarheds-/lineage-stempel, samme begrundelse som mapping_version.",
           "noter": "NY (0.2.0, byggetrin 8). Hash af kildefilens kolonnenavne+typer (dataextract.profiling, vat-extract) — identificerer PRÆCIS hvilket kilde-skema (ERP-udtræksformat) mappingen blev godkendt til. Ingen kundedata i hash'en. Tom streng på Excel-/SAF-T-vejen."
+        },
+        {
+          "navn": "vat_setup_loaded",
+          "type": "boolean",
+          "obligatorisk": false,
+          "format": "",
+          "status": "implemented",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": true
+          },
+          "ekstension": false,
+          "kraeves_af": "Kontrol 19 (cat03_vat_rate_validation.test_19_invalid_rate, byggetrin 8, Del A, Bal-godkendt 2026-09-17): vælger valideringsvej — True = validér mod kundens EGEN vat_setup (pr. momskode, se tax_table[].setup_matched); False = uændret adfærd (kun 0%/25% er gyldige danske satser).",
+          "noter": "NY (0.3.1). Nøglesæt-symmetri (samme princip som resten af canonical_parser.py): ALTID til stede på den kanoniske vej, default False, sat af canonical_parser.parse_canonical ved opbygning af header. Sættes til True af parsers/canonical_masterdata.enrich_canonical NÅR ``vat_setup.csv`` findes og indeholder mindst én gyldig række (uafhængigt af om DENNE fils konkrete momskoder rent faktisk matcher — se GAP-10). Findes ALDRIG på Excel-/SAF-T-vejen i dag (ingen vat_setup-koncept dér) — nøglen er derfor fraværende, ikke False, på disse veje; kontrol 19 bruger \"header.get('vat_setup_loaded')\" så fravær og False giver samme (uændrede) adfærd."
         }
       ]
     },
@@ -348,6 +363,21 @@
           "ekstension": false,
           "kraeves_af": "Ingen kontrol i dag — relevant for udenlandske momskoder.",
           "noter": "Trin 3 (GAP-09, delvist lukket): nøglen er nu til stede (tom streng) også på Excel-afledte tax_table-poster (data_adapter). Bærer stadig ingen reel værdi dér — Excel-parseren har ingen kolonne-alias for momskodens land (adskilt fra transaktionens modparts-land, som allerede findes som lines[].country)."
+        },
+        {
+          "navn": "setup_matched",
+          "type": "boolean",
+          "obligatorisk": false,
+          "format": "",
+          "status": "implemented",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": true
+          },
+          "ekstension": false,
+          "kraeves_af": "Kontrol 19 (byggetrin 8, Del A): skelner \"kode kendt i vat_setup, sats 0%\" fra \"kode findes slet ikke i opsætningen\" — begge ville ellers dele tax_percentage==0.0 (den strukturelle default) og være umulige at skelne.",
+          "noter": "NY (0.3.1). Nøglesæt-symmetri: ALTID til stede på HVER tax_table-entry på den kanoniske vej, default False (sat af canonical_parser.parse_canonical). Sættes til True af enrich_canonical, KUN når header.vat_setup_loaded også er True OG denne specifikke kode findes i vat_setup.csv. Findes aldrig på Excel-/SAF-T-vejen."
         }
       ]
     },
@@ -1404,11 +1434,13 @@
       "id": "GAP-10",
       "status": "delvist_lukket",
       "titel": "Kanonisk vej har ingen momssats — tax_table/lines uden tax_percentage/rate",
-      "beskrivelse": "Byggetrin 8 (2026-09-17): den Bal-godkendte BC/NAV-mapping (dataextract/mappings/, seedet 2026-09-16) producerer i dag KUN den sammensatte ``vat_codes`` (D1-kombinationen) — ingen selvstændig kolonne for den numeriske momssats i selve gl_entries-CSV'en. canonical_parser.parse_canonical sætter derfor stadig tax_percentage=0.0/rate=0.0, HVIS ikke andet leveres — bevidst ikke gættet/udledt (jf. §2a designprincip 5: motoren 'auto-healer' aldrig manglende data). DELVIST LUKKET, byggetrin 8/Del C (2026-09-17, Bal-godkendt): en VALGFRI sidecar-fil ``vat_setup.csv`` (join-nøgle: vat_codes-strengen, samme opake streng som gl_entries' vat_codes-kolonne) kan nu joine en reel tax_percentage/rate ind i BÅDE tax_table[] og transactions[].lines[] — se parsers/canonical_masterdata.py. Kategori 3 (satsvalidering, kontrol 19-26) får dermed et reelt grundlag, NÅR filen leveres. Delvist, ikke helt, lukket: uden vat_setup.csv forbliver adfærden strukturelt 0.0, uændret — filen er vat-extracts/klientens leverance, ikke noget motoren kan garantere findes.",
+      "beskrivelse": "Byggetrin 8 (2026-09-17): den Bal-godkendte BC/NAV-mapping (dataextract/mappings/, seedet 2026-09-16) producerer i dag KUN den sammensatte ``vat_codes`` (D1-kombinationen) — ingen selvstændig kolonne for den numeriske momssats i selve gl_entries-CSV'en. canonical_parser.parse_canonical sætter derfor stadig tax_percentage=0.0/rate=0.0, HVIS ikke andet leveres — bevidst ikke gættet/udledt (jf. §2a designprincip 5: motoren 'auto-healer' aldrig manglende data). DELVIST LUKKET, byggetrin 8/Del C (2026-09-17, Bal-godkendt): en VALGFRI sidecar-fil ``vat_setup.csv`` (join-nøgle: vat_codes-strengen, samme opake streng som gl_entries' vat_codes-kolonne) kan nu joine en reel tax_percentage/rate ind i BÅDE tax_table[] og transactions[].lines[] — se parsers/canonical_masterdata.py. Kategori 3 (satsvalidering, kontrol 19-26) får dermed et reelt grundlag, NÅR filen leveres. Delvist, ikke helt, lukket: uden vat_setup.csv forbliver adfærden strukturelt 0.0, uændret — filen er vat-extracts/klientens leverance, ikke noget motoren kan garantere findes. Byggetrin 8/Del A (2026-09-17, Bal-godkendt): kontrol 19 (cat03_vat_rate_validation) konsumerer nu ``header.vat_setup_loaded``/``tax_table[].setup_matched`` direkte og validerer MOD OPSÆTNINGEN pr. momskode i stedet for den hardkodede 0/25-liste, når filen er indlæst — se felt-dokumentationen for disse to nye felter. Løste 642 falske HØJ-fund fra bevidste delvis-fradragsret-satser (fx 13,63636%/5,26316%) i kundens VAT Posting Setup.",
       "beroerte_felter": [
         "tax_table[].tax_percentage",
         "tax_table[].rate",
-        "transactions[].lines[].tax_percentage"
+        "transactions[].lines[].tax_percentage",
+        "header.vat_setup_loaded",
+        "tax_table[].setup_matched"
       ]
     },
     {

@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.2.0",
+  "catalog_version": "1.3.0",
   "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 103 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
   "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
   "antal_kontroller": 103,
@@ -559,7 +559,7 @@
     {
       "id": "VATA-019",
       "test_id": 19,
-      "navn": "Ugyldig momssats",
+      "navn": "Sats afviger fra vat_setup",
       "kategori_id": 3,
       "kategori": "Momssats-validering",
       "impact_type": [
@@ -1964,14 +1964,14 @@
     {
       "id": "VATA-080",
       "test_id": 80,
-      "navn": "Indtægt uden momsbehandling",
+      "navn": "Indtægt uden momsbehandling (pr. konto)",
       "kategori_id": 10,
       "kategori": "Indgående/Udgående Moms Afstemning",
       "impact_type": [
         "economic"
       ],
       "severity": [
-        "medium"
+        "dynamisk"
       ],
       "status": "aktiv",
       "analyse_modul": "moms_kerne",
