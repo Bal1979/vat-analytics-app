@@ -33,6 +33,16 @@ disciplin som resten af canonical_parser.py. Ingen ændring af rådata
                                 giver falske HØJ-fund — se
                                 cat03_vat_rate_validation.py for
                                 valideringslogikken og dens begrundelse.
+                                Bærer desuden tre balai_extensions-felter pr.
+                                kode ind på tax_table[] (§2a, Bal-godkendt
+                                2026-09-17, kontrakt v0.4.0):
+                                non_deductible_vat_pct/
+                                allow_non_deductible_vat (feature 83/BAL-055/
+                                §42-fradragsbegrænsning) og
+                                vat_calculation_type (deterministisk RC-
+                                mekanisme-flag, hærder kontrol 82's DKRC/
+                                SERVICE_VAT-mønstergenkendelse) — se
+                                load_vat_setup's docstring for kolonnenavne.
 
     * chart_of_accounts.csv  — kontoplan (join-nøgle: kontonummeret, SAMME
                                 streng som gl_entries' ``gl_accounts``-
@@ -113,8 +123,21 @@ def _sidecar_path(csv_path: str, filename: str) -> str:
 
 def load_vat_setup(path: str) -> tuple:
     """Læs vat_setup.csv -> ({vat_codes_streng: {tax_percentage, description,
-    standard_tax_code, country}}, advarsler). Manglende fil -> ({}, [])
-    (helt stille — filen er valgfri, jf. opgavens Del C)."""
+    standard_tax_code, country, non_deductible_vat_pct,
+    allow_non_deductible_vat, vat_calculation_type}}, advarsler). Manglende
+    fil -> ({}, []) (helt stille — filen er valgfri, jf. opgavens Del C).
+
+    De tre sidste felter er balai_extensions (§2a, Bal-godkendt 2026-09-17,
+    kontrakt v0.4.0) og læses fra vat-extracts "ext_"-præfikserede
+    transform-kolonner (``ext_non_deductible_vat_pct``/
+    ``ext_allow_non_deductible_vat``/``ext_vat_calculation_type`` — jf.
+    vat-extract/tools/seed_master_data_mappings.py), med et upræfikset
+    fallback for robusthed mod en anden mapping-variant (samme mønster som
+    load_customers). Værdierne bæres RÅT (trimmet, ikke normaliseret) —
+    fx "Allow"/"Do Not Allow" hhv. "Normal VAT"/"Reverse Charge VAT"/
+    "Full VAT" fra BC/NAV. non_deductible_vat_pct er None (ikke 0.0) når
+    kolonnen mangler/er tom, så "fuld fradragsret (0%)" kan skelnes fra
+    "intet signal"."""
     if not path or not os.path.exists(path):
         return {}, []
     try:
@@ -128,11 +151,21 @@ def load_vat_setup(path: str) -> tuple:
         if not code:
             continue
         pct = _num_or_none(row.get("tax_percentage"))
+        nd_pct = _num_or_none(row.get("ext_non_deductible_vat_pct"))
+        if nd_pct is None:
+            nd_pct = _num_or_none(row.get("non_deductible_vat_pct"))
         lookup[code] = {
             "tax_percentage": pct if pct is not None else 0.0,
             "description": (row.get("description") or "").strip(),
             "standard_tax_code": (row.get("standard_tax_code") or "").strip(),
             "country": (row.get("country") or "").strip(),
+            "non_deductible_vat_pct": nd_pct,
+            "allow_non_deductible_vat": (row.get("ext_allow_non_deductible_vat")
+                                          or row.get("allow_non_deductible_vat")
+                                          or "").strip(),
+            "vat_calculation_type": (row.get("ext_vat_calculation_type")
+                                      or row.get("vat_calculation_type")
+                                      or "").strip(),
         }
     warnings = []
     if not lookup:
@@ -276,6 +309,14 @@ def enrich_canonical(canonical: dict, csv_path: str,
                 entry["standard_tax_code"] = info["standard_tax_code"]
             if info["country"]:
                 entry["country"] = info["country"]
+            # balai_extensions (§2a, Bal-godkendt 2026-09-17, kontrakt
+            # v0.4.0): pr.-kode-konfiguration. Sættes ubetinget for MATCHEDE
+            # koder (også når værdien er tom/None -- det ER signalet fra
+            # opsætningen); umatchede koder beholder parserens defaults
+            # (None/""), jf. setup_matched-skelnen ovenfor.
+            entry["non_deductible_vat_pct"] = info["non_deductible_vat_pct"]
+            entry["allow_non_deductible_vat"] = info["allow_non_deductible_vat"]
+            entry["vat_calculation_type"] = info["vat_calculation_type"]
         for txn in canonical.get("transactions", []):
             for line in txn.get("lines", []):
                 info = vat_lookup.get(line.get("tax_code", ""))

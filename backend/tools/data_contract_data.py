@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.3.1"
+CONTRACT_VERSION = "0.4.0"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -352,6 +352,65 @@ TAX_TABLE_FIELDS = [
                  "enrich_canonical, KUN når header.vat_setup_loaded også er True "
                  "OG denne specifikke kode findes i vat_setup.csv. Findes aldrig "
                  "på Excel-/SAF-T-vejen.",
+    },
+    {
+        "navn": "non_deductible_vat_pct", "type": "number", "obligatorisk": False,
+        "format": "procent, fx 40.0 — None = intet signal",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"},
+        "ekstension": True,
+        "kraeves_af": "Feature 83 (delvis fradragsret) + BAL-055-familien "
+                       "(momsfradragsbegrænsning, §42) — ingen aktiv kontrol "
+                       "konsumerer feltet endnu. Pr.-KODE-konfiguration: den "
+                       "tredje granularitet ved siden af non_deductible_amount "
+                       "(linjeniveau, kun SAF-T-vejen) og ekstern_fradragsbroek "
+                       "(virksomhedsbred, planned).",
+        "noter": "balai_extension pr. §2a (Bal-godkendt 2026-09-17). Kilde: "
+                 "vat_setup.csv-sidecarens ext_non_deductible_vat_pct (BC/NAV "
+                 "'Non-Deductible VAT %', jf. vat-extract/tools/"
+                 "seed_master_data_mappings.py). Nøglesæt-symmetri: altid til "
+                 "stede på den kanoniske vej, default None ('intet signal' — "
+                 "adskilt fra 0.0 = 'fuld fradragsret'); reel værdi kun for "
+                 "koder matchet i vat_setup.csv (setup_matched). BEVIDST IKKE "
+                 "det kanoniske pro_rata (virksomhedsbred fradragsprocent) — "
+                 "se vat-extract-mappingens control_rationale.",
+    },
+    {
+        "navn": "allow_non_deductible_vat", "type": "string", "obligatorisk": False,
+        "format": "rå ERP-værdi, fx 'Allow'/'Do Not Allow' (BC/NAV)",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"},
+        "ekstension": True,
+        "kraeves_af": "Feature 83 + BAL-055-familien — ledsage-flag til "
+                       "non_deductible_vat_pct: om ERP'et automatisk bogfører "
+                       "en ikke-fradragsberettiget andel for koden.",
+        "noter": "balai_extension pr. §2a (Bal-godkendt 2026-09-17). Kilde: "
+                 "vat_setup.csv-sidecarens ext_allow_non_deductible_vat. "
+                 "Bæres RÅT (trimmet, ikke normaliseret). Nøglesæt-symmetri: "
+                 "altid til stede på den kanoniske vej, default \"\".",
+    },
+    {
+        "navn": "vat_calculation_type", "type": "string", "obligatorisk": False,
+        "format": "rå ERP-værdi, fx 'Normal VAT'/'Reverse Charge VAT'/'Full VAT' (BC/NAV)",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"},
+        "ekstension": True,
+        "kraeves_af": "Kontrol 82 (hærdning af DKRC/SERVICE_VAT-mønster-"
+                       "genkendelsen i cat10._purchase_rubric — deterministisk "
+                       "ERP-konfiguration i stedet for engagement-kalibrerede "
+                       "navnemønstre; kan som minimum fange en RC-kode, "
+                       "mønstrene misser); sekundært kategori 9 (70-75). Ingen "
+                       "kontrol konsumerer feltet endnu (kun kontrakt+parser).",
+        "noter": "balai_extension pr. §2a (Bal-godkendt 2026-09-17). Kilde: "
+                 "vat_setup.csv-sidecarens ext_vat_calculation_type. Forbehold: "
+                 "flaget skelner RC fra normal, men IKKE alene indenlandsk RC "
+                 "fra RC-ydelser fra udlandet — dér skal mønstrene/EU-service-"
+                 "signalet stadig supplere. SAF-T-nativt alternativ på sigt: "
+                 "en eksplicit besluttet StandardTaxCode-mapping (jf. "
+                 "vat-extracts ext_tax_category-rationale), som kan "
+                 "overflødiggøre denne ekstension — migreringsomfanget er "
+                 "dermed dokumenteret på forhånd, som §2a kræver. Nøglesæt-"
+                 "symmetri: altid til stede på den kanoniske vej, default \"\".",
     },
 ]
 
@@ -887,6 +946,49 @@ BALAI_EXTENSIONS = [
                         "Implementeret kun via SAF-T-vejen (Deductibles/"
                         "NonDeductibleAmount); Excel-vejen mangler kolonne-alias og "
                         "adapter-håndtering.",
+    },
+    {
+        "felt": "non_deductible_vat_pct", "sti": "tax_table[].non_deductible_vat_pct",
+        "status": "implemented_partial",
+        "begrundelse": "Feature 83 (delvis fradragsret) + BAL-055-familien "
+                        "(momsfradragsbegrænsning, §42) — pr.-KODE ikke-"
+                        "fradragsprocent fra kundens egen momsopsætning "
+                        "(vat_setup.csv, ext_non_deductible_vat_pct). Den "
+                        "kanoniske CSV-vej har ellers INTET fradrags-"
+                        "begrænsnings-signal (Deductibles/NonDeductibleAmount "
+                        "er transaktionsbårent og findes kun på SAF-T-vejen). "
+                        "Hvorfor ikke SAF-T Financial: TaxTable bærer ingen "
+                        "fradragsbegrænsnings-konfiguration pr. kode. "
+                        "Bal-godkendt 2026-09-17 (kontrakt v0.4.0); kun "
+                        "kontrakt+parser i dag — ingen kontrol konsumerer "
+                        "feltet endnu.",
+    },
+    {
+        "felt": "allow_non_deductible_vat", "sti": "tax_table[].allow_non_deductible_vat",
+        "status": "implemented_partial",
+        "begrundelse": "Feature 83 + BAL-055-familien — ledsage-flag til "
+                        "non_deductible_vat_pct (om ERP'et automatisk "
+                        "bogfører en ikke-fradragsberettiget andel for "
+                        "koden; vat_setup.csv, ext_allow_non_deductible_vat). "
+                        "Samme SAF-T-begrundelse og status som "
+                        "non_deductible_vat_pct.",
+    },
+    {
+        "felt": "vat_calculation_type", "sti": "tax_table[].vat_calculation_type",
+        "status": "implemented_partial",
+        "begrundelse": "Kontrol 82 — deterministisk mekanisme-flag pr. "
+                        "momskode (Normal/Reverse Charge/Full VAT; "
+                        "vat_setup.csv, ext_vat_calculation_type) til at "
+                        "hærde DKRC/SERVICE_VAT-mønstergenkendelsen i "
+                        "cat10._purchase_rubric, der i dag er kalibreret til "
+                        "én kundes kodenavngivning; sekundært kategori 9. "
+                        "Hvorfor ikke SAF-T Financial: TaxTable har intet "
+                        "mekanisme-flag pr. kode — det native alternativ er "
+                        "en fremtidig, eksplicit besluttet StandardTaxCode-"
+                        "mapping, som kan overflødiggøre denne ekstension. "
+                        "Bal-godkendt 2026-09-17 (kontrakt v0.4.0); kun "
+                        "kontrakt+parser i dag — ingen kontrol konsumerer "
+                        "feltet endnu.",
     },
     {
         "felt": "version_erklaeret", "sti": "header.saft_version",

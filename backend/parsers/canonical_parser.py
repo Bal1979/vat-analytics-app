@@ -453,6 +453,14 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             # NÅR vat_setup.csv er indlæst OG denne kode findes deri (se
             # kontrol 19, cat03_vat_rate_validation.py).
             "setup_matched": False,
+            # balai_extensions (Bal-godkendt 2026-09-17, kontrakt v0.4.0):
+            # pr.-kode-konfiguration fra vat_setup.csv. Samme nøglesæt-
+            # symmetri: ALTID til stede, defaults = "intet signal".
+            # non_deductible_vat_pct er None (ikke 0.0) uden signal, så
+            # "fuld fradragsret (0%)" kan skelnes fra "ukendt".
+            "non_deductible_vat_pct": None,
+            "allow_non_deductible_vat": "",
+            "vat_calculation_type": "",
         }
         for code in sorted(tax_codes_seen)
     ]

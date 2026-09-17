@@ -3,6 +3,45 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## To nye balai_extensions fra vat_setup: non_deductible_vat_pct (+flag) og vat_calculation_type — 2026-09-17 (catalog v1.3.0 uændret, data_contract v0.4.0)
+
+Bal-godkendt tværgående beslutning (§2a-disciplin, jf. analysen af vat-extracts
+tre seedede stamdata-mappings samme dag): to af de dokumenterede
+ekstensionskolonner i `vat-extract/tools/seed_master_data_mappings.py`
+optages i `balai_extensions`, fordi en eksisterende/planlagt kontrol reelt
+kræver dem — resten forbliver bevidst udenfor (kandidater: pr.-kode
+momskonti + `ext_bc_account_type`, først relevante når Trial Balance-saldi
+operationaliseres).
+
+- **`tax_table[].non_deductible_vat_pct`** (+ ledsage-flaget
+  **`allow_non_deductible_vat`**): pr.-kode ikke-fradragsprocent fra kundens
+  egen VAT Posting Setup (`ext_non_deductible_vat_pct`/
+  `ext_allow_non_deductible_vat` i `vat_setup.csv`). Kræves af feature 83
+  (delvis fradragsret) + BAL-055-familien (§42-fradragsbegrænsning, G1) —
+  den kanoniske CSV-vej havde ellers INTET fradragsbegrænsnings-signal
+  (linje-niveau `non_deductible_amount` findes kun på SAF-T-vejen). Bevidst
+  IKKE det kanoniske `pro_rata` (virksomhedsbred brøk) — tre granulariteter
+  af samme feature er nu alle i §2a-blokken.
+- **`tax_table[].vat_calculation_type`**: deterministisk mekanisme-flag pr.
+  kode (Normal/Reverse Charge/Full VAT, `ext_vat_calculation_type`). Kræves
+  af kontrol 82 som hærdning af DKRC/SERVICE_VAT-mønstergenkendelsen i
+  `cat10._purchase_rubric` (i dag kalibreret til én kundes kodenavngivning).
+  Dokumenteret forbehold: skelner RC fra normal, ikke alene indenlandsk RC
+  fra RC-ydelser fra udlandet. SAF-T-nativt alternativ på sigt: eksplicit
+  besluttet StandardTaxCode-mapping — migreringsomfanget dermed dokumenteret
+  på forhånd, som §2a kræver.
+
+Implementeret: `parsers/canonical_parser.py` (nøglesæt-symmetri: de tre nye
+nøgler ALTID til stede på den kanoniske vej, defaults None/""/""),
+`parsers/canonical_masterdata.load_vat_setup`/`enrich_canonical` (læser
+`ext_`-præfikserede kolonner med upræfikset fallback, bærer værdierne RÅT
+ind på matchede tax_table-poster), `tools/data_contract_data.py` (tre
+tax_table-felter med `ekstension=True` + tre §2a-entries, kontrakt v0.3.1 →
+**v0.4.0**, 71 → 74 felter, 9 → 12 ekstensioner). INGEN kontrol konsumerer
+felterne endnu (kun kontrakt+parser) — regelkataloget er derfor uændret
+v1.3.0. Testsuite 349 → **353** (nye loader-/berigelsestests), valideringssuite
+uændret **99/99**.
+
 ## Byggetrin 9, Del A–D: kontrol 19 mod vat_setup, kontrol 80 pr. konto, HTML-kundedialograpport — 2026-09-17 (catalog v1.3.0, data_contract v0.3.1)
 
 Bal-godkendt opgave (kontekst: `BALAI-dataflow-arkitektur.md` §2a+§7 punkt

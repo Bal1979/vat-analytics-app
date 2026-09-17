@@ -29,7 +29,9 @@ def _bare_canonical():
         "accounts": [{"account_id": "5820", "description": "", "account_type": "",
                       "standard_account_id": "", "opening_balance": 0.0, "closing_balance": 0.0}],
         "tax_table": [{"tax_code": "DOMESTIC|REDUCED_PRIVATE_DKRC", "description": "",
-                       "tax_percentage": 0.0, "rate": 0.0, "standard_tax_code": "", "country": ""}],
+                       "tax_percentage": 0.0, "rate": 0.0, "standard_tax_code": "", "country": "",
+                       "setup_matched": False, "non_deductible_vat_pct": None,
+                       "allow_non_deductible_vat": "", "vat_calculation_type": ""}],
         "transactions": [{
             "transaction_id": "T1",
             "lines": [{"account_id": "5820", "tax_code": "DOMESTIC|REDUCED_PRIVATE_DKRC",
@@ -55,6 +57,57 @@ def test_load_vat_setup_valid_file(tmp_path):
     assert warnings == []
     assert lookup["STANDARD|I25"]["tax_percentage"] == 25.0
     assert lookup["STANDARD|I25"]["description"] == "Standard købsmoms"
+
+
+def test_load_vat_setup_reads_ext_prefixed_extension_columns(tmp_path):
+    """balai_extensions (§2a, Bal-godkendt 2026-09-17, kontrakt v0.4.0):
+    vat-extracts transform-output leverer pr.-kode-konfigurationen som
+    ext_non_deductible_vat_pct/ext_allow_non_deductible_vat/
+    ext_vat_calculation_type (seed_master_data_mappings.py) — loaderen
+    bærer dem RÅT (trimmet, unormaliseret) ind i opslaget."""
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage", "ext_non_deductible_vat_pct",
+                           "ext_allow_non_deductible_vat", "ext_vat_calculation_type"],
+               [{"vat_codes": "DOMESTIC|REDUCED_PRIVATE_DKRC", "tax_percentage": "25.0",
+                 "ext_non_deductible_vat_pct": "40", "ext_allow_non_deductible_vat": "Allow",
+                 "ext_vat_calculation_type": "Reverse Charge VAT"}])
+    lookup, warnings = md.load_vat_setup(str(path))
+    assert warnings == []
+    info = lookup["DOMESTIC|REDUCED_PRIVATE_DKRC"]
+    assert info["non_deductible_vat_pct"] == 40.0
+    assert info["allow_non_deductible_vat"] == "Allow"
+    assert info["vat_calculation_type"] == "Reverse Charge VAT"
+
+
+def test_load_vat_setup_extension_columns_absent_gives_no_signal(tmp_path):
+    """Uden ekstensionskolonner: None/"" ('intet signal') — None er BEVIDST
+    forskellig fra 0.0 (= fuld fradragsret), samme skelnen som
+    opening_balance/closing_balance i chart_of_accounts-loaderen."""
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage"],
+               [{"vat_codes": "STANDARD|I25", "tax_percentage": "25.0"}])
+    lookup, _ = md.load_vat_setup(str(path))
+    info = lookup["STANDARD|I25"]
+    assert info["non_deductible_vat_pct"] is None
+    assert info["allow_non_deductible_vat"] == ""
+    assert info["vat_calculation_type"] == ""
+
+
+def test_load_vat_setup_extension_columns_unprefixed_fallback(tmp_path):
+    """Upræfikset navngivning accepteres også (robusthed mod en anden
+    mapping-variant — samme mønster som load_customers). '0' skal parses
+    som 0.0, ikke behandles som 'intet signal'."""
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage", "non_deductible_vat_pct",
+                           "allow_non_deductible_vat", "vat_calculation_type"],
+               [{"vat_codes": "STANDARD|I25", "tax_percentage": "25.0",
+                 "non_deductible_vat_pct": "0", "allow_non_deductible_vat": "Do Not Allow",
+                 "vat_calculation_type": "Normal VAT"}])
+    lookup, _ = md.load_vat_setup(str(path))
+    info = lookup["STANDARD|I25"]
+    assert info["non_deductible_vat_pct"] == 0.0
+    assert info["allow_non_deductible_vat"] == "Do Not Allow"
+    assert info["vat_calculation_type"] == "Normal VAT"
 
 
 def test_load_vat_setup_empty_file_warns(tmp_path):
@@ -186,7 +239,8 @@ def test_enrich_canonical_with_all_three_sidecars(tmp_path):
 
 def test_enrich_canonical_unmatched_codes_leave_defaults(tmp_path):
     """En vat_setup.csv der ikke indeholder linjens faktiske momskode
-    ændrer intet for den linje (ingen gætning på tværs af koder)."""
+    ændrer intet for den linje (ingen gætning på tværs af koder) — heller
+    ikke for de tre balai_extensions-felter (kontrakt v0.4.0)."""
     csv_path = str(tmp_path / "gl_entries.csv")
     _write_csv(str(tmp_path / "vat_setup.csv"), ["vat_codes", "tax_percentage"],
                [{"vat_codes": "SOME|OTHER|CODE", "tax_percentage": "25.0"}])
@@ -194,6 +248,29 @@ def test_enrich_canonical_unmatched_codes_leave_defaults(tmp_path):
     md.enrich_canonical(canonical, csv_path)
     assert canonical["tax_table"][0]["tax_percentage"] == 0.0
     assert canonical["transactions"][0]["lines"][0]["tax_percentage"] == 0.0
+    assert canonical["tax_table"][0]["non_deductible_vat_pct"] is None
+    assert canonical["tax_table"][0]["allow_non_deductible_vat"] == ""
+    assert canonical["tax_table"][0]["vat_calculation_type"] == ""
+
+
+def test_enrich_canonical_carries_extension_fields_onto_matched_tax_table(tmp_path):
+    """Matchede koder får de tre balai_extensions-felter fra vat_setup.csv
+    (§2a, Bal-godkendt 2026-09-17, kontrakt v0.4.0) — sat ubetinget for
+    matchede koder, også når en enkelt kolonne er tom (det ER signalet)."""
+    csv_path = str(tmp_path / "gl_entries.csv")
+    _write_csv(str(tmp_path / "vat_setup.csv"),
+               ["vat_codes", "tax_percentage", "ext_non_deductible_vat_pct",
+                "ext_allow_non_deductible_vat", "ext_vat_calculation_type"],
+               [{"vat_codes": "DOMESTIC|REDUCED_PRIVATE_DKRC", "tax_percentage": "25.0",
+                 "ext_non_deductible_vat_pct": "40", "ext_allow_non_deductible_vat": "Allow",
+                 "ext_vat_calculation_type": "Reverse Charge VAT"}])
+    canonical = _bare_canonical()
+    md.enrich_canonical(canonical, csv_path)
+    entry = canonical["tax_table"][0]
+    assert entry["setup_matched"] is True
+    assert entry["non_deductible_vat_pct"] == 40.0
+    assert entry["allow_non_deductible_vat"] == "Allow"
+    assert entry["vat_calculation_type"] == "Reverse Charge VAT"
 
 
 def test_enrich_canonical_explicit_paths_override_sidecar_convention(tmp_path):
