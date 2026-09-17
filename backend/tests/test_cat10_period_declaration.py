@@ -45,27 +45,33 @@ def test_matching_period_produces_no_finding():
     assert findings == []
 
 
-def test_dkrc_purchase_line_counted_in_output_rubric():
+def test_dkrc_purchase_line_counted_in_output_AND_input_rubric():
     """En DKRC-købslinje (indenlandsk omvendt betalingspligt) tælles med i
-    UDGÅENDE moms, ikke i indgående moms."""
+    UDGÅENDE moms OG — som fradragsberettiget RC — i indgående moms (den
+    netter til nul i angivelsens total). Rettet 2026-09-17 efter manuel
+    verifikation mod kundens 3-vejs-afstemning: den tidligere version udelod
+    RC-fradragssiden af input_vat og gav en kunstig årsdifference på præcis
+    årets RC-sum."""
     data = mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0,
                                   tax_code="DOMESTIC|REDUCED_PRIVATE_DKRC"),
                           period="03", period_year="2024"))
-    declarations = _decl(("2024-03", 250.0, 0.0, 0.0))
+    declarations = _decl(("2024-03", 250.0, 250.0, 0.0))
     assert cat10.test_82_period_declaration(data, declarations) == []
 
-    # Havde den fejlagtigt talt med i input_vat, ville denne deklaration
-    # (output_vat=0, input_vat=250) IKKE matche -- bekræft det modsatte fejler.
-    wrong_declarations = _decl(("2024-03", 0.0, 250.0, 0.0))
+    # Udelades RC-fradragssiden af angivelsen (input_vat=0), skal input-
+    # rubrikken afvige — og kun den.
+    wrong_declarations = _decl(("2024-03", 250.0, 0.0, 0.0))
     findings = cat10.test_82_period_declaration(data, wrong_declarations)
-    assert len(findings) == 2  # både output_vat og input_vat afviger
+    assert len(findings) == 1
+    assert findings[0]["transactions"][0]["rubrik"] == "input_vat"
 
 
-def test_service_vat_purchase_line_has_own_rubric():
+def test_service_vat_purchase_line_has_own_rubric_and_input_side():
+    """RC-ydelser udland: egen rubrik OG fradragssiden i indgående moms."""
     data = mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0,
                                   tax_code="SERVICE_VAT_EU"),
                           period="03", period_year="2024"))
-    declarations = _decl(("2024-03", 0.0, 0.0, 250.0))
+    declarations = _decl(("2024-03", 0.0, 250.0, 250.0))
     assert cat10.test_82_period_declaration(data, declarations) == []
 
 

@@ -265,15 +265,20 @@ def test_81_zero_rated_share(data):
 #     fejl. V1-håndtering (Bal-godkendt): sammenlign pr. periode OG
 #     årstotal — hvis årstotalen stemmer (inden for tolerance) men enkelte
 #     perioder afviger, klassificeres differencen som "timing" (severity
-#     low), ikke et reelt fund (severity high). EMPIRISK RESULTAT på den
-#     rigtige fil: input_vat-årstotalen stemmer IKKE (en vedvarende
-#     difference på tværs af 2025) -- V1-logikken klassificerer den derfor
-#     KORREKT som et REELT fund (severity high) hver periode, ikke timing.
-#     Dette er en ægte observation at forelægge Bal, ikke en kodefejl:
-#     GL-baseret input-VAT (bogført på tax_code-niveau) og den indberettede
-#     input_vat kan afvige af grunde uden for denne kontrols datagrundlag
-#     (fx delvis fradragsret/§42-begrænsninger, manuelle korrektioner i
-#     angivelsen, eller poster uden for GL-udtrækkets vindue).
+#     low), ikke et reelt fund (severity high). Årsvurderingen bruger BÅDE
+#     den absolutte tolerance og en relativ grænse
+#     (VAT_DECLARATION_ANNUAL_TIMING_PCT, default 1 % af angivet årstotal),
+#     fordi settlement-basis giver spillover hen over årsgrænsen, som en
+#     etårig sammenligning aldrig kan se nulstillet.
+#   - KØBSMOMS-RUBRIKKEN OMFATTER RC-FRADRAGSSIDEN: omvendt betalingspligt
+#     (DKRC + RC-ydelser) angives i sin egen rubrik OG som fradrag i
+#     købsmomsen (netter til nul i totalen). En tidligere version udelod
+#     RC-siden af input_vat og producerede en KUNSTIG "reel" årsdifference
+#     på præcis årets RC-sum (4,0 mio. på den rigtige fil) — rettet
+#     2026-09-17 efter manuel verifikation mod kundens egen 3-vejs-
+#     afstemning (residual herefter: -326 t.kr. = 0,56 % af årstotalen,
+#     konsistent med settlement-timing; kundens egen afstemning lukker på
+#     1 kr. på settlement-basis).
 #
 # DKRC-/SERVICE_VAT-kodegenkendelse er BEVIDST konfigurerbar (materiality.
 # VAT_DECLARATION_DKRC_PATTERNS/VAT_DECLARATION_SERVICE_VAT_PATTERNS) —
@@ -378,7 +383,13 @@ def _compute_period_rubrics(data: dict) -> dict:
         key: {
             "output_vat": round(-v["sale"] + abs(v["dkrc"]), 2),
             "rc_services": round(abs(v["service"]), 2),
-            "input_vat": round(v["input"], 2),
+            # Købsmoms-rubrikken omfatter OGSAA fradragssiden af omvendt
+            # betalingspligt (DKRC + RC-ydelser): RC-moms angives i baade sin
+            # egen rubrik OG som fradrag i koebsmomsen, saa den netter til nul
+            # i angivelsens total. Uden RC-siden opstaar en kunstig difference
+            # paa praecis aarets RC-sum (verificeret paa den rigtige fil
+            # 2026-09-17: 4,0 mio. kunstig -> -326 t.kr. reelt timing-residual).
+            "input_vat": round(v["input"] + v["dkrc"] + v["service"], 2),
         }
         for key, v in raw.items()
     }
@@ -434,7 +445,17 @@ def test_82_period_declaration(data, declarations=None):
             if abs(diff) <= tolerance:
                 continue  # match -- intet fund (grønt)
 
-            is_timing = abs(annual_diff[r]) <= tolerance
+            # Timing-vurdering: koebsmoms angives paa settlement-basis, mens
+            # rubrikken her beregnes paa vat_period-basis — spillover hen over
+            # aarsgraensen er derfor forventeligt og IKKE en fejl. Aarstotalen
+            # vurderes med baade den absolutte tolerance og en relativ
+            # aarsgraense (default 1 % af angivet aarstotal, konfigurerbar).
+            annual_timing_cap = max(
+                tolerance,
+                materiality.VAT_DECLARATION_ANNUAL_TIMING_PCT / 100.0
+                * abs(annual_declared[r]),
+            )
+            is_timing = abs(annual_diff[r]) <= annual_timing_cap
             severity = "low" if is_timing else "high"
             timing_note = (
                 " Årstotalen stemmer (inden for tolerance) — differencen vurderes at "

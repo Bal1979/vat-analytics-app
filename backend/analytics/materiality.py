@@ -105,3 +105,9 @@ VAT_DECLARATION_SERVICE_VAT_PATTERNS = [
 # betragtes en beregnet rubrik og den angivne værdi som matchende (afrundings-
 # differencer, ikke et reelt fund).
 VAT_DECLARATION_TOLERANCE = _f("MATERIALITY_VAT_DECLARATION_TOLERANCE", 1.0)
+
+# Relativ årsgrænse (procent af angivet årstotal pr. rubrik) for kontrol 82's
+# timing-klassifikation: en årsdifference inden for denne grænse vurderes som
+# TIMING (fx købsmoms angivet på settlement- frem for vat_period-basis, med
+# spillover hen over årsgrænsen) og giver LAV i stedet for HØJ pr. periode.
+VAT_DECLARATION_ANNUAL_TIMING_PCT = _f("MATERIALITY_VAT_DECLARATION_ANNUAL_TIMING_PCT", 1.0)
