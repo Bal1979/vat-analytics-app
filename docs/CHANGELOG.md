@@ -3,6 +3,85 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kontrol 82 hærdet med vat_calculation_type + alias-bugfix (description/navn) + kontrol 77 vat-match — 2026-09-17 (catalog v1.3.0 uændret, data_contract v0.4.1)
+
+Bal-godkendt opgave, opfølgning på forrige punkt (`non_deductible_vat_pct`/
+`allow_non_deductible_vat`/`vat_calculation_type` optaget i kontrakten, men
+"kun kontrakt+parser — ingen kontrol konsumerer felterne endnu"). Denne runde
+aktiverer `vat_calculation_type` i kontrol 82 og retter et alias-bug, der
+gjorde konto-/momskodebeskrivelser strukturelt tomme på den kanoniske vej.
+
+- **Kontrol 82 (`cat10._purchase_rubric`) bruger nu `vat_calculation_type`
+  FØR DKRC/SERVICE_VAT-navnemønstrene, når feltet er til stede** (kun på den
+  kanoniske vej, når `vat_setup.csv` er indlæst — joinet BÅDE på `tax_table[]`
+  og `transactions[].lines[]`, da kontrol 82 klassificerer pr. LINJE):
+  siger feltet ikke "reverse charge" (Normal/Full VAT) → `input`,
+  deterministisk. Siger det "reverse charge", kan feltet ALENE ikke skelne
+  indenlandsk RC fra RC fra udlandet (begge bruger samme beregningstype i
+  BC/NAV) — Bus.-gruppen (`vat_codes`-strengens FØRSTE led, fx
+  `DOMESTIC`/`EU`/`OUTSIDE DK/EU`) løser den skelnen: `DOMESTIC` → `dkrc`
+  (udgående rubrik), UDEN krav om "dkrc" i selve kodenavnet (hærdning).
+  Ikke-domestic RC kan hverken beregningstype eller Bus.-gruppe skelne
+  ydelse fra vare (fx `EU|SERVICE_VAT_EU` vs. `EU|GOODS_VAT_EU` deler begge
+  værdier) — den sidste skelnen falder fortsat tilbage til
+  SERVICE_VAT-navnemønstret (bevidst, dokumenteret, ikke et overset hul).
+  Mangler feltet helt (Excel-/SAF-T-oprindelse, eller kanonisk uden
+  `vat_setup.csv`): uændret ren navnemønster-klassifikation.
+  **Regressionskriterium bekræftet empirisk** (worktree-sammenligning af
+  commit `013ca1f` mod denne ændring, samme v4-datasæt, samme
+  reconciliation/declarations-input): fund-antal PR. TEST-ID er
+  byte-for-byte identisk før/efter (24.612 fund i alt, 0 kritisk/375 høj/
+  15.830 medium/8.407 lav; kontrol 82's 12 fund — alle LAV, alle
+  "Indgående moms"/timing, udgående moms + RC-ydelser fortsat <1 kr. for
+  alle 12 måneder 2025 — er felt-for-felt identiske JSON-objekter før/efter).
+- **Alias-bugfix (`parsers/canonical_masterdata.py`):** loaderen læste
+  `description` (vat_setup.csv) og `description` (chart_of_accounts.csv),
+  men vat-extracts REELLE transform-output navngiver kolonnerne
+  `ext_description` hhv. `ext_name` — kodebeskrivelser og kontonavne var
+  derfor strukturelt ALTID tomme på den kanoniske vej, uafhængigt af om
+  sidecar-filerne var leveret. Rettet til at acceptere `ext_description`/
+  `ext_name` FØRST, med de upræfiksede navne som fallback (ingen
+  adfærdsændring for en fil der allerede brugte det upræfiksede navn).
+  Bekræftet empirisk på v4: kontrol 80's finding-tekster viser nu reelle
+  engelske BC/NAV-kontonavne (fx "Konto 711100 (Income tax)" i stedet for
+  blot "Konto 711100") — finding-ANTALLET er uændret (kun teksten beriget).
+  **OBS, rapportérbart:** den mailbare HTML-rapport
+  (`tools/generate_report.py`) viser i dag KUN kontonummeret i sin
+  aggregerede pr.-konto-tabel (`_finding_account()` læser udelukkende
+  `account_id` fra finding-referencerne, aldrig kontoens `description`) —
+  alias-fixet forbedrer altså finding-teksten i rå rapport-JSON, men slår
+  IKKE automatisk igennem i HTML-rapportens kontotabel. At vise kontonavne
+  dér er en selvstændig, efterfølgende ændring i `generate_report.py`
+  (uden for denne opgaves scope).
+- **Kontrol 77 (`test_77_vat_account_reconciliation`) matcher nu ALSO 'vat'**
+  (case-insensitivt), ikke kun det danske 'moms' — kontrollen kunne
+  tidligere ALDRIG ramme en engelsksproget kontoplan (BC/NAV m.fl.). Danske
+  kontoplaner matcher fortsat uændret. **Vågnede IKKE på v4-datasættet**:
+  chart_of_accounts.csv har ingen `opening_balance`/`closing_balance`-
+  kolonner (Trial Balance-saldi er endnu ikke i pipelinen, jf.
+  `BALAI-dataflow-arkitektur.md`), så `account_balance` summer til 0 og
+  kontrollen springer over PRÆCIS som før udvidelsen — bekræftet 0 fund
+  før/efter i worktree-sammenligningen. 14 konti i v4's kontoplan
+  indeholder faktisk 'vat'/'moms' i navnet (fx "VAT Related to Sales
+  (Salgsmoms)"), så kontrollen VIL vågne, når Trial Balance-saldi
+  operationaliseres.
+- **`tools/data_contract_data.py`:** `vat_calculation_type`s `kraeves_af`/
+  `noter` opdateret fra "ingen kontrol konsumerer feltet endnu" til AKTIV
+  (kontrol 82) + hele beslutningstræet inkl. den dokumenterede Bus.-gruppe-
+  begrænsning. `description`-felterne på `accounts[]` og `tax_table[]`
+  opdateret `kilder.canonical` fra `false` til `"partial"` (alias-fixet gør
+  dem reelt udfyldte, når sidecar-filen er leveret) + `kraeves_af` for
+  `accounts[].description` udvidet til at nævne kontrol 77/80.
+  `data_contract.json` **v0.4.1** (fra v0.4.0, felt- og ekstensionsantal
+  uændret: 74 felter, 12 ekstensioner — kun beskrivelser/kilder-flag
+  opdateret, ingen nye felter).
+- Testsuite **353 → 372** (19 nye tests: alias-fallback for begge loaders,
+  linje-niveau `vat_calculation_type`-berigelse, `_purchase_rubric`s fulde
+  beslutningstræ inkl. Bus.-gruppe-hærdningen, kontrol 77's nye
+  'vat'-matching). Valideringssuite uændret **99/99**. `catalog/rules.json`
+  uændret **v1.3.0** (ingen ny/ændret kontrol-signatur, kun intern
+  klassifikationslogik i en eksisterende, allerede aktiv kontrol).
+
 ## To nye balai_extensions fra vat_setup: non_deductible_vat_pct (+flag) og vat_calculation_type — 2026-09-17 (catalog v1.3.0 uændret, data_contract v0.4.0)
 
 Bal-godkendt tværgående beslutning (§2a-disciplin, jf. analysen af vat-extracts

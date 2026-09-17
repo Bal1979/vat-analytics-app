@@ -137,7 +137,17 @@ def load_vat_setup(path: str) -> tuple:
     fx "Allow"/"Do Not Allow" hhv. "Normal VAT"/"Reverse Charge VAT"/
     "Full VAT" fra BC/NAV. non_deductible_vat_pct er None (ikke 0.0) når
     kolonnen mangler/er tom, så "fuld fradragsret (0%)" kan skelnes fra
-    "intet signal"."""
+    "intet signal".
+
+    ALIAS-BUGFIX (2026-09-17): ``description`` blev tidligere KUN læst fra
+    en upræfikset ``description``-kolonne, men vat-extracts reelle
+    transform-output navngiver den ``ext_description`` (samme
+    "ext_"-præfiks-konvention som de tre §2a-kolonner ovenfor) — så
+    kodebeskrivelsen var strukturelt altid tom på den kanoniske vej.
+    Læser nu ``ext_description`` FØRST, med upræfikset ``description`` som
+    fallback (samme retningslinje som resten af loaderen: accepter begge
+    navne, ingen adfærdsændring for en fil der allerede brugte det
+    upræfiksede navn)."""
     if not path or not os.path.exists(path):
         return {}, []
     try:
@@ -156,7 +166,7 @@ def load_vat_setup(path: str) -> tuple:
             nd_pct = _num_or_none(row.get("non_deductible_vat_pct"))
         lookup[code] = {
             "tax_percentage": pct if pct is not None else 0.0,
-            "description": (row.get("description") or "").strip(),
+            "description": (row.get("ext_description") or row.get("description") or "").strip(),
             "standard_tax_code": (row.get("standard_tax_code") or "").strip(),
             "country": (row.get("country") or "").strip(),
             "non_deductible_vat_pct": nd_pct,
@@ -179,7 +189,16 @@ def load_vat_setup(path: str) -> tuple:
 def load_chart_of_accounts(path: str) -> tuple:
     """Læs chart_of_accounts.csv -> ({gl_accounts_nummer: {account_type,
     standard_account_id, opening_balance, closing_balance, description}},
-    advarsler). Manglende fil -> ({}, [])."""
+    advarsler). Manglende fil -> ({}, [])
+
+    ALIAS-BUGFIX (2026-09-17): kontonavnet blev tidligere KUN læst fra en
+    upræfikset ``description``-kolonne, men vat-extracts reelle
+    transform-output navngiver den ``ext_name`` (samme
+    "ext_"-præfiks-konvention som vat_setup.csv's ``ext_description``) — så
+    kontonavnet var strukturelt altid tomt på den kanoniske vej. Læser nu
+    ``ext_name`` FØRST, med upræfikset ``description``/``name`` som fallback
+    (accepter begge navne, ingen adfærdsændring for en fil der allerede
+    brugte et af de upræfiksede navne)."""
     if not path or not os.path.exists(path):
         return {}, []
     try:
@@ -197,7 +216,8 @@ def load_chart_of_accounts(path: str) -> tuple:
             "standard_account_id": (row.get("standard_account_id") or "").strip(),
             "opening_balance": _num_or_none(row.get("opening_balance")),
             "closing_balance": _num_or_none(row.get("closing_balance")),
-            "description": (row.get("description") or "").strip(),
+            "description": (row.get("ext_name") or row.get("description")
+                             or row.get("name") or "").strip(),
         }
     warnings = []
     if not lookup:
@@ -322,6 +342,12 @@ def enrich_canonical(canonical: dict, csv_path: str,
                 info = vat_lookup.get(line.get("tax_code", ""))
                 if info:
                     line["tax_percentage"] = info["tax_percentage"]
+                    # balai_extensions (kontrakt v0.4.0): vat_calculation_type
+                    # joines nu OGSÅ ned på linjeniveau (ikke kun tax_table),
+                    # fordi kontrol 82 (cat10._purchase_rubric) klassificerer
+                    # rubrik PR. LINJE og har derfor brug for feltet dér —
+                    # se opgavens Del A, punkt 2, Bal-godkendt 2026-09-17.
+                    line["vat_calculation_type"] = info["vat_calculation_type"]
 
     if coa_lookup:
         for acc in canonical.get("accounts", []):

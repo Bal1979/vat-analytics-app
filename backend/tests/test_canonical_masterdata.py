@@ -6,6 +6,11 @@ hver for sig (manglende fil, tom/ugyldig fil, gyldig fil), samt
 enrich_canonical()'s berigelse af en allerede parset kanonisk struktur
 (tax_table/accounts/lines/customers) og at fravær af alle tre filer giver
 UÆNDRET adfærd (samme strukturelle tomhed som før byggetrin 8/Del C).
+
+Byggetrin 9, Del B (Bal-godkendt 2026-09-17) tilføjer: alias-bugfixet
+ext_description/ext_name (vat-extracts reelle transform-kolonnenavne, som
+loaderen tidligere ikke genkendte) samt vat_calculation_type joinet ned på
+linjeniveau (ikke kun tax_table), som kontrol 82 nu konsumerer.
 """
 
 import csv
@@ -35,7 +40,8 @@ def _bare_canonical():
         "transactions": [{
             "transaction_id": "T1",
             "lines": [{"account_id": "5820", "tax_code": "DOMESTIC|REDUCED_PRIVATE_DKRC",
-                       "tax_percentage": 0.0, "account_type": "", "standard_account_id": ""}],
+                       "tax_percentage": 0.0, "vat_calculation_type": "",
+                       "account_type": "", "standard_account_id": ""}],
         }],
         "customers": [],
     }
@@ -110,6 +116,31 @@ def test_load_vat_setup_extension_columns_unprefixed_fallback(tmp_path):
     assert info["vat_calculation_type"] == "Normal VAT"
 
 
+def test_load_vat_setup_description_reads_ext_description_alias(tmp_path):
+    """ALIAS-BUGFIX (byggetrin 9, Del B, Bal-godkendt 2026-09-17): vat-extracts
+    reelle transform-output navngiver momskode-beskrivelsen 'ext_description',
+    ikke det upræfiksede 'description' loaderen hidtil kun læste -- feltet var
+    derfor strukturelt altid tomt på den kanoniske vej."""
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage", "ext_description"],
+               [{"vat_codes": "DOMESTIC|STANDARD_VAT", "tax_percentage": "25.0",
+                 "ext_description": "INDENLANDS VAT 25%"}])
+    lookup, warnings = md.load_vat_setup(str(path))
+    assert warnings == []
+    assert lookup["DOMESTIC|STANDARD_VAT"]["description"] == "INDENLANDS VAT 25%"
+
+
+def test_load_vat_setup_description_prefers_ext_over_unprefixed(tmp_path):
+    """Findes begge kolonner (usandsynligt i praksis), vinder ext_description
+    -- samme forrangsprincip som de tre §2a-ekstensionsfelter."""
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage", "ext_description", "description"],
+               [{"vat_codes": "STANDARD|I25", "tax_percentage": "25.0",
+                 "ext_description": "Fra ext_description", "description": "Fra description"}])
+    lookup, _ = md.load_vat_setup(str(path))
+    assert lookup["STANDARD|I25"]["description"] == "Fra ext_description"
+
+
 def test_load_vat_setup_empty_file_warns(tmp_path):
     path = tmp_path / "vat_setup.csv"
     _write_csv(str(path), ["vat_codes", "tax_percentage"], [])
@@ -136,6 +167,27 @@ def test_load_chart_of_accounts_valid_file(tmp_path):
     assert warnings == []
     assert lookup["5820"]["account_type"] == "Asset"
     assert lookup["5820"]["standard_account_id"] == "5800"
+
+
+def test_load_chart_of_accounts_name_reads_ext_name_alias(tmp_path):
+    """ALIAS-BUGFIX (byggetrin 9, Del B, Bal-godkendt 2026-09-17): vat-extracts
+    reelle transform-output navngiver kontonavnet 'ext_name', ikke det
+    upræfiksede 'description' loaderen hidtil kun læste -- kontonavnet var
+    derfor strukturelt altid tomt på den kanoniske vej."""
+    path = tmp_path / "chart_of_accounts.csv"
+    _write_csv(str(path), ["gl_accounts", "account_type", "ext_name"],
+               [{"gl_accounts": "110000", "account_type": "income", "ext_name": "SALES"}])
+    lookup, warnings = md.load_chart_of_accounts(str(path))
+    assert warnings == []
+    assert lookup["110000"]["description"] == "SALES"
+
+
+def test_load_chart_of_accounts_name_prefers_ext_over_unprefixed(tmp_path):
+    path = tmp_path / "chart_of_accounts.csv"
+    _write_csv(str(path), ["gl_accounts", "ext_name", "description"],
+               [{"gl_accounts": "110000", "ext_name": "Fra ext_name", "description": "Fra description"}])
+    lookup, _ = md.load_chart_of_accounts(str(path))
+    assert lookup["110000"]["description"] == "Fra ext_name"
 
 
 def test_load_chart_of_accounts_missing_file_returns_empty():
@@ -271,6 +323,30 @@ def test_enrich_canonical_carries_extension_fields_onto_matched_tax_table(tmp_pa
     assert entry["non_deductible_vat_pct"] == 40.0
     assert entry["allow_non_deductible_vat"] == "Allow"
     assert entry["vat_calculation_type"] == "Reverse Charge VAT"
+
+
+def test_enrich_canonical_carries_vat_calculation_type_onto_matched_lines(tmp_path):
+    """Byggetrin 9, Del A (Bal-godkendt 2026-09-17): vat_calculation_type
+    joines nu OGSÅ ned på linjeniveau (ikke kun tax_table), fordi kontrol 82
+    (cat10._purchase_rubric) klassificerer rubrik PR. LINJE."""
+    csv_path = str(tmp_path / "gl_entries.csv")
+    _write_csv(str(tmp_path / "vat_setup.csv"),
+               ["vat_codes", "tax_percentage", "ext_vat_calculation_type"],
+               [{"vat_codes": "DOMESTIC|REDUCED_PRIVATE_DKRC", "tax_percentage": "25.0",
+                 "ext_vat_calculation_type": "Reverse Charge VAT"}])
+    canonical = _bare_canonical()
+    md.enrich_canonical(canonical, csv_path)
+    line = canonical["transactions"][0]["lines"][0]
+    assert line["vat_calculation_type"] == "Reverse Charge VAT"
+
+
+def test_enrich_canonical_unmatched_line_code_leaves_vat_calculation_type_default(tmp_path):
+    csv_path = str(tmp_path / "gl_entries.csv")
+    _write_csv(str(tmp_path / "vat_setup.csv"), ["vat_codes", "tax_percentage"],
+               [{"vat_codes": "SOME|OTHER|CODE", "tax_percentage": "25.0"}])
+    canonical = _bare_canonical()
+    md.enrich_canonical(canonical, csv_path)
+    assert canonical["transactions"][0]["lines"][0]["vat_calculation_type"] == ""
 
 
 def test_enrich_canonical_explicit_paths_override_sidecar_convention(tmp_path):

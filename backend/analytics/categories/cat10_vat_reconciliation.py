@@ -96,13 +96,24 @@ def test_76_input_output_ratio(data):
 
 def test_77_vat_account_reconciliation(data):
     """Sammenlign beregnet nettomoms med saldoen på en momskonto, hvis en
-    sådan kan identificeres (kontonavn indeholder 'moms')."""
+    sådan kan identificeres (kontonavn indeholder 'moms' ELLER 'vat',
+    case-insensitivt).
+
+    Udvidet 2026-09-17 (Del B, Bal-godkendt): kontonavns-heuristikken
+    matchede tidligere KUN det danske 'moms' og kunne derfor aldrig ramme en
+    engelsksproget kontoplan (fx BC/NAV-standardopsætning, hvor momskonti
+    hedder "VAT payable"/"Output VAT" osv.). 'vat' tilføjes som et
+    sideordnet, case-insensitivt mønster — uændret adfærd på danske
+    kontoplaner (de matcher fortsat kun via 'moms', medmindre navnet
+    tilfældigvis også indeholder 'vat')."""
     findings = []
     input_vat, output_vat = _input_output_vat(data)
     net_vat = round(output_vat - input_vat, 2)
 
-    vat_accounts = [a for a in data.get("accounts", [])
-                    if "moms" in (a.get("description", "") or "").lower()]
+    vat_accounts = [
+        a for a in data.get("accounts", [])
+        if vr.text_matches_any(a.get("description", ""), ("moms", "vat"))
+    ]
     if not vat_accounts:
         return findings
     account_balance = sum((a.get("closing_balance", 0) or 0) for a in vat_accounts)
@@ -358,6 +369,18 @@ def test_81_zero_rated_share(data):
 # IKKE hårdkodet til én kundes momskode-navngivning. Se materiality.py for
 # den dokumenterede begrænsning (kalibreret til den observerede BC/NAV-
 # taksonomi; en anden klients koder kræver en engagement-specifik override).
+#
+# HÆRDNING (byggetrin 9, Del A, Bal-godkendt 2026-09-17): er
+# balai_extensions-feltet ``vat_calculation_type`` til stede (kun på den
+# kanoniske vej, når vat_setup.csv er indlæst), bruger _purchase_rubric det
+# FØR navnemønstrene -- deterministisk "reverse charge"-detektion plus
+# Bus.-gruppen (vat_codes-strengens første led: DOMESTIC vs. EU/OUTSIDE
+# DK/EU) til at skelne indenlandsk RC fra RC fra udlandet. Beregningstypen
+# ALENE kan ikke skelne RC-ydelser fra RC-varekøb fra udlandet (samme
+# beregningstype for begge) -- den sidste skelnen falder fortsat tilbage
+# til SERVICE_VAT-navnemønstret. Se _purchase_rubric's docstring for hele
+# beslutningstræet. Regressionskriterium: kontrol 82's E2E-resultat på
+# byggetrin 8/9's v4-datasæt er UÆNDRET efter denne hærdning (verificeret).
 
 _DECLARATION_RUBRICS = ("output_vat", "rc_services", "input_vat")
 
@@ -368,12 +391,53 @@ _RUBRIC_LABELS = {
 }
 
 
-def _purchase_rubric(tax_code: str) -> str:
+def _purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
     """Klassificér en KØBSLINJES momskode til rubrik: 'dkrc' (indenlandsk
     omvendt betalingspligt -> tælles med i udgående moms), 'rc_services'
     (RC-ydelser udland -> egen rubrik) eller 'input' (almindelig købsmoms).
-    Se modulets Del B-dokumentation ovenfor for den dokumenterede
-    begrænsning i mønster-genkendelsen."""
+
+    ``vat_calculation_type`` (balai_extensions, kontrakt v0.4.0, tax_table[]/
+    lines[].vat_calculation_type -- kun til stede på den kanoniske vej NÅR
+    vat_setup.csv er indlæst, jf. canonical_masterdata.enrich_canonical):
+    deterministisk ERP-mekanisme-flag pr. kode (Bal-godkendt 2026-09-17,
+    aktiveret her). Bruges FØR navnemønstrene, når det er til stede:
+
+    - Feltet siger IKKE "reverse charge" (fx "Normal VAT"/"Full VAT") ->
+      'input', deterministisk -- ingen grund til at konsultere mønstrene.
+    - Feltet siger "reverse charge", MEN kan IKKE alene skelne indenlandsk
+      RC fra RC (ydelser ELLER varer) fra udlandet -- begge bruger samme
+      beregningstype i BC/NAV. Bus.-gruppen (vat_codes-strengens FØRSTE led,
+      adskilt med "|", fx "DOMESTIC"/"EU"/"OUTSIDE DK/EU") løser
+      indenlandsk-vs-udenlandsk-skellet:
+        * Bus.-gruppe "DOMESTIC" -> 'dkrc' (udgående rubrik), UDEN at kræve
+          "dkrc" i selve kodenavnet -- hærdning af den tidligere rene
+          navnemønster-afhængighed.
+        * Enhver anden Bus.-gruppe (EU/OUTSIDE DK/EU) er udenlandsk RC, men
+          hverken beregningstype eller Bus.-gruppe skelner "ydelse" fra
+          "vare" (fx "EU|SERVICE_VAT_EU" vs. "EU|GOODS_VAT_EU" bruger begge
+          "Reverse Charge VAT" og Bus.-gruppe "EU") -- den sidste skelnen
+          kræver stadig SERVICE_VAT-navnemønstret (samme mønster som
+          fallback-vejen, ikke en dublet-implementering). RC-varekøb fra
+          udlandet lander dermed i 'input' (almindelig købsmoms-rubrik),
+          PRÆCIS som før denne hærdning -- ingen adfærdsændring, empirisk
+          bekræftet uændret på den rigtige BC/NAV-fil (kontrol 82's
+          regressionskriterium, byggetrin 9/Del A, 2026-09-17).
+
+    Er ``vat_calculation_type`` fraværende/tomt (Excel-/SAF-T-oprindelse,
+    eller kanonisk vej uden vat_setup.csv), falder funktionen tilbage til
+    den REN navnemønster-klassifikation (uændret hidtidig adfærd) -- se
+    modulets Del B-dokumentation ovenfor for den dokumenterede begrænsning
+    i mønster-genkendelsen."""
+    calc_type = (vat_calculation_type or "").strip().lower()
+    if calc_type:
+        if "reverse charge" not in calc_type:
+            return "input"
+        bus_group = (tax_code or "").split("|", 1)[0].strip().upper()
+        if bus_group == "DOMESTIC":
+            return "dkrc"
+        if vr.text_matches_any(tax_code, materiality.VAT_DECLARATION_SERVICE_VAT_PATTERNS):
+            return "rc_services"
+        return "input"
     if vr.text_matches_any(tax_code, materiality.VAT_DECLARATION_DKRC_PATTERNS):
         return "dkrc"
     if vr.text_matches_any(tax_code, materiality.VAT_DECLARATION_SERVICE_VAT_PATTERNS):
@@ -442,7 +506,8 @@ def _compute_period_rubrics(data: dict) -> dict:
             if direction == "sale":
                 bucket["sale"] += vat
             elif direction == "purchase":
-                rubric = _purchase_rubric(line.get("tax_code", ""))
+                rubric = _purchase_rubric(line.get("tax_code", ""),
+                                           line.get("vat_calculation_type", ""))
                 if rubric == "dkrc":
                     bucket["dkrc"] += vat
                 elif rubric == "rc_services":

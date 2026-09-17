@@ -139,6 +139,69 @@ def test_default_patterns_match_documented_examples():
     assert cat10._purchase_rubric("STANDARD|I25") == "input"
 
 
+# --- vat_calculation_type (balai_extensions, byggetrin 9/Del A hærdning) ---
+# Kontrakt v0.4.1: kontrol 82 bruger feltet FØR navnemønstrene, når det er
+# til stede (kun på den kanoniske vej, når vat_setup.csv er indlæst). Se
+# cat10._purchase_rubric's docstring for hele beslutningstræet.
+
+def test_calc_type_normal_vat_is_deterministically_input():
+    """Beregningstypen siger eksplicit IKKE reverse charge -> 'input',
+    UANSET kodenavnet (her et navn der ellers ville matche DKRC-mønstret)."""
+    assert cat10._purchase_rubric("DOMESTIC|REDUCED_PRIVATE_DKRC", "Normal VAT") == "input"
+
+
+def test_calc_type_full_vat_is_deterministically_input():
+    assert cat10._purchase_rubric("DOMESTIC|ELECTRICITY_TAX", "Full VAT") == "input"
+
+
+def test_calc_type_reverse_charge_domestic_bus_group_is_dkrc_without_name_pattern():
+    """Bus.-gruppen (første led før '|') afgør indenlandsk-skellet -- koden
+    behøver IKKE indeholde 'dkrc' i navnet, når calc_type + Bus.-gruppe
+    allerede er deterministisk (hærdning mod navngivnings-afhængighed)."""
+    assert cat10._purchase_rubric("DOMESTIC|SOME_OTHER_NAME", "Reverse Charge VAT") == "dkrc"
+
+
+def test_calc_type_reverse_charge_eu_service_pattern_is_rc_services():
+    assert cat10._purchase_rubric("EU|SERVICE_VAT_EU", "Reverse Charge VAT") == "rc_services"
+
+
+def test_calc_type_reverse_charge_outside_service_pattern_is_rc_services():
+    assert cat10._purchase_rubric("OUTSIDE DK/EU|SERVICE_VAT_NOT_EU", "Reverse Charge VAT") == "rc_services"
+
+
+def test_calc_type_reverse_charge_foreign_goods_without_service_pattern_is_input():
+    """RC-varekøb fra udlandet (EU/OUTSIDE, IKKE 'service' i navnet): hverken
+    calc_type eller Bus.-gruppen alene skelner ydelse fra vare -- falder til
+    'input' (almindelig købsmoms), PRÆCIS som før hærdningen (regressions-
+    kriteriet fra opgavens Del A: v4-datasættets 'OUTSIDE DK/EU|GOODS_VAT_NOT_EU'
+    og 'EU|GOODS_VAT_EU' skal forblive 'input')."""
+    assert cat10._purchase_rubric("EU|GOODS_VAT_EU", "Reverse Charge VAT") == "input"
+    assert cat10._purchase_rubric("OUTSIDE DK/EU|GOODS_VAT_NOT_EU", "Reverse Charge VAT") == "input"
+
+
+def test_calc_type_absent_falls_back_to_pure_name_patterns():
+    """Tomt/manglende calc_type (Excel-/SAF-T-oprindelse, eller kanonisk vej
+    uden vat_setup.csv) -- uændret ren navnemønster-klassifikation."""
+    assert cat10._purchase_rubric("DOMESTIC|REDUCED_PRIVATE_DKRC", "") == "dkrc"
+    assert cat10._purchase_rubric("DOMESTIC|REDUCED_PRIVATE_DKRC") == "dkrc"
+    assert cat10._purchase_rubric("STANDARD|I25", "") == "input"
+
+
+def test_compute_period_rubrics_reads_vat_calculation_type_from_line():
+    """_compute_period_rubrics sender linjens vat_calculation_type videre til
+    _purchase_rubric -- en linje uden 'dkrc' i kodenavnet, men med calc_type
+    'Reverse Charge VAT' og Bus.-gruppe DOMESTIC, tælles korrekt med i
+    output_vat (ikke input_vat)."""
+    data = mk_data(mk_txn(
+        mk_line(debit_amount=1000.0, tax_amount=250.0,
+                tax_code="DOMESTIC|SOME_OTHER_NAME",
+                vat_calculation_type="Reverse Charge VAT"),
+        period="03", period_year="2024"))
+    computed = cat10._compute_period_rubrics(data)
+    assert computed["2024-03"]["output_vat"] == 250.0
+    assert computed["2024-03"]["input_vat"] == 250.0  # RC-fradragssiden, jf. modulets dokumentation
+
+
 # --- supply_direction (byggetrin 8, Del D — empirisk rettelse) --------------
 # Bekræftet mod den rigtige BC/NAV-fil: sale/køb afgøres af det EGNE
 # supply_direction-felt, ikke debet/kredit. Debet/kredit er kun fallback, når

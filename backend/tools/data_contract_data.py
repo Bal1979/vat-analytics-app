@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.4.0"
+CONTRACT_VERSION = "0.4.1"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -210,9 +210,21 @@ ACCOUNT_FIELDS = [
     },
     {
         "navn": "description", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
-        "kraeves_af": "Ingen kontrol direkte — kontekst i rapport.",
-        "noter": "",
+        "status": "implemented_partial",
+        "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
+        "kraeves_af": "Kontrol 77 (momskontoafstemning, cat10.test_77_vat_account_"
+                       "reconciliation — matcher kontonavnet mod 'moms'/'vat') og "
+                       "kontrol 80's kontolabel i finding-teksten (account_names). "
+                       "Ikke længere kun 'kontekst i rapport'.",
+        "noter": "Byggetrin 9/Del B alias-bugfix (2026-09-17, Bal-godkendt): den "
+                 "kanoniske vejs chart_of_accounts.csv-loader læste tidligere KUN "
+                 "en upræfikset 'description'-kolonne, men vat-extracts reelle "
+                 "transform-output navngiver kontonavnet 'ext_name' — feltet var "
+                 "derfor strukturelt altid tomt på den kanoniske vej. "
+                 "canonical_masterdata.load_chart_of_accounts accepterer nu "
+                 "'ext_name' (først) ELLER 'description'/'name' (fallback). "
+                 "'partial' fordi berigelsen kun sker NÅR chart_of_accounts.csv "
+                 "er indlæst som sidecar (valgfri fil).",
     },
     {
         "navn": "account_type", "type": "string", "obligatorisk": False,
@@ -289,10 +301,20 @@ TAX_TABLE_FIELDS = [
     },
     {
         "navn": "description", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
-        "kraeves_af": "Ingen kontrol direkte.",
+        "status": "implemented_partial",
+        "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
+        "kraeves_af": "Ingen kontrol direkte — kontekst i rapport (momskode-tekst).",
         "noter": "Excel: syntetisk \"Momskode {code}\" hvis ingen beskrivelseskolonne. "
-                 "SAF-T: nativ TaxTableEntry/TaxCodeDetails/Description.",
+                 "SAF-T: nativ TaxTableEntry/TaxCodeDetails/Description. Byggetrin "
+                 "9/Del B alias-bugfix (2026-09-17, Bal-godkendt): den kanoniske "
+                 "vejs vat_setup.csv-loader læste tidligere KUN en upræfikset "
+                 "'description'-kolonne, men vat-extracts reelle transform-output "
+                 "navngiver momskode-beskrivelsen 'ext_description' — feltet var "
+                 "derfor strukturelt altid tomt på den kanoniske vej. "
+                 "canonical_masterdata.load_vat_setup accepterer nu "
+                 "'ext_description' (først) ELLER 'description' (fallback). "
+                 "'partial' fordi berigelsen kun sker NÅR vat_setup.csv er "
+                 "indlæst som sidecar (valgfri fil).",
     },
     {
         "navn": "tax_percentage", "type": "number", "obligatorisk": True, "format": "procent, fx 25.0",
@@ -395,22 +417,33 @@ TAX_TABLE_FIELDS = [
         "status": "implemented_partial",
         "kilder": {"excel": False, "saft": False, "canonical": "partial"},
         "ekstension": True,
-        "kraeves_af": "Kontrol 82 (hærdning af DKRC/SERVICE_VAT-mønster-"
-                       "genkendelsen i cat10._purchase_rubric — deterministisk "
-                       "ERP-konfiguration i stedet for engagement-kalibrerede "
-                       "navnemønstre; kan som minimum fange en RC-kode, "
-                       "mønstrene misser); sekundært kategori 9 (70-75). Ingen "
-                       "kontrol konsumerer feltet endnu (kun kontrakt+parser).",
+        "kraeves_af": "Kontrol 82 AKTIV (byggetrin 9, Del A, Bal-godkendt "
+                       "2026-09-17): cat10._purchase_rubric bruger feltet FØR "
+                       "DKRC/SERVICE_VAT-navnemønstrene, når det er til stede "
+                       "(deterministisk 'reverse charge'-detektion + Bus.-"
+                       "gruppen til indenlandsk/udenlandsk-skellet); mønstrene "
+                       "bevares som fallback uden feltet, og som sidste skelnen "
+                       "mellem RC-ydelser og RC-varekøb fra udlandet (se noter). "
+                       "Sekundært kategori 9 (70-75, ikke konsumeret endnu).",
         "noter": "balai_extension pr. §2a (Bal-godkendt 2026-09-17). Kilde: "
-                 "vat_setup.csv-sidecarens ext_vat_calculation_type. Forbehold: "
-                 "flaget skelner RC fra normal, men IKKE alene indenlandsk RC "
-                 "fra RC-ydelser fra udlandet — dér skal mønstrene/EU-service-"
-                 "signalet stadig supplere. SAF-T-nativt alternativ på sigt: "
-                 "en eksplicit besluttet StandardTaxCode-mapping (jf. "
-                 "vat-extracts ext_tax_category-rationale), som kan "
-                 "overflødiggøre denne ekstension — migreringsomfanget er "
-                 "dermed dokumenteret på forhånd, som §2a kræver. Nøglesæt-"
-                 "symmetri: altid til stede på den kanoniske vej, default \"\".",
+                 "vat_setup.csv-sidecarens ext_vat_calculation_type, joinet "
+                 "BÅDE på tax_table[] og transactions[].lines[] (kontrol 82 "
+                 "klassificerer pr. linje). Dokumenteret forbehold (uændret "
+                 "efter aktivering): flaget skelner reverse charge fra normal "
+                 "OG (sammen med Bus.-gruppen) indenlandsk fra udenlandsk RC, "
+                 "men IKKE alene RC-ydelser fra RC-varekøb fra udlandet — "
+                 "begge bruger samme beregningstype og Bus.-gruppe i den "
+                 "observerede BC/NAV-taksonomi. Den sidste skelnen falder "
+                 "fortsat tilbage til SERVICE_VAT-navnemønstret (materiality."
+                 "VAT_DECLARATION_SERVICE_VAT_PATTERNS), bevidst, ikke en "
+                 "overset huls. Regressionsverificeret: kontrol 82's E2E-"
+                 "resultat på byggetrin 8/9's v4-datasæt er uændret efter "
+                 "aktiveringen. SAF-T-nativt alternativ på sigt: en eksplicit "
+                 "besluttet StandardTaxCode-mapping (jf. vat-extracts "
+                 "ext_tax_category-rationale), som kan overflødiggøre denne "
+                 "ekstension — migreringsomfanget er dermed dokumenteret på "
+                 "forhånd, som §2a kræver. Nøglesæt-symmetri: altid til stede "
+                 "på den kanoniske vej, default \"\".",
     },
 ]
 
@@ -974,21 +1007,30 @@ BALAI_EXTENSIONS = [
                         "non_deductible_vat_pct.",
     },
     {
-        "felt": "vat_calculation_type", "sti": "tax_table[].vat_calculation_type",
+        "felt": "vat_calculation_type", "sti": "tax_table[].vat_calculation_type / "
+                "transactions[].lines[].vat_calculation_type",
         "status": "implemented_partial",
-        "begrundelse": "Kontrol 82 — deterministisk mekanisme-flag pr. "
+        "begrundelse": "Kontrol 82 AKTIV (byggetrin 9, Del A, Bal-godkendt "
+                        "2026-09-17) — deterministisk mekanisme-flag pr. "
                         "momskode (Normal/Reverse Charge/Full VAT; "
-                        "vat_setup.csv, ext_vat_calculation_type) til at "
-                        "hærde DKRC/SERVICE_VAT-mønstergenkendelsen i "
-                        "cat10._purchase_rubric, der i dag er kalibreret til "
-                        "én kundes kodenavngivning; sekundært kategori 9. "
-                        "Hvorfor ikke SAF-T Financial: TaxTable har intet "
+                        "vat_setup.csv, ext_vat_calculation_type), joinet "
+                        "både på tax_table[] og lines[] og brugt i "
+                        "cat10._purchase_rubric FØR DKRC/SERVICE_VAT-"
+                        "navnemønstrene, der ellers er kalibreret til én "
+                        "kundes kodenavngivning: 'reverse charge' i feltet + "
+                        "Bus.-gruppen (vat_codes' første led) skelner "
+                        "indenlandsk RC (-> udgående rubrik) fra RC fra "
+                        "udlandet deterministisk; navnemønstret bevares som "
+                        "fallback (feltet fraværende) OG som sidste skelnen "
+                        "mellem RC-ydelser og RC-varekøb fra udlandet (feltet "
+                        "kan ikke alene afgøre den skelnen). Sekundært "
+                        "kategori 9 (70-75, ikke konsumeret endnu). Hvorfor "
+                        "ikke SAF-T Financial: TaxTable har intet "
                         "mekanisme-flag pr. kode — det native alternativ er "
                         "en fremtidig, eksplicit besluttet StandardTaxCode-"
                         "mapping, som kan overflødiggøre denne ekstension. "
-                        "Bal-godkendt 2026-09-17 (kontrakt v0.4.0); kun "
-                        "kontrakt+parser i dag — ingen kontrol konsumerer "
-                        "feltet endnu.",
+                        "Regressionsverificeret uændret E2E-resultat på "
+                        "v4-datasættet efter aktiveringen.",
     },
     {
         "felt": "version_erklaeret", "sti": "header.saft_version",

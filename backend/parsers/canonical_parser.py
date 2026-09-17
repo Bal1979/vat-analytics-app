@@ -390,6 +390,12 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "credit_amount": credit,
             "tax_code": vat_code,
             "tax_percentage": tax_percentage,
+            # balai_extensions (kontrakt v0.4.0): nøglesæt-symmetri -- ALTID
+            # til stede, default "" (intet signal). Fyldes af
+            # canonical_masterdata.enrich_canonical NÅR vat_setup.csv er
+            # indlæst OG linjens kode findes deri (kontrol 82, Bal-godkendt
+            # 2026-09-17).
+            "vat_calculation_type": "",
             "tax_base": tax_base,
             "tax_amount": vat_amount,
             "currency": currency,

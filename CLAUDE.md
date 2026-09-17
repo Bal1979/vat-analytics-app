@@ -25,6 +25,28 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-17)
 
+- **Kontrol 82 hærdet med `vat_calculation_type` + alias-bugfix + kontrol 77
+  'vat'-match (2026-09-17, Bal-godkendt):** datakontrakt **v0.4.1**, **372
+  automatiserede tests**. `cat10._purchase_rubric` bruger nu det
+  deterministiske balai_extensions-felt `vat_calculation_type` (fra
+  `vat_setup.csv`) FØR DKRC/SERVICE_VAT-navnemønstrene, når det er til
+  stede — kombineret med Bus.-gruppen (vat_codes-strengens første led) til
+  at skelne indenlandsk omvendt betalingspligt fra udenlandsk. Alias-bug
+  rettet i `parsers/canonical_masterdata.py`: `vat_setup.csv`/
+  `chart_of_accounts.csv` navngiver kolonnerne `ext_description`/`ext_name`
+  (ikke det upræfiksede `description` loaderen hidtil kun læste) — kode-/
+  kontonavne var derfor strukturelt tomme på den kanoniske vej; rettet med
+  et fallback-mønster (accepter begge navne). Kontrol 77 matcher nu også
+  engelsk 'vat' (case-insensitivt), ikke kun dansk 'moms'. **Regressions-
+  kriterium bekræftet empirisk** (worktree-diff mod commit `013ca1f`, samme
+  v4-fil): fund-antal pr. kontrol er byte-for-byte identisk før/efter
+  (24.612 fund i alt, kontrol 82's 12 LAV timing-fund uændrede, kontrol 77
+  fortsat 0 fund — v4's chart_of_accounts.csv har ingen Trial Balance-saldi
+  endnu). Se `docs/CHANGELOG.md` for det fulde før/efter og en udtrykkelig
+  OBS om, at `tools/generate_report.py`s HTML-rapport endnu kun viser
+  kontonummeret (ikke navnet) i sin aggregerede tabel — en selvstændig,
+  efterfølgende ændring.
+
 - **To nye balai_extensions fra vat_setup (2026-09-17, Bal-godkendt tværgående
   beslutning):** datakontrakt **v0.4.0** (71→74 felter, 9→12 ekstensioner),
   **353 automatiserede tests**. `tax_table[].non_deductible_vat_pct` (+
