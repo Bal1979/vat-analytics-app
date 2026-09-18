@@ -25,6 +25,16 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-18)
 
+- **Semantik-PoC: LLM-klassifikation af posteringslinjer (2026-09-18,
+  Bal-godkendt):** ny `examples/poc_semantik/` — spejler mapping-PoC'en i
+  `vat-extract/examples/poc_bc_gl_2025/`, men for LINJE-klassifikation mod
+  et ekspert-fundkatalog (F01-F31) i stedet for kolonne-mapping. Ingen
+  motor-/kontrolkatalog-ændring. Røgtest (1 batch, begge lokale modeller):
+  qwen3.8:27b 92,3 % korrekte / 0 hallucination, qwen3:14b 78,8 % — 27b
+  anbefalet, batchstørrelse 25. Fuld kørsel (327 grupper, stratificeret
+  population) endnu ikke kørt — se README for kommando + metodiske
+  begrænsninger. 35 nye harness-tests (syntetiske fixtures). Se
+  `docs/CHANGELOG.md` for det fulde omfang.
 - **A-listens krydskontroller fra gap-analysen, byggetrin ~11 (2026-09-18,
   Bal-godkendt):** fire nye deterministiske kontroller i ny kategori 13
   "Krydsdimensionelle kontroller" (**kontrol 104-108**, momskernen,

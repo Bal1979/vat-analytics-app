@@ -3,6 +3,46 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Semantik-PoC: LLM-klassifikation af posteringslinjer — 2026-09-18 (katalog v1.4.0 uændret)
+
+Bal-godkendt opgave (2026-09-18). Ny `examples/poc_semantik/` (spejler
+mapping-PoC'en i `vat-extract/examples/poc_bc_gl_2025/`): kan en lokal LLM
+klassificere enkelte købsposteringslinjer mod et ekspert-fundkatalog
+(F01-F31), målt mod en ekspert-gennemgangs egen linje-klassifikation som
+facit? Ingen ændring i motoren/kontrolkataloget — selvstændig PoC-harness.
+
+- **`build_facit.py`/`build_katalog.py`**: læser kundens Excel-gennemgang
+  (UDENFOR repo, committes aldrig) til generiske facit-/katalog-JSON'er
+  (UDENFOR repo, scratchpad). Indbygget kontrolsum-tjek bekræftede
+  byte-for-byte match mod kundens egen afstemning i "Metode og
+  forudsætninger" §1 (beløb er kundedata, gengives ikke her). 3.010 linjer,
+  240 fund-linjer i 28 aktive fund-id'er.
+- **`dedup.py`**: gruppering på normaliseret (konto, leverandør,
+  tekst-mønster, momskode, valuta, moms-fratrukket) — ALDRIG facit-fundet i
+  nøglen. Stratificeret population (240 fund-linjer + seedet stikprøve på
+  300 OK-linjer, seed 42) = 540 linjer → 327 unikke grupper (1,65×
+  reduktion).
+- **`run_poc.py`**: lokal Ollama, temperatur 0, tvungen JSON, `think: false`,
+  batches à 25 grupper. To fund (F01 dobbeltbogføring, F10
+  kantine-metodevalg) er markeret `kraever_tvaerlinje_kontekst` og holdt
+  uden for pr.-linje-scoring (kan ikke afgøres fair fra én linje).
+- **`score_poc.py`**: recall pr. fund-id, OK-nøjagtighed, falske positiver
+  rapporteret separat (ikke automatisk dømt forkerte), hallucinerede
+  fund-id'er, skema-validitet/tid pr. batch.
+- **Røgtest (1 batch, 25 grupper/54 linjer, begge modeller allerede lokalt
+  installeret):** `qwen3.8:27b` **92,3 %** korrekte (0 hallucinationer, 0
+  falske positiver, rammer næsten hele §42-fradragsbegrænsnings-klyngen
+  F05/F06/F07), `qwen3:14b` 78,8 % (samme 0/0 på hallucination/falsk
+  positiv, men systematisk svag på F05/F06/F07-klyngen). Batch-tid næsten
+  ens (187s vs. 164s — prompt-evaluering af den faste katalog-tekst
+  dominerer, ikke modelstørrelsen). **Anbefaling:** 27b, batchstørrelse 25;
+  estimeret fuld PoC-kørsel (327 grupper, 14 batches) ≈ 44 min.
+- **35 nye harness-tests** (syntetiske fixtures, ingen kundedata, ingen
+  netværk) — se `examples/poc_semantik/tests/`. Eksisterende 494 tests
+  upåvirket.
+- **Fuld kørsel (327 grupper) er IKKE kørt i dette byggetrin** — hoved-
+  sessionen orkestrerer den efterfølgende. Se `examples/poc_semantik/README.md`.
+
 ## A-listens krydskontroller fra gap-analysen (byggetrin ~11) — 2026-09-18 (catalog v1.3.0 → v1.4.0, data_contract v0.4.4 → v0.5.0)
 
 Bal-godkendt opgave (2026-09-18). Fire nye deterministiske kontroller fra
