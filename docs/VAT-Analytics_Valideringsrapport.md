@@ -1,6 +1,6 @@
 # VAT Analytics — Valideringsrapport
 
-> Auto-genereret af `python -m validation.run_validation` · 2026-09-17
+> Auto-genereret af `python -m validation.run_validation` · 2026-09-18
 
 ✅ **BESTÅET** — 99/99 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 

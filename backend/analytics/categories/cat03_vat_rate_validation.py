@@ -8,10 +8,41 @@ satsen er konsistent på tværs af samme momskode.
 Kontrol 19 (byggetrin 8, Del A, Bal-godkendt 2026-09-17): når kundens EGEN
 vat_setup-stamdata er indlæst (kanonisk vej), valideres i stedet mod
 opsætningens sats pr. momskode — se test_19_invalid_rate nedenfor.
+
+Kontrol 22 (2026-09-18, Bal-godkendt gap-analyse-fix A+B): retningsbevidst
+setup-sats + materialitets-gulv — se test_22_missing_output_vat nedenfor og
+vat_rules.is_reverse_charge_sale_code for BC/NAV-semantikken.
+
+RETNINGSLØS SATS-BRUG — GENNEMGANG AF 19/24/25 (2026-09-18, samme runde):
+De øvrige kontroller i denne kategori blev gennemgået for samme fejlkilde
+(en salgslinjes setup-arvede sats fejltolket retningsløst). Konklusion:
+INGEN ændring nødvendig for disse tre — dokumenteret her i stedet for i tre
+spredte kommentarer:
+
+  - Kontrol 19: sammenligner linjens (setup-overskrevne) sats mod
+    OPSÆTNINGENS sats for SAMME kode. Da begge sider pr. konstruktion
+    stammer fra samme opslag (canonical_masterdata.enrich_canonical), vil
+    de altid være ens for en matchet kode, uanset retning — kontrollen
+    fanger reelt kun "kode ukendt i opsætning" og "bogført sats afviger fra
+    opsætningen for koden den FAKTISK er tildelt". Ingen retningsafhængig
+    fejlkilde. Uændret, som krævet (dens 21 "ukendt kode"-fund matcher
+    ekspertens).
+  - Kontrol 24: bruger IKKE den setup-overskrevne ``tax_percentage`` —
+    beregner i stedet en implicit sats af de FAKTISK bogførte
+    ``tax_amount``/``tax_base``. En RC-eksportlinje har ``tax_amount == 0``
+    og springes allerede over (``if vat <= 0: continue``). Ingen
+    retningsafhængig fejlkilde.
+  - Kontrol 25: kræver ``rate == 0`` (eksakt) for at fyre. En RC-kode får
+    efter opsætnings-joinet en IKKE-nul sats (købssidens RC-sats) på BÅDE
+    salgs- og købslinjer, så den rammer aldrig denne gren. Ingen
+    retningsafhængig fejlkilde i dag — hvis opsætningen for en fremtidig
+    kunde reelt registrerer 0% på en RC-kode, er det en separat,
+    ikke-observeret situation uden for denne rettelses evidensgrundlag.
 """
 
 from collections import defaultdict
 from analytics.models import make_finding
+from analytics import materiality
 from analytics import vat_rules as vr
 
 
@@ -212,13 +243,24 @@ def test_21_reduced_rate(data: dict) -> list:
 # === TEST 22: Manglende salgsmoms (output) ===
 
 def test_22_missing_output_vat(data: dict) -> list:
-    """Indtægt (kredit) på en momspligtig konto med momskode men uden momsbeløb."""
+    """Indtægt (kredit) på en momspligtig konto med momskode men uden momsbeløb.
+
+    Fix A (2026-09-18): en SALGSLINJE med en reverse charge-kode (jf.
+    vr.is_reverse_charge_sale_code — BC/NAV-semantik, generel egenskab) har
+    0 kr. som KORREKT udgående moms (eksport/EU-ydelsessalg) — ikke et fund,
+    selvom linjens (setup-arvede) sats viser købssidens RC-sats (typisk 25%).
+
+    Fix B (2026-09-18): et materialitets-gulv (materiality.CONTROL_22_MIN_BASE)
+    undertrykker rene afrundingslinjer (fx 0,01 kr.), der aldrig var reelle
+    "manglende salgsmoms"-fund."""
     findings = []
     for txn in data["transactions"]:
         for line in txn["lines"]:
             credit = line["credit_amount"] or 0
-            if credit <= 0 or not line["tax_code"]:
+            if credit <= 0 or credit < materiality.CONTROL_22_MIN_BASE or not line["tax_code"]:
                 continue
+            if vr.is_reverse_charge_sale_code(line["tax_code"], line.get("vat_calculation_type", "")):
+                continue  # RC-kode på salgssiden -- 0-moms er korrekt eksport, ikke et fund
             rate = line["tax_percentage"] or 0
             vat = line["tax_amount"] or 0
             # Forventet standardsats men intet momsbeløb registreret

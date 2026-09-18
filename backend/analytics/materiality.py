@@ -77,6 +77,14 @@ LARGE_VAT_NO_DOCUMENT = _f("MATERIALITY_LARGE_VAT_NO_DOCUMENT", 5000.0)
 # Forhold købsmoms/salgsmoms der udløser flag (cat10 test_76).
 INPUT_OUTPUT_RATIO = _f("MATERIALITY_INPUT_OUTPUT_RATIO", 3.0)
 
+# Materialitets-gulv for kontrol 22 (manglende salgsmoms, 2026-09-18,
+# Bal-godkendt gap-analyse-fix B): en kreditlinje under denne grænse
+# undertrykkes ALTID, uanset momskode/-sats -- formålet er udelukkende at
+# fjerne rene afrundingslinjer (fx 0,01 kr. øre-korrektioner), IKKE at skjule
+# reelle fund. Sat lavt (1 krone) med vilje: enhver reel salgstransaktion
+# ligger langt over denne grænse.
+CONTROL_22_MIN_BASE = _f("MATERIALITY_CONTROL_22_MIN_BASE", 1.0)
+
 # Kontrol 80 (indtægt uden momsbehandling, byggetrin ~9, Del B, Bal-godkendt
 # 2026-09-17): fundet aggregeres PR. KONTO (én postering-population, ikke én
 # postering ad gangen — se cat10_vat_reconciliation.test_80_revenue_without_

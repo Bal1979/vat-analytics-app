@@ -246,6 +246,54 @@ def text_matches_any(text, keywords):
     return any(kw in low for kw in keywords)
 
 
+# === BC/NAV VAT POSTING SETUP-SEMANTIK ===
+#
+# Generel platform-egenskab (2026-09-18, Bal-godkendt gap-analyse-fix A) --
+# IKKE en kunde-specifik regel. I Microsoft Dynamics 365 Business Centrals
+# VAT Posting Setup er satsen registreret på en reverse charge-kode
+# BEREGNINGSSATSEN FOR KØBSSIDEN (omvendt betalingspligt: kunden
+# selvangiver moms med denne sats). På SALGSSIDEN dækker PRÆCIS samme kode
+# typisk nulsats-eksport/EU-ydelsessalg -- sælgers salg er momsfrit i
+# Danmark, og 0 kr. udgående moms er derfor KORREKT, ikke et fund. Uden
+# dette retningsskel bliver en kontrol, der bruger linjens (setup-arvede)
+# sats retningsløst, vildledt til at flage lovligt eksportsalg som
+# "manglende salgsmoms" (fx et salg med koden "OUTSIDE DK/EU|
+# SERVICE_VAT_NOT_EU" (25,0% -- købssidens RC-sats) uden bogført momsbeløb).
+
+
+def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
+    """True hvis momskoden er en reverse charge-kode, hvis sats KUN gælder
+    købssiden (se modulets BC/NAV-kommentar ovenfor) -- dvs. hvis en
+    SALGSLINJE med denne kode og 0 kr. moms er korrekt eksport, ikke et fund.
+
+    To valideringsveje, i prioriteret rækkefølge:
+
+      1. ``vat_calculation_type`` (balai_extensions, kontrakt v0.4.0,
+         tax_table[]/lines[].vat_calculation_type -- kun til stede på den
+         kanoniske vej når vat_setup.csv er indlæst): DETERMINISTISK.
+         Værdien "Reverse Charge VAT" (fra BC) betyder pr. definition, at
+         opsætningens sats er købssidens RC-sats.
+      2. Fravær af feltet (Excel-/SAF-T-oprindelse, eller kanonisk vej uden
+         vat_setup.csv): fallback på Bus.-gruppen -- ``tax_code``s FØRSTE
+         led, adskilt med "|" (BC's egen "gruppe|kode"-konvention, fx
+         "EU|SERVICE_VAT_EU", "OUTSIDE DK/EU|SERVICE_VAT_NOT_EU"). Er
+         gruppen IKKE "DOMESTIC", er koden pr. definition udenlandsk handel
+         -- og enhver udenlandsk salgskode er nulsats/RC på salgssiden.
+         Følger ``tax_code`` IKKE gruppe|kode-konventionen (intet "|"),
+         findes der intet Bus.-gruppe-signal at læne sig på, og funktionen
+         returnerer False (uændret, konservativ adfærd -- ingen gættet
+         RC-status uden evidens).
+    """
+    calc_type = (vat_calculation_type or "").strip().lower()
+    if calc_type:
+        return "reverse charge" in calc_type
+    code = tax_code or ""
+    if "|" not in code:
+        return False
+    bus_group = code.split("|", 1)[0].strip().upper()
+    return bus_group != "DOMESTIC"
+
+
 # === STATISTIK ===
 
 def mean(values):

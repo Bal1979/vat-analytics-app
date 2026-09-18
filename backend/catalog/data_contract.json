@@ -1,5 +1,5 @@
 {
-  "contract_version": "0.4.1",
+  "contract_version": "0.4.2",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
@@ -1394,6 +1394,12 @@
           "kode_navn": "VAT_DECLARATION_TOLERANCE",
           "default": 1.0,
           "beskrivelse": "Tolerance (DKK) for periode-/rubrikafstemningen — kontrol 82."
+        },
+        {
+          "env": "MATERIALITY_CONTROL_22_MIN_BASE",
+          "kode_navn": "CONTROL_22_MIN_BASE",
+          "default": 1.0,
+          "beskrivelse": "Materialitets-gulv (DKK) — en kreditlinje under denne grænse undertrykkes altid i kontrol 22 (manglende salgsmoms), så rene afrundingslinjer (fx 0,01 kr.) ikke flages — 2026-09-18-rettelsen."
         }
       ]
     }

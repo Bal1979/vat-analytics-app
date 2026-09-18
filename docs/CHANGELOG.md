@@ -3,6 +3,60 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Tre motor-fixes fra gap-analysen mod ekspertleverancen — 2026-09-18 (catalog v1.3.0 uændret, data_contract v0.4.2)
+
+Bal-godkendt opgave (2026-09-18). Tre uafhængige rettelser identificeret ved en
+intern gap-analyse af motorens seneste kørsel (kundedataen selv ligger uden for
+repoet — kun kontrolnumre/antal/beløbstotaler er evidensen her).
+
+**Fix A — retningsbevidste setup-satser (kontrol 22).** BC-semantik (generel
+platform-egenskab, ikke kunde-specifik, jf. `vat_rules.is_reverse_charge_sale_code`):
+i Business Centrals VAT Posting Setup er satsen på en reverse charge-kode
+BEREGNINGSSATSEN FOR KØBSSIDEN. På SALGSSIDEN er samme kode nulsats-eksport —
+0 kr. udgående moms er korrekt. Kontrol 22 brugte tidligere den setup-arvede
+sats retningsløst og flagede derfor lovligt eksportsalg som "manglende
+salgsmoms". Rettelsen bruger `vat_calculation_type` (balai_extensions,
+deterministisk, når vat_setup.csv er indlæst) FØR et fallback på Bus.-gruppens
+første led i `vat_codes`-strengen (≠ "DOMESTIC" ⇒ udenlandsk handel). Kontrol
+19/24/25 gennemgået for samme fejlkilde (dokumenteret i
+`cat03_vat_rate_validation.py`'s moduldocstring) — ingen af de tre er
+retningsafhængige på samme måde, ingen kodeændring der.
+
+**Fix B — materialitets-gulv (kontrol 22).** Ny `MATERIALITY_CONTROL_22_MIN_BASE`
+(default 1,00 kr., env-overstyrbar, `analytics/materiality.py`) undertrykker
+rene afrundingslinjer (0,01 kr.), der aldrig var reelle "manglende
+salgsmoms"-fund.
+
+**Fix C — kontrol 9-bug (off-by-one i periodeafgrænsningen).** For en periode,
+der slutter i december, blev `period_end` sat til `datetime(end_year, 12, 31)`
+— en INKLUSIV øvre grænse — mens sammenligningen (`txn_date >= period_end`)
+forudsætter en EKSKLUSIV grænse. Konsekvens: enhver transaktion bogført
+PRÆCIS periodens sidste dag (fx 31/12) blev fejlagtigt rapporteret som
+liggende uden for perioden — en selvmodsigende fundtekst ("... har dato
+2025-12-31 der ligger uden for ... (1/2025 - 12/2025)"). Rettet til
+`datetime(end_year + 1, 1, 1)` (samme eksklusive-øvre-grænse-mønster som den
+generelle, ikke-december gren).
+
+**Verifikation — v4-datasættet, alle moduler (worktree-diff mod forrige
+commit, samme fil):**
+
+| Kontrol | Før | Efter | Kommentar |
+|---|---|---|---|
+| 9 (Leveringstidspunkt) | 143 høj | 0 | Alle 143 var dateret periodens sidste dag (bugsymptomet) — ingen genuine periode-overskridelser tilbage i datasættet. |
+| 19 (Ugyldig momssats) | 21 høj | 21 høj | Uændret, som krævet (matcher ekspertens "ukendt kode"-fund). |
+| 22 (Manglende salgsmoms) | 147 høj | 0 | Fordelt før: 113 EU-eksportkode + 32 OUTSIDE DK/EU-eksportkode (Fix A) + 2 afrundingslinjer à 0,01 kr. (Fix B). |
+| 24 (Implicit sats ugyldig) | 525 medium | 525 medium | Gennemgået, ingen retningsafhængig fejlkilde — uændret. |
+| 25 (Nulsats indenlandsk) | 0 | 0 | Gennemgået, ingen retningsafhængig fejlkilde — uændret. |
+| **Total (alle moduler)** | **24.612** (høj 375) | **24.322** (høj 85) | Delta −290 = præcis 143 (kontrol 9) + 147 (kontrol 22). Afstemningsgate uændret 208/208. |
+| **Total (default: kun momskerne)** | 19.155 (høj 375) | 18.865 (høj 85) | Samme delta, pakke-billedet for produktniveau 1-2. |
+
+**Discipliner:** 388 automatiserede tests (was 372), 99/99 uafhængig
+validering, `catalog/rules.json` uændret (v1.3.0 — ingen literal
+test_name/impact_type/severity ændret), `catalog/data_contract.json` v0.4.1 →
+**v0.4.2** (ny `MATERIALITY_CONTROL_22_MIN_BASE`-metadata i
+`MATERIALITY_RUN_CONFIG`, ingen nye kontraktfelter). Ny HTML-kundedialograpport
+regenereret fra den nye kørsel (uden for repoet, jf. datapolitikken).
+
 ## Kontrol 82 hærdet med vat_calculation_type + alias-bugfix (description/navn) + kontrol 77 vat-match — 2026-09-17 (catalog v1.3.0 uændret, data_contract v0.4.1)
 
 Bal-godkendt opgave, opfølgning på forrige punkt (`non_deductible_vat_pct`/

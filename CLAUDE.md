@@ -23,8 +23,27 @@ Resultatfilosofi (vigtig): **RØD = handling krævet** — ingen falske alarmer
 (jf. VIES: 37 røde → 4 reelle). Konservativ mod falske negativer. Prioriteret
 handlingsliste, ikke en mur af flag.
 
-## Status (pr. 2026-09-17)
+## Status (pr. 2026-09-18)
 
+- **Tre motor-fixes fra gap-analysen mod ekspertleverancen (2026-09-18,
+  Bal-godkendt):** data_contract **v0.4.2**, katalog v1.3.0 uændret, **388
+  automatiserede tests**. Fix A: kontrol 22 er nu retningsbevidst om BC's
+  VAT Posting Setup-semantik (en reverse charge-kodes sats er købssidens
+  RC-sats — salgssiden er nulsats-eksport, ikke et fund), deterministisk via
+  `vat_calculation_type` med fallback på Bus.-gruppen i `vat_codes`-strengen
+  (`vat_rules.is_reverse_charge_sale_code`, generel BC-egenskab). Kontrol
+  19/24/25 gennemgået for samme fejlkilde — ingen kodeændring nødvendig
+  (dokumenteret i `cat03_vat_rate_validation.py`). Fix B: nyt materialitets-
+  gulv `MATERIALITY_CONTROL_22_MIN_BASE` (default 1,00 kr.) fjerner
+  0,01-kr.-afrundingslinjer fra kontrol 22. Fix C: rettet et off-by-one i
+  kontrol 9's periodeafgrænsning (`period_end` for en december-slutmåned var
+  en inklusiv i stedet for eksklusiv øvre grænse) — gav en selvmodsigende
+  fundtekst for transaktioner bogført periodens sidste dag. Empirisk på
+  v4-datasættet (alle moduler): kontrol 9 143→0, kontrol 22 147→0, kontrol
+  19 uændret 21, kontrol 24/25 uændret (525/0); i alt 24.612→24.322 fund
+  (høj 375→85), afstemningsgate uændret 208/208. Se `docs/CHANGELOG.md` for
+  den fulde før/efter-tabel (kun kontrolnumre/antal/beløbstotaler — ingen
+  kundedata).
 - **Kontrol 82 hærdet med `vat_calculation_type` + alias-bugfix + kontrol 77
   'vat'-match (2026-09-17, Bal-godkendt):** datakontrakt **v0.4.1**, **372
   automatiserede tests**. `cat10._purchase_rubric` bruger nu det
@@ -139,9 +158,9 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **353 automatiserede tests** + uafhængig valideringssuite (**99/99 aktive
+- **388 automatiserede tests** + uafhængig valideringssuite (**99/99 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
-  øverste statuspunkter for de seneste opdateringer (2026-09-17).
+  øverste statuspunkter for de seneste opdateringer (2026-09-18).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).
@@ -152,7 +171,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 353 tests
+python -m pytest -q                            # 388 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 99/99 uafhængig validering

@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.4.1"
+CONTRACT_VERSION = "0.4.2"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -1139,6 +1139,12 @@ MATERIALITY_RUN_CONFIG = [
     {
         "env": "MATERIALITY_VAT_DECLARATION_TOLERANCE", "kode_navn": "VAT_DECLARATION_TOLERANCE",
         "default": 1.0, "beskrivelse": "Tolerance (DKK) for periode-/rubrikafstemningen — kontrol 82.",
+    },
+    {
+        "env": "MATERIALITY_CONTROL_22_MIN_BASE", "kode_navn": "CONTROL_22_MIN_BASE",
+        "default": 1.0, "beskrivelse": "Materialitets-gulv (DKK) — en kreditlinje under denne "
+                       "grænse undertrykkes altid i kontrol 22 (manglende salgsmoms), så rene "
+                       "afrundingslinjer (fx 0,01 kr.) ikke flages — 2026-09-18-rettelsen.",
     },
 ]
 

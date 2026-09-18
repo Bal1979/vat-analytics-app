@@ -453,6 +453,19 @@ def test_08_currency_consistency(data: dict) -> list:
 def test_09_tax_point(data: dict) -> list:
     """
     Verificér at transaktionsdatoer ligger inden for den deklarerede periode.
+
+    BUGFIX (2026-09-18, Bal-godkendt gap-analyse-fix C): ``period_end`` blev
+    tidligere sat til ``datetime(end_year, 12, 31)`` for en periode, der
+    slutter i december -- en INKLUSIV øvre grænse. Sammenligningen nedenfor
+    (``txn_date >= period_end``) forudsætter derimod en EKSKLUSIV øvre
+    grænse (samme konvention som ikke-december-grenen: "første dag i
+    måneden EFTER periodens slutmåned"). Konsekvens: enhver transaktion
+    bogført PRÆCIS på periodens sidste dag (fx 31/12 for en kalenderårs-
+    periode) blev fejlagtigt rapporteret som liggende UDEN FOR perioden --
+    en selvmodsigende fundtekst ("... har dato 2025-12-31 der ligger uden
+    for ... (1/2025 - 12/2025)"), fordi 2025-12-31 reelt ER periodens
+    sidste dag. Rettet ved at bruge samme eksklusive-øvre-grænse-mønster som
+    den generelle gren: 1. januar året efter.
     """
     findings = []
     period = data["header"].get("period", {})
@@ -467,9 +480,10 @@ def test_09_tax_point(data: dict) -> list:
         end_month = int(period["end"]) if period["end"] else 12
 
         period_start = datetime(start_year, start_month, 1)
-        # Slut er sidste dag i slutmåneden
+        # Eksklusiv øvre grænse: første dag i måneden EFTER periodens
+        # slutmåned (december -> 1. januar året efter, jf. bugfix ovenfor).
         if end_month == 12:
-            period_end = datetime(end_year, 12, 31)
+            period_end = datetime(end_year + 1, 1, 1)
         else:
             period_end = datetime(end_year, end_month + 1, 1)
     except (ValueError, TypeError):
