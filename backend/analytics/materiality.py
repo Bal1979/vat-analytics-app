@@ -85,6 +85,18 @@ INPUT_OUTPUT_RATIO = _f("MATERIALITY_INPUT_OUTPUT_RATIO", 3.0)
 # ligger langt over denne grænse.
 CONTROL_22_MIN_BASE = _f("MATERIALITY_CONTROL_22_MIN_BASE", 1.0)
 
+# Kontrol 60 (negativt momsbeløb, 2026-09-18, Bal-godkendt gap-analyse-fix D):
+# en negativ momslinje undertrykkes, når den beviseligt nettes af en
+# matchende positiv modpost på SAMME konto+momskode -- enten i samme bilag,
+# eller som et "reversal-par" (modsat beløb inden for denne tolerance,
+# bogført inden for dette antal dage). Strukturel regel -- INGEN
+# kunde-specifikke bilagspræfikser indgår. Tolerance sat lavt (øre-niveau);
+# vinduet sat til én kalendermåned (dækker den typiske allokerings-/
+# tilbageførselsafstand fundet empirisk på v4-datasættet: >90% af parrene
+# er bogført SAMME dag, resten typisk inden for samme momsperiode).
+CONTROL_60_NET_TOLERANCE = _f("MATERIALITY_CONTROL_60_NET_TOLERANCE", 0.02)
+CONTROL_60_REVERSAL_WINDOW_DAYS = _i("MATERIALITY_CONTROL_60_REVERSAL_WINDOW_DAYS", 31)
+
 # Kontrol 80 (indtægt uden momsbehandling, byggetrin ~9, Del B, Bal-godkendt
 # 2026-09-17): fundet aggregeres PR. KONTO (én postering-population, ikke én
 # postering ad gangen — se cat10_vat_reconciliation.test_80_revenue_without_

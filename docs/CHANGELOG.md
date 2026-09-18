@@ -3,6 +3,81 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kalibrering af kontrol 24 og 60 — 2026-09-18 (catalog v1.3.0 uændret, data_contract v0.4.2 → v0.4.3)
+
+Bal-godkendt opgave (2026-09-18), sidste oprydning fra gap-analysen før
+kunderapport-designet. Begge hypoteser blev verificeret EMPIRISK på
+v4-datasættet FØR ændring, som krævet — se fordelingerne nedenfor.
+
+**Fix D1 — kontrol 24 mod vat_setup (samme princip som kontrol 19).**
+Hypotesen (525 fund domineret af delvis-fradragsret-koderne) blev bekræftet:
+454 fund var `DOMESTIC|REDUCED_PRIVATE_VAT` (13,63636 %), 55 var
+`DOMESTIC|REDUCED_REP_VAT` (5,26316 %) — 507 af 525 (96,6 %). Kontrollen
+sammenlignede den implicitte sats (moms/grundlag) mod den hardkodede 0/25-
+liste, uanset hvilken momskode linjen faktisk havde. Rettet: når kundens
+vat_setup er indlæst, er den gyldige implicitte sats nu SETUP-satsen for
+LINJENS EGEN kode (± `vr.RATE_TOLERANCE`) — ikke retningsbevidst som kontrol
+22 (dette handler ikke om salgs-/købsside, men om at en kode kan have sin
+egen gyldige sats). Ukendt/umatchet kode: falder tilbage til 0/25-listen
+(kontrol 19 flager selve "ukendt kode" separat). Uden vat_setup: uændret.
+
+**Fix D2 — kontrol 60 struktureret reversal-/allokeringsnetting.**
+Hypotesen (1.303 fund domineret af allokerings-/tilbageførselsbilag) blev
+bekræftet EMPIRISK, IKKE ved at hardkode bilagspræfikser: af 1.303 negative
+momslinjer var 1.181 (90,6 %) beviseligt nettet af en positiv modpost på
+SAMME konto+momskode — 40 i samme bilag (sum ≈ 0), 1.141 som et
+"reversal-par" (modsat beløb, >90 % bogført SAMME dag som modposten, resten
+inden for kalendermåneden). Verificeret manuelt: `DOC_PA001344` (Purchase
+Allocation, Invoice 1005938) reverserer nøjagtigt `DOC_1005938`s
++716,31 kr. udgående moms på konto 402200/`DOMESTIC|STANDARD_VAT`, samme
+dag — en ægte modpost, ikke et tilfælde. Rettet: en negativ momslinje
+undertrykkes NU (ikke nedgraderet til "info" — den severity-værdi findes
+ikke i dag i `models.make_finding`/scoringslaget, og at indføre den ville
+kræve bredere skema-/rapportændringer uden for denne opgaves evidensgrundlag;
+fuld undertrykkelse matcher desuden præcedensen fra kontrol 22's Fix A)
+når den nettes — strukturelt via `_has_offsetting_vat_entry`
+(`cat07_amount_threshold.py`): samme bilag ELLER et reversal-par inden for
+`materiality.CONTROL_60_REVERSAL_WINDOW_DAYS` (default 31 dage — dækker den
+empiriske spredning på v4). INGEN kunde-specifikke bilagspræfikser (fx "PA")
+indgår i logikken — den virker på ethvert konto+kode-par uanset kilde-system.
+Negative momslinjer UDEN modpost forbliver fund (ekspertens F30).
+
+**Verifikation — v4-datasættet (worktree-diff mod commit `03d79a7`, samme fil):**
+
+| Kontrol | Før (alle moduler) | Efter (alle moduler) | Før (default: momskerne) | Efter (default: momskerne) |
+|---|---|---|---|---|
+| 24 (Implicit sats ugyldig) | 525 medium | **16 medium** | 525 medium | **16 medium** |
+| 60 (Negativt momsbeløb) | 1.303 medium | **98 medium** | 1.303 medium | **98 medium** |
+| **Total** | **24.322** (høj 85) | **22.608** (høj 85) | **18.865** (høj 85) | **17.151** (høj 85) |
+
+Delta −1.714 = præcis 509 (kontrol 24: 525−16) + 1.205 (kontrol 60:
+1.303−98). Høj-fund uændret (85) — begge kontroller er `medium`-severity.
+Afstemningsgate uændret 208/208. Alle øvrige 25 kontroller med fund
+byte-for-byte uændret (verificeret pr. test_id, ikke kun i totalen).
+
+**Residual-fund (kandidater til kunderapporten):**
+- Kontrol 24: 16 tilbage. 14 er cent-niveau-afrundinger på
+  `DOMESTIC|STANDARD_VAT`-linjer med et meget lille momsgrundlag (< 1 kr.,
+  fx moms 0,12 af grundlag 0,47 ⇒ 25,53 %) — lav væsentlighed, men reelle
+  afvigelser fra kodens egen setup-sats. 2 er en ægte datakvalitetsanomali:
+  et momsgrundlag på 0,01 kr. mod et momsbeløb på hhv. 15.382,74 kr. og
+  16.361,65 kr. på `EU|SERVICE_VAT_EU` — momsgrundlaget er tydeligvis ikke
+  registreret korrekt for disse to linjer. Værd at fremhæve i
+  kunderapporten som en konkret datakvalitetsobservation.
+- Kontrol 60: 98 tilbage, alle `medium`. Ingen materialitetsfiltrering er
+  tilføjet her (i modsætning til kontrol 22's Fix B) — beløbene spænder fra
+  få hundrede til titusindvis af kroner og bør gennemgås som en liste, ikke
+  antages ensartet lavt væsentlige.
+
+**Discipliner:** 408 automatiserede tests (var 388; 20 nye —
+`tests/test_control24_setup_rate.py` + `tests/test_control60_reversal_netting.py`),
+99/99 uafhængig validering, `catalog/rules.json` uændret (v1.3.0 — ingen
+literal test_name/impact_type/severity ændret), `catalog/data_contract.json`
+v0.4.2 → **v0.4.3** (to nye `MATERIALITY_RUN_CONFIG`-poster:
+`MATERIALITY_CONTROL_60_NET_TOLERANCE`, `MATERIALITY_CONTROL_60_REVERSAL_WINDOW_DAYS`
+— ingen nye kontraktfelter). HTML-kundedialograpport regenereret (uden for
+repoet, jf. datapolitikken).
+
 ## Tre motor-fixes fra gap-analysen mod ekspertleverancen — 2026-09-18 (catalog v1.3.0 uændret, data_contract v0.4.2)
 
 Bal-godkendt opgave (2026-09-18). Tre uafhængige rettelser identificeret ved en

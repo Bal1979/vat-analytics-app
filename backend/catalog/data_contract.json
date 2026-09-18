@@ -1,5 +1,5 @@
 {
-  "contract_version": "0.4.2",
+  "contract_version": "0.4.3",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
@@ -1400,6 +1400,18 @@
           "kode_navn": "CONTROL_22_MIN_BASE",
           "default": 1.0,
           "beskrivelse": "Materialitets-gulv (DKK) — en kreditlinje under denne grænse undertrykkes altid i kontrol 22 (manglende salgsmoms), så rene afrundingslinjer (fx 0,01 kr.) ikke flages — 2026-09-18-rettelsen."
+        },
+        {
+          "env": "MATERIALITY_CONTROL_60_NET_TOLERANCE",
+          "kode_navn": "CONTROL_60_NET_TOLERANCE",
+          "default": 0.02,
+          "beskrivelse": "Tolerance (DKK) for at anse to momsbeløb for at 'summere til nul' i kontrol 60's netting-tjek (samme bilag eller reversal-par) — 2026-09-18-rettelsen."
+        },
+        {
+          "env": "MATERIALITY_CONTROL_60_REVERSAL_WINDOW_DAYS",
+          "kode_navn": "CONTROL_60_REVERSAL_WINDOW_DAYS",
+          "default": 31,
+          "beskrivelse": "Antal dage en negativ momslinje og en modsvarende positiv postering (samme konto+momskode) må ligge fra hinanden for at tælle som et 'reversal-par' i kontrol 60 og dermed undertrykkes — 2026-09-18-rettelsen."
         }
       ]
     }

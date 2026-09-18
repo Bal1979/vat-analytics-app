@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.4.2"
+CONTRACT_VERSION = "0.4.3"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -1145,6 +1145,18 @@ MATERIALITY_RUN_CONFIG = [
         "default": 1.0, "beskrivelse": "Materialitets-gulv (DKK) — en kreditlinje under denne "
                        "grænse undertrykkes altid i kontrol 22 (manglende salgsmoms), så rene "
                        "afrundingslinjer (fx 0,01 kr.) ikke flages — 2026-09-18-rettelsen.",
+    },
+    {
+        "env": "MATERIALITY_CONTROL_60_NET_TOLERANCE", "kode_navn": "CONTROL_60_NET_TOLERANCE",
+        "default": 0.02, "beskrivelse": "Tolerance (DKK) for at anse to momsbeløb for at "
+                       "'summere til nul' i kontrol 60's netting-tjek (samme bilag eller "
+                       "reversal-par) — 2026-09-18-rettelsen.",
+    },
+    {
+        "env": "MATERIALITY_CONTROL_60_REVERSAL_WINDOW_DAYS", "kode_navn": "CONTROL_60_REVERSAL_WINDOW_DAYS",
+        "default": 31, "beskrivelse": "Antal dage en negativ momslinje og en modsvarende positiv "
+                       "postering (samme konto+momskode) må ligge fra hinanden for at tælle som "
+                       "et 'reversal-par' i kontrol 60 og dermed undertrykkes — 2026-09-18-rettelsen.",
     },
 ]
 

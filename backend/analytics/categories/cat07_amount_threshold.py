@@ -4,8 +4,20 @@ Kategori 7: Beløbs- & Tærskeltest (Tests 55-62)
 Afdækker mistænkelige beløbsmønstre: runde tal, beløb lige under
 godkendelsesgrænser, kontantgrænser, statistiske outliers, manglende
 bilag på store momsbeløb og strukturering (splitting).
+
+Kontrol 60 (2026-09-18, Bal-godkendt gap-analyse-fix D): en negativ
+momslinje, der beviseligt nettes af en matchende positiv modpost (samme
+konto + momskode, sum ≈ 0 — enten i samme bilag eller som et kort
+"reversal-par"), er et internt allokerings-/tilbageførselsmønster, ikke en
+fejlpostering. EMPIRISK på v4-datasættet (2026-09-18): af 1.303 fund var
+1.181 (~91%) beviseligt nettet (40 i samme bilag, 1.141 som reversal-par —
+langt de fleste bogført SAMME dag). Se test_60_negative_vat og
+_has_offsetting_vat_entry nedenfor. STRUKTUREL regel — ingen
+kunde-specifikke bilagspræfikser (fx "PA") indgår i logikken; den virker på
+ethvert konto+kode-par med en beløbsmæssig modpost, uanset kilde-system.
 """
 
+from datetime import datetime
 from collections import defaultdict
 from analytics.models import make_finding
 from analytics import vat_rules as vr
@@ -164,21 +176,82 @@ def test_59_large_vat_no_document(data):
 
 # === TEST 60: Negativt momsbeløb ===
 
+def _parse_txn_date(date_str):
+    """Best-effort dato-parsing til reversal-par-vinduet. None ved
+    ukendt/ugyldigt format (konservativt -- intet reversal-par uden dato)."""
+    try:
+        return datetime.strptime((date_str or "")[:10], "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
+
+
+def _build_vat_offset_index(data):
+    """Indekser alle linjer med momsbeløb != 0 på (konto, momskode, |beløb|
+    afrundet til øre) til brug for reversal-par-opslag i test_60. Rent
+    strukturelt -- ingen bilagspræfikser eller andre kunde-specifikke
+    signaler indgår."""
+    index = defaultdict(list)
+    for txn in data["transactions"]:
+        date = _parse_txn_date(txn.get("date"))
+        for line in txn["lines"]:
+            vat = line["tax_amount"] or 0
+            if vat == 0:
+                continue
+            key = (line["account_id"], line["tax_code"], round(abs(vat), 2))
+            index[key].append((txn, line, vat, date))
+    return index
+
+
+def _has_offsetting_vat_entry(txn, line, offset_index):
+    """True hvis linjens negative momsbeløb beviseligt nettes af en positiv
+    modpost på SAMME konto+momskode -- enten i samme bilag (sum ≈ 0), eller
+    som et reversal-par (modsat beløb, bogført inden for
+    materiality.CONTROL_60_REVERSAL_WINDOW_DAYS)."""
+    acct = line["account_id"]
+    code = line["tax_code"]
+    vat = line["tax_amount"] or 0
+    tol = materiality.CONTROL_60_NET_TOLERANCE
+
+    same_doc_total = sum((l["tax_amount"] or 0) for l in txn["lines"]
+                         if l["account_id"] == acct and l["tax_code"] == code)
+    if abs(same_doc_total) <= tol:
+        return True
+
+    my_date = _parse_txn_date(txn.get("date"))
+    if my_date is None:
+        return False
+    key = (acct, code, round(abs(vat), 2))
+    for other_txn, other_line, other_vat, other_date in offset_index.get(key, []):
+        if other_line is line:
+            continue
+        if not (-tol <= vat + other_vat <= tol):
+            continue
+        if other_date is None:
+            continue
+        if abs((my_date - other_date).days) <= materiality.CONTROL_60_REVERSAL_WINDOW_DAYS:
+            return True
+    return False
+
+
 def test_60_negative_vat(data):
     findings = []
+    offset_index = _build_vat_offset_index(data)
     for txn in data["transactions"]:
         desc = (txn["description"] or "").lower()
         is_credit_note = "kreditnota" in desc or "credit note" in desc
         for line in txn["lines"]:
             vat = line["tax_amount"] or 0
             if vat < 0 and not is_credit_note:
+                if _has_offsetting_vat_entry(txn, line, offset_index):
+                    continue  # bevisligt nettet -- internt allokerings-/tilbageførselsmønster
                 findings.append(make_finding(
                     test_id=60, test_name="Negativt momsbeløb",
                     impact_type="economic", direction="neutral", severity="medium",
                     description=f"Negativt momsbeløb ({vat:.2f}) på transaktion {txn['transaction_id']} "
-                                f"uden at posteringen er markeret som kreditnota.",
-                    fix_suggestion="Negativ moms uden for kreditnotaer indikerer en fejlpostering. "
-                                   "Kontrollér fortegn og modpostering.",
+                                f"uden at posteringen er markeret som kreditnota, og uden en "
+                                f"modsvarende positiv postering på samme konto/momskode.",
+                    fix_suggestion="Negativ moms uden for kreditnotaer og uden modpostering indikerer "
+                                   "en fejlpostering. Kontrollér fortegn og modpostering.",
                     estimated_amount=abs(vat),
                     transactions=[_ref(txn, line, tax_amount=vat, highlighted_field="tax_amount")],
                 ))

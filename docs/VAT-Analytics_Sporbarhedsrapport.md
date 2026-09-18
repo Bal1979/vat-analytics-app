@@ -1,6 +1,6 @@
 # VAT Analytics — Sporbarhedsrapport
 
-> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.3.0** · 2026-09-17
+> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.3.0** · 2026-09-18
 
 ## Dækning
 

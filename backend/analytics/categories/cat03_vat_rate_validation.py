@@ -13,10 +13,10 @@ Kontrol 22 (2026-09-18, Bal-godkendt gap-analyse-fix A+B): retningsbevidst
 setup-sats + materialitets-gulv — se test_22_missing_output_vat nedenfor og
 vat_rules.is_reverse_charge_sale_code for BC/NAV-semantikken.
 
-RETNINGSLØS SATS-BRUG — GENNEMGANG AF 19/24/25 (2026-09-18, samme runde):
+RETNINGSLØS SATS-BRUG — GENNEMGANG AF 19/25 (2026-09-18, samme runde):
 De øvrige kontroller i denne kategori blev gennemgået for samme fejlkilde
 (en salgslinjes setup-arvede sats fejltolket retningsløst). Konklusion:
-INGEN ændring nødvendig for disse tre — dokumenteret her i stedet for i tre
+INGEN ændring nødvendig for disse to — dokumenteret her i stedet for i to
 spredte kommentarer:
 
   - Kontrol 19: sammenligner linjens (setup-overskrevne) sats mod
@@ -27,17 +27,26 @@ spredte kommentarer:
     opsætningen for koden den FAKTISK er tildelt". Ingen retningsafhængig
     fejlkilde. Uændret, som krævet (dens 21 "ukendt kode"-fund matcher
     ekspertens).
-  - Kontrol 24: bruger IKKE den setup-overskrevne ``tax_percentage`` —
-    beregner i stedet en implicit sats af de FAKTISK bogførte
-    ``tax_amount``/``tax_base``. En RC-eksportlinje har ``tax_amount == 0``
-    og springes allerede over (``if vat <= 0: continue``). Ingen
-    retningsafhængig fejlkilde.
   - Kontrol 25: kræver ``rate == 0`` (eksakt) for at fyre. En RC-kode får
     efter opsætnings-joinet en IKKE-nul sats (købssidens RC-sats) på BÅDE
     salgs- og købslinjer, så den rammer aldrig denne gren. Ingen
     retningsafhængig fejlkilde i dag — hvis opsætningen for en fremtidig
     kunde reelt registrerer 0% på en RC-kode, er det en separat,
     ikke-observeret situation uden for denne rettelses evidensgrundlag.
+
+Kontrol 24 (2026-09-18, Bal-godkendt gap-analyse-fix D): sats-hulls-gennemgangen
+i sidste runde konkluderede "ingen ændring nødvendig", fordi RC-eksportlinjer
+har ``tax_amount == 0`` og springes over. Det er korrekt for RC/retning —
+men EMPIRISK ANALYSE af de 525 fund på v4-datasættet (2026-09-18) viste en
+ANDEN, IKKE-retningsafhængig fejlkilde af samme familie: 507 af 525 fund
+(454 + 55) er delvis-fradragsret-koder (``DOMESTIC|REDUCED_PRIVATE_VAT``
+13,63636 % og ``DOMESTIC|REDUCED_REP_VAT`` 5,26316 %, jf. kundens
+vat_setup.csv), hvis implicitte sats (moms/grundlag) pr. konstruktion ALDRIG
+matcher den hardkodede 0/25-liste — samme "delvis-fradragsret er ikke en
+ugyldig sats"-erkendelse som kontrol 19-sagen (2026-09-17). Se
+test_24_implied_rate nedenfor: når vat_setup er indlæst, valideres den
+implicitte sats mod SETUP-satsen for linjens EGEN kode (± RATE_TOLERANCE) i
+stedet for den hardkodede liste; uden vat_setup: uændret adfærd.
 """
 
 from collections import defaultdict
@@ -319,7 +328,24 @@ def test_23_rate_consistency_per_code(data: dict) -> list:
 # === TEST 24: Implicit sats ugyldig ===
 
 def test_24_implied_rate(data: dict) -> list:
-    """Beregn implicit sats (moms/grundlag) og flag når den ikke er en gyldig DK-sats."""
+    """Beregn implicit sats (moms/grundlag) og flag når den ikke matcher en
+    gyldig sats for linjens EGEN momskode.
+
+    Fix D (2026-09-18, jf. modulets kommentar ovenfor): når kundens
+    vat_setup er indlæst, er den gyldige implicitte sats setup-satsen for
+    linjens EGEN kode (± vr.RATE_TOLERANCE) i stedet for den hardkodede
+    0/25-liste — samme princip som kontrol 19, men uden retningsskellet
+    kontrol 22 har brug for (dette handler om at en kode kan have SIN EGEN
+    gyldige sats, fx 13,63636%, ikke om sats gælder salgs- eller købsside).
+    Findes koden ikke i opsætningen (ukendt/umatchet), falder vi tilbage til
+    den hardkodede liste — vi kan ikke verificere en sats uden en opsætning
+    at holde den op imod (kontrol 19 flager selve "ukendt kode"-situationen
+    separat). Uden vat_setup: uændret adfærd (0%/25% er de eneste gyldige
+    satser)."""
+    header = data.get("header") or {}
+    setup_loaded = bool(header.get("vat_setup_loaded"))
+    setup_by_code = {t["tax_code"]: t for t in data.get("tax_table", [])} if setup_loaded else {}
+
     findings = []
     for txn in data["transactions"]:
         for line in txn["lines"]:
@@ -330,8 +356,16 @@ def test_24_implied_rate(data: dict) -> list:
             implied = vr.implied_rate(base, vat)
             if implied is None:
                 continue
-            # Er den implicitte sats tæt på en gyldig sats?
-            if any(abs(implied - r) <= vr.RATE_TOLERANCE for r in vr.VALID_DK_RATES):
+
+            entry = setup_by_code.get(line["tax_code"])
+            if entry is not None and entry.get("setup_matched"):
+                valid_rates = {entry["tax_percentage"]}
+                expected_desc = f"opsætningens sats for momskoden ({entry['tax_percentage']}%)"
+            else:
+                valid_rates = vr.VALID_DK_RATES
+                expected_desc = "en gyldig dansk sats (0% eller 25%)"
+
+            if any(abs(implied - r) <= vr.RATE_TOLERANCE for r in valid_rates):
                 continue
             findings.append(make_finding(
                 test_id=24,
@@ -340,9 +374,9 @@ def test_24_implied_rate(data: dict) -> list:
                 direction="negative" if implied > vr.STANDARD_RATE else "positive",
                 severity="medium",
                 description=f"Implicit momssats {implied}% (moms {vat:.2f} af grundlag {base:.2f}) "
-                            f"på transaktion {txn['transaction_id']} matcher ingen gyldig dansk sats.",
+                            f"på transaktion {txn['transaction_id']} matcher ikke {expected_desc}.",
                 fix_suggestion="Tjek om momsgrundlag og momsbeløb hører sammen. "
-                               "Den faktiske sats bør være 25% eller 0%.",
+                               "Den faktiske sats bør svare til momskodens registrerede sats.",
                 estimated_amount=abs(round(vat - base * vr.STANDARD_RATE / 100, 2)),
                 transactions=[_txn_ref(txn, line, implied_rate=implied,
                                        highlighted_field="tax_amount")],
