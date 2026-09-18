@@ -14,8 +14,8 @@ der mapper EY's TTAR-godkendelsesramme til vores evidens (spejlet på SAF-T-spor
 ## Hvad er det
 
 Web-værktøj (FastAPI-backend + reel UI i `backend/templates/index.html`) der kører
-momsanalyse mod et momsdataudtræk (Excel/CSV i dag; SAF-T på vej). 103 kontroller
-i 12 kategorier klassificeret efter impact-type, retning og sværhedsgrad. Mål:
+momsanalyse mod et momsdataudtræk (Excel/CSV i dag; SAF-T på vej). 108 kontroller
+i 13 kategorier klassificeret efter impact-type, retning og sværhedsgrad. Mål:
 EY-godkendt produkt — søsterprojekt til SAF-T Validator, VIES Validator og Data
 Extract, som auth/design/dokumentationsmønstre genbruges fra.
 
@@ -25,6 +25,29 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-18)
 
+- **A-listens krydskontroller fra gap-analysen, byggetrin ~11 (2026-09-18,
+  Bal-godkendt):** fire nye deterministiske kontroller i ny kategori 13
+  "Krydsdimensionelle kontroller" (**kontrol 104-108**, momskernen,
+  `analytics/categories/cat13_cross_dimension.py`) — additivt, ingen af de
+  103 eksisterende kontroller ændret/omnummereret. 104: udenlandsk valuta
+  med dansk standardmoms (spørgsmålsform). 105: EU-/3.-landskøb uden
+  reverse charge-beregning (høj for RC-koder, medium for NO_VAT-
+  familiekoder — pension/forsikring-forbeholdet). 106: informativt fund om
+  importørregistrering ved varekøb fra 3.-land. 107/108: bilagstype-
+  krydskontroller (atypisk moms på bilagstype hhv. salg/køb spredt over
+  mange bilagstyper) — kræver det NYE felt `source_code` (data_contract
+  **v0.5.0**, GAP-14, åben), 'ikke målbar'-gates pænt ved fravær. Katalog
+  **v1.4.0** (108 kontroller, 4 fortsat bevidst inaktive), **104/104**
+  valideringsscenarier, **494 automatiserede tests**. Nyt rapport-tema
+  `udlandshandel` (104-106); 107/108 tilføjet til det eksisterende
+  `proces`-tema. Empirisk verificeret på v5-datasættet (v4 + `source_code`
+  — byte-for-byte identisk ellers): 104→100 fund (72 matcher F29-familien),
+  105→105 linjer/59 bilag (mod ekspertens ~57), 106→2 fund/10.561,55 DKK
+  (mod ekspertens ~10,5 t.kr. — eksakt match), 107→180 fund (0 på v4,
+  gated), 108→2 aggregerede fund (0 på v4, gated). Kontrol 1-103 uændret
+  (22.608 fund før → 22.608 + 389 nye = 22.997 efter), afstemningsgate
+  uændret 208/208. Kunderapport niveau 3 + Excel-arbejdsbilag regenereret
+  til scratchpad. Se `docs/CHANGELOG.md` for det fulde omfang.
 - **Kunderapport-redesign, byggetrin ~10 (2026-09-18, Bal-godkendt,
   designoplæg alle fire spørgsmål godkendt):** `backend/tools/
   generate_report.py` bygget om til det nye 7-sektions-design (hero,
@@ -200,7 +223,7 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **408 automatiserede tests** + uafhængig valideringssuite (**99/99 aktive
+- **494 automatiserede tests** + uafhængig valideringssuite (**104/104 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
   øverste statuspunkter for de seneste opdateringer (2026-09-18).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
@@ -213,10 +236,10 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 408 tests
+python -m pytest -q                            # 494 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
-python -m validation.run_validation            # 99/99 uafhængig validering
+python -m validation.run_validation            # 104/104 uafhængig validering
 python tools/analyze_canonical.py <gl.csv> --out <rapport.json>      # offline E2E-kørsel
 python tools/generate_report.py <rapport.json> --out <rapport.html> \
     --curation <kuration.json> --niveau 3 --workbook <arbejdsbilag.xlsx>  # kundedialog-HTML (+ Excel)
@@ -355,6 +378,16 @@ Postgres), `AUTH_BASE_URL` (default `https://auth.balai.dk`), `AUTH_DB_PATH`,
 
 ## Åbne tråde
 
+- **GAP-14 (`source_code`, byggetrin ~11, 2026-09-18):** kontrol 107-108
+  kræver bilagstype/BC "Source Code" på linjen. Motorsiden er FÆRDIG
+  (`canonical_parser.py` læser en valgfri `source_code`-kolonne; Excel-vejen
+  har en alias-kolonne; SAF-T Financial har intet nativt element, altid
+  `""`) — verificeret mod en testkørsel af vat-extracts
+  `dataextract.transform` der allerede leverer kolonnen (v5-datasættet,
+  scratchpad). ÅBENT: at vat-extracts PRODUKTIONS-mapping rent faktisk
+  leverer `source_code` for alle kunders BC/NAV-udtræk (uden for denne
+  opgaves scope — vat-extract-repoets ansvar). Uden kolonnen 'ikke
+  målbar'-gates 107/108 pænt (ingen falske alarmer).
 - **SAF-T-parser:** ✅ produktions-parser (`parsers/saft_parser.py` + `upload_router.py`)
   landet — mapper SAF-T Financial (DK v1.0/2.0/2.1) til den kanoniske struktur,
   best-effort (kører også på ugyldig SAF-T), routet i `main.py`. Bærer allerede

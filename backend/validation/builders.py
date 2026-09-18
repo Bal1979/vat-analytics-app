@@ -24,6 +24,8 @@ def mk_line(**kw):
         "ship_from_country": "",
         "ship_to_country": "",
         "vat_number": "",
+        "vat_calculation_type": "",
+        "source_code": "",
     }
     d.update(kw)
     return d

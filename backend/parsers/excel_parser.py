@@ -97,6 +97,14 @@ COLUMN_ALIASES = {
     "currency": [
         "currency", "valuta", "valutakode", "currency_code",
     ],
+    # GAP-14 (kontrakt v0.5.0, Bal-godkendt 2026-09-18): bilagstype/BC
+    # "Source Code" -- kontrol 107-108 (cat13_cross_dimension.py). Valgfri;
+    # de fleste flade Excel-udtræk vil ikke have kolonnen (uændret adfærd:
+    # "" hvis den ikke findes).
+    "source_code": [
+        "source_code", "bilagstype", "document_type", "doc_type",
+        "kildekode", "source_type", "journalkode",
+    ],
     "journal_id": [
         "journal_id", "journal", "journalnr", "journal_no", "journal_type",
         "journaltype", "kladde",
@@ -383,6 +391,7 @@ def _process_row(row, idx, col_map, is_tuple=False):
         "tax_base": tax_base,
         "period": _safe_str(get_val("period")),
         "year": _safe_str(get_val("year")),
+        "source_code": _safe_str(get_val("source_code")) if "source_code" in col_map else "",
     }
 
     account_info = None

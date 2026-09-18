@@ -742,4 +742,60 @@ SCENARIOS = [
         "defect": mk_data(mk_txn(mk_line(credit_amount=10000.0, tax_percentage=25.0, tax_amount=2500.0),
                                  description="Salg af brugt udstyr")),
     },
+
+    # === cat13: Krydsdimensionelle kontroller (104-108, gap-analysen, Bal-godkendt 2026-09-18) ===
+    {
+        "test_id": 104, "navn": "Udenlandsk valuta med indenlandsk standardmoms",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="DOMESTIC|STANDARD_VAT",
+                                        currency="DKK"))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="DOMESTIC|STANDARD_VAT",
+                                         currency="EUR"))),
+    },
+    {
+        "test_id": 105, "navn": "EU-/udlandskøb uden reverse charge-beregning",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="EU|SERVICE_VAT_EU",
+                                        tax_base=1000.0, tax_amount=250.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="EU|SERVICE_VAT_EU",
+                                         tax_base=1000.0, tax_amount=0.0))),
+    },
+    {
+        "test_id": 106, "navn": "Varekøb fra 3.-land — bekræft importørregistrering",
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="DOMESTIC|STANDARD_VAT",
+                                        tax_amount=250.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="OUTSIDE DK/EU|GOODS_VAT_NOT_EU",
+                                         tax_amount=250.0))),
+    },
+    {
+        # 25 linjer på SAMME bilagstype: 20 er min.-populationen
+        # (materiality.CONTROL_107_MIN_LINES_PER_SOURCE_CODE), så mindst 25
+        # linjer er nødvendige for overhovedet at kunne dømme mønsteret.
+        "test_id": 107, "navn": "Atypisk moms på bilagstype",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=100.0, source_code="PAYMENT", tax_amount=0.0),
+                   transaction_id=f"P-{i}")
+            for i in range(25)
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=100.0, source_code="PAYMENT", tax_amount=0.0),
+                   transaction_id=f"P-{i}")
+            for i in range(24)
+        ] + [
+            mk_txn(mk_line(debit_amount=500.0, source_code="PAYMENT", tax_base=400.0, tax_amount=100.0),
+                   transaction_id="P-24"),
+        ]),
+    },
+    {
+        # 30 linjer = materiality.CONTROL_108_MIN_LINES (minimumspopulation pr.
+        # retning). Ren baseline: ÉN bilagstype (ikke "spredt"). Defekt: 5
+        # bilagstyper (>= CONTROL_108_MIN_SOURCE_CODES).
+        "test_id": 108, "navn": "Salg/køb spredt over mange bilagstyper",
+        "clean": mk_data([
+            mk_txn(mk_line(debit_amount=100.0, source_code="PURCH"), transaction_id=f"K-{i}")
+            for i in range(30)
+        ]),
+        "defect": mk_data([
+            mk_txn(mk_line(debit_amount=100.0, source_code=f"TYPE{i % 5}"), transaction_id=f"K-{i}")
+            for i in range(30)
+        ]),
+    },
 ]

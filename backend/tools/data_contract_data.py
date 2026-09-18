@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.4.4"
+CONTRACT_VERSION = "0.5.0"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -574,7 +574,7 @@ TRANSACTION_FIELDS = [
     {
         "navn": "lines", "type": "list[line]", "obligatorisk": True, "format": "mindst ét element i praksis",
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
-        "kraeves_af": "Alle 103 kontroller itererer transactions[].lines[].",
+        "kraeves_af": "Alle 108 kontroller itererer transactions[].lines[].",
         "noter": "Excel-vejen pakker altid PRÆCIS én linje pr. flad kildereække "
                  "(fladt udtræk har ingen bilagsstruktur); SAF-T-vejen bærer "
                  "native multi-linje-bilag. Se LINE_FIELDS.",
@@ -634,7 +634,7 @@ LINE_FIELDS = [
     {
         "navn": "debit_amount", "type": "number", "obligatorisk": True, "format": "DKK, >= 0",
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
-        "kraeves_af": "Stort set alle 103 kontroller (beløbsgrundlag).",
+        "kraeves_af": "Stort set alle 108 kontroller (beløbsgrundlag).",
         "noter": "KENDT GAB (uden for scope her): data_adapter bruger "
                  "'txn.get(\"debit_amount\", 0.0) or 0.0' — en reel, men falsk "
                  "0-værdi i kilden bliver umulig at skelne fra 'ingen kolonne'. "
@@ -651,6 +651,23 @@ LINE_FIELDS = [
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
         "kraeves_af": "Kategori 3, 9, 10 (readiness signal-felt).",
         "noter": "",
+    },
+    {
+        "navn": "source_code", "type": "string", "obligatorisk": False, "format": "rå ERP-værdi, BC/NAV 'Source Code' (bilagstype)",
+        "status": "planned", "kilder": {"excel": "partial", "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Kontrol 107-108 (cat13_cross_dimension.py, gap-analysen, "
+                       "Bal-godkendt 2026-09-18) — readiness CONTROL_REQUIREMENTS.",
+        "noter": "balai_extension (§2a) — IKKE et nativt SAF-T Financial-"
+                 "element. GAP-14 (åben): canonical_parser læser en valgfri "
+                 "source_code-kolonne (samme best-effort-mønster som "
+                 "description, GAP-13) NÅR vat-extracts mapping leverer den "
+                 "(endnu ikke i produktion); Excel-vejen accepterer en "
+                 "'Bilagstype'/'Source Code'-aliaskolonne, hvis kildefilen "
+                 "har den; SAF-T Financial har ingen kilde til feltet "
+                 "(altid \"\"). Nøglesæt-symmetri: ALTID til stede, default "
+                 "\"\" på alle tre veje. Fraværende felt (0% udfyldt på hele "
+                 "datasættet) 'ikke målbar'-gates kontrol 107/108 via "
+                 "analytics/readiness.py — ingen falske alarmer i mellemtiden.",
     },
     {
         "navn": "tax_percentage", "type": "number", "obligatorisk": False, "format": "procent",
@@ -1528,5 +1545,30 @@ KNOWN_GAPS = [
                        "denne 50.479-regression kan gentage sig med et andet "
                        "strukturelt fraværende felt.",
         "beroerte_felter": ["transactions[].description", "transactions[].lines[].description"],
+    },
+    {
+        "id": "GAP-14",
+        "status": "aaben",
+        "titel": "source_code (bilagstype) endnu ikke leveret af nogen input-vej i produktion",
+        "beskrivelse": "Gap-analysens punkt 1.6 (Bal-godkendt 2026-09-18) "
+                       "identificerede bilagstype/Source Code som en manglende "
+                       "analysedimension — kontrol 107 (atypisk moms på "
+                       "bilagstype) og 108 (salg/køb spredt over mange "
+                       "bilagstyper, cat13_cross_dimension.py) er begge bygget "
+                       "og afventer feltet. canonical_parser.py læser nu en "
+                       "valgfri source_code-kolonne (samme best-effort-mønster "
+                       "som description, GAP-13) NÅR vat-extracts "
+                       "dataextract.transform leverer den — det er vat-extracts "
+                       "mapping-ansvar (uden for denne opgaves scope) at "
+                       "faktisk levere kolonnen i den kanoniske gl_entries-CSV. "
+                       "Excel-/SAF-T-vejene har ingen kilde til feltet i dag "
+                       "(SAF-T Financial har intet nativt Source Code-element; "
+                       "Excel-vejen understøtter en valgfri 'Bilagstype'-alias-"
+                       "kolonne, men de fleste flade udtræk vil ikke have den). "
+                       "Uden feltet (0% udfyldt på hele datasættet, jf. "
+                       "readiness.field_is_gated) 'ikke målbar'-gates begge "
+                       "kontroller pænt — samme mekanik som kontrol 25 uden "
+                       "landekolonne. INGEN falske alarmer i mellemtiden.",
+        "beroerte_felter": ["transactions[].lines[].source_code"],
     },
 ]

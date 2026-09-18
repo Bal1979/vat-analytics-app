@@ -3,6 +3,116 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## A-listens krydskontroller fra gap-analysen (byggetrin ~11) — 2026-09-18 (catalog v1.3.0 → v1.4.0, data_contract v0.4.4 → v0.5.0)
+
+Bal-godkendt opgave (2026-09-18). Fire nye deterministiske kontroller fra
+gap-analysen (BALAI-motoren vs. ekspertleverancen) — A-listens
+"billige, høj værdi"-punkter (kundedatafilen `GAP-ANALYSE-motor-vs-ekspert.md`
+er ikke i repoet; her kun kontrolnumre/antal/mekanik, ingen kundedata). Ny
+kategori 13 "Krydsdimensionelle kontroller" (**kontrol 104-108**, alle i
+momskernen) tilføjet ADDITIVT — ingen af de 103 eksisterende kontroller er
+omnummereret eller ændret.
+
+- **`backend/analytics/categories/cat13_cross_dimension.py` (ny):**
+  - **Kontrol 104** — udenlandsk valuta (`currency` ≠ tom/DKK) bogført med
+    den danske standardmomskode (Bus.-gruppe `DOMESTIC`, produktkode
+    indeholdende `STANDARD_VAT`, ikke reverse charge). Stilles altid som
+    SPØRGSMÅL (severity medium) — en dansk leverandør kan lovligt fakturere
+    i udenlandsk valuta.
+  - **Kontrol 105** — EU-/3.-landskøb (Bus.-gruppe `EU`/`OUTSIDE DK/EU`)
+    med intet bogført momsbeløb. To sikkerhedsniveauer: en reverse
+    charge-kode (`vat_calculation_type`, med navnemønster-fallback) giver
+    et HØJT fund ("RC-beregning mangler"); en `NO_VAT`-familiekode
+    (`vat_rules.is_no_vat_product`, konfigurerbar via
+    `materiality.NO_VAT_PRODUCT_PATTERNS`) giver et MEDIUM
+    spørgsmålsfund ("kan være en ægte fritaget ydelse, fx pension/
+    forsikring — bør bekræftes").
+  - **Kontrol 106** — varekøb fra 3.-land (Bus.-gruppe `OUTSIDE DK/EU`,
+    produktkode der matcher BÅDE `GOODS_VAT` og `NOT_EU`). Informativt fund
+    (severity low) der beder om at bekræfte importørregistrering/
+    toldbehandling — uafhængigt af om momsen ser korrekt beregnet ud.
+  - **Kontrol 107** — atypisk moms på bilagstype: lærer filens EGEN
+    fordeling (ingen hardkodede bilagstype-navne). En bilagstype hvor højst
+    `materiality.CONTROL_107_MAX_TYPICAL_VAT_SHARE` (default 5%) af
+    linjerne har moms, og som har mindst
+    `materiality.CONTROL_107_MIN_LINES_PER_SOURCE_CODE` (default 20)
+    linjer, er "typisk momsfri" — de få linjer der alligevel har moms
+    flages enkeltvis.
+  - **Kontrol 108** — salg/køb spredt over mange bilagstyper: ÉT
+    aggregeret fund pr. retning (ikke pr. linje) når en retning bruger
+    mindst `materiality.CONTROL_108_MIN_SOURCE_CODES` (default 3)
+    forskellige bilagstyper over mindst `materiality.CONTROL_108_MIN_LINES`
+    (default 30) linjer. Procesobservation, ikke en fejlpåstand.
+  - Kontrol 107-108 kræver det NYE felt `transactions[].lines[].source_code`
+    (BC/NAV "Source Code"/bilagstype) — se GAP-14 nedenfor. INGEN af de 5
+    kontroller hardkoder kunde-/leverandørnavne; alle grænser er
+    strukturelle (Bus.-gruppe, produktkode-mønster, valuta, calc type,
+    bilagstype).
+  - Ny helpers i `vat_rules.py`: `vat_bus_group`/`vat_product_code`
+    (opaque split af "Bus.-gruppe|Produktkode"), `is_rc_calc_type`,
+    `is_no_vat_product`. Nye tærskler i `materiality.py`:
+    `NO_VAT_PRODUCT_PATTERNS`, `CONTROL_107_MIN_LINES_PER_SOURCE_CODE`,
+    `CONTROL_107_MAX_TYPICAL_VAT_SHARE`, `CONTROL_108_MIN_LINES`,
+    `CONTROL_108_MIN_SOURCE_CODES` — alle env-overstyrbare
+    (`MATERIALITY_*`), defaults konservative.
+- **`transactions[].lines[].source_code` (data_contract v0.5.0, GAP-14,
+  status ÅBEN):** ny balai_extensions-linjefelt, nøglesæt-symmetrisk på
+  alle tre input-veje (canonical: valgfri kolonne, samme best-effort-mønster
+  som `description`/GAP-13; Excel: valgfri alias-kolonne
+  `source_code`/`bilagstype`/`document_type`/…; SAF-T Financial: intet
+  nativt element, altid `""`). Uden feltet (0% udfyldt på hele datasættet)
+  'ikke målbar'-gates kontrol 107/108 via `analytics/readiness.py`
+  (`CONTROL_REQUIREMENTS[107]`/`[108] = ["source_code"]`) — samme mekanik
+  som kontrol 25 uden landekolonne. Ingen falske alarmer i mellemtiden.
+- **Kategori 13** tilføjet i `analytics/engine.py::CATEGORIES` (test_range
+  104-108) og `tools/build_rules_catalog.py`; `analytics/modules.py` (nye
+  kontroller uangivet i `_OVERRIDES` → forbliver i momskernen, default TIL);
+  `analytics/readiness.py` (`CATEGORY_REQUIREMENTS[13] = []`,
+  `range(1, 104)` → `range(1, 109)` alle steder). Alle "103
+  kontroller"/"12 kategorier"-referencer i kode/docstrings opdateret til
+  108/13.
+- **`tools/report_themes.py`:** nyt tema **`udlandshandel`** → kontrol
+  104/105/106 ("er den udenlandske handel momsbehandlet korrekt?") —
+  begrundelse: adskilt fra `kodeopsaetning` (som handler om den
+  INDENLANDSKE kodeopsætnings korrekthed, ikke grænsen til udlandet).
+  Kontrol 107/108 tilføjet til det EKSISTERENDE tema **`proces`** (nu
+  {46,14,107,108}) — begrundelse: begge er PROCESOBSERVATIONER
+  (bilagstype-/journalbrug), samme karakter som fakturanummer-genbrug/
+  faktura-bogføringslag, ikke momsberegningsfejl.
+- **Valideringssuite:** 5 nye clean/defect-scenarier (`validation/scenarios.py`)
+  — **104/104 scenarier bestået** (99 → 104). **Tests: 494 automatiserede
+  tests** (+ ny `tests/test_cat13_cross_dimension.py`, 25 tests). Alle
+  eksisterende tests opdateret til de nye totaler (108 kontroller,
+  13 kategorier, 6 rapport-temaer) — ingen svækkede assertions.
+
+**Empirisk verificeret** (v5-datasættet — v4 + den nye `source_code`-kolonne,
+byte-for-byte identisk på alle andre felter; kørt med alle analyse-moduler,
+`tools/analyze_canonical.py`):
+
+| Kontrol | Fund | Acceptkriterium (gap-analysen) | Vurdering |
+|---|---|---|---|
+| 104 | 100 (alle medium) | Fanger F29-leverandørfamilien (~18 linjer) | 72 af 100 fund matcher F29-familiens beskrivelsesmønster (verificeret i scratchpad, ikke gengivet her — kundedata) — familien er fanget. Antallet af fund (100) er BREDERE end den med vilje: kontrollen er en generel valuta×kode-krydskontrol, ikke en leverandør-specifik regel. |
+| 105 | 105 linjer / **59 distinkte bilag** (31 høj, 74 medium) | ~57 bilag (side 24 pkt. 3) | Bilagstallet (59) matcher tæt. Severity splittet: 31 er RC-koder uden beregnet moms (høj), 74 er NO_VAT-familiekoder (medium, spørgsmålsform — pension/forsikring-forbeholdet). |
+| 106 | 2 (alle low) | ~10,5 t.kr. moms | **Eksakt match**: samlet momsbeløb 10.561,55 DKK. |
+| 107 | 180 (alle medium, i praksis udelukkende bilagstypen `EXPENSE`) | Side 22-tabellen (kvalitativt) | 0 fund på v4 (source_code mangler — 'ikke målbar', jf. datagrundlag), 180 på v5. Ingen hardkodet bilagstype-navn i koden. |
+| 108 | 2 (køb: 22 bilagstyper/25.440 linjer; salg: 22 bilagstyper/21.726 linjer) | Side 32/36 (kvalitativt, "23 typer" nævnt i gap-analysen) | 0 fund på v4 ('ikke målbar'), 2 aggregerede procesobservationer på v5 — antal bilagstyper (22) ligger tæt på ekspertens observerede 23. |
+
+**Regressionsgaranti:** de 103 eksisterende kontroller er BYTE-FOR-BYTE
+uændrede — pr.-kontrol-fundtal identisk mellem den forrige baseline
+(22.608 fund, alle moduler, v4-datasættet) og denne kørsel efter
+tilføjelsen (22.608 for kontrol 1-103 + 389 nye fund fra kontrol 104-108 =
+22.997 i alt). Afstemningsgaten uændret **208/208** på både v4 og v5.
+Kørt på v4 (uden `source_code`): kontrol 104-106 kører uændret (207 nye
+fund), kontrol 107-108 'ikke målbar'-gates korrekt til 0 fund — bekræftet
+via `analytics/readiness.py`s `datagrundlag`.
+
+Kunderapport niveau 3 + Excel-arbejdsbilag regenereret på v5-datasættet til
+scratchpad (ikke i repoet — indeholder kundedata): nyt tema `udlandshandel`
+(207 fund, forfremmet) vises i sektion 4; `proces`-temaet (5.524 fund,
+inkl. 107/108) er IKKE auto-forfremmet i denne kørsel (under
+`materiality.REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD`) — rådgiveren kan
+forfremme manuelt i kurationsfilen ved behov.
+
 ## Kunderapport-redesign (byggetrin ~10) — 2026-09-18 (catalog v1.3.0 uændret, data_contract v0.4.3 → v0.4.4)
 
 Bal-godkendt opgave (2026-09-18, designoplæg med alle fire spørgsmål

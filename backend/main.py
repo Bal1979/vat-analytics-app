@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 VAT Analytics API
-Momsanalyse fra Excel/CSV data — 103 automatiserede tests.
+Momsanalyse fra Excel/CSV data — 108 automatiserede tests.
 
 Understøtter store filer op til 2 GB med asynkron job-processering:
 - Filer < 50 MB: synkron analyse (returnerer resultat direkte)
@@ -34,7 +34,7 @@ import central_auth
 
 app = FastAPI(
     title="VAT Analytics API",
-    description="Momsanalyse fra Excel/CSV data — 103 automatiserede tests baseret på Skattestyrelsens kontrolmetoder",
+    description="Momsanalyse fra Excel/CSV data — 108 automatiserede tests baseret på Skattestyrelsens kontrolmetoder",
     version="0.2.0",
 )
 # Maks upload: 2 GB
@@ -274,7 +274,7 @@ async def preview_file(request: Request, file: UploadFile = File(...),
 async def analyze(request: Request, file: UploadFile = File(...),
                   user=Depends(central_auth.require_tool), _=Depends(auth.verify_csrf)):
     """
-    Upload en Excel/CSV fil og kør alle 103 momsanalyser.
+    Upload en Excel/CSV fil og kør alle 108 momsanalyser.
 
     For filer < 50 MB: synkron analyse, returnerer resultat direkte.
     For filer >= 50 MB: starter background job, returnerer job_id til polling.

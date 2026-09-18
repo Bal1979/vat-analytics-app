@@ -1,6 +1,6 @@
 """
 SAF-T Analytics Engine
-Kører alle 103 momsanalysetests og returnerer struktureret rapport
+Kører alle 108 momsanalysetests og returnerer struktureret rapport
 med findings klassificeret efter impact-type, retning og sværhedsgrad.
 """
 
@@ -28,6 +28,7 @@ from analytics.categories.cat10_vat_reconciliation import (
 )
 from analytics.categories.cat11_fraud_mtic import run_fraud_tests
 from analytics.categories.cat12_ecommerce_special import run_ecommerce_tests
+from analytics.categories.cat13_cross_dimension import run_cross_dimension_tests
 
 
 # === KATEGORI-DEFINITIONER ===
@@ -45,6 +46,7 @@ CATEGORIES = [
     {"id": 10, "name": "Indgående/Udgående Moms Afstemning", "test_range": (76, 83)},
     {"id": 11, "name": "Svindeldetektion & Karrusel/MTIC", "test_range": (84, 93)},
     {"id": 12, "name": "E-handel, Digitale Ydelser & Særordninger", "test_range": (94, 103)},
+    {"id": 13, "name": "Krydsdimensionelle kontroller", "test_range": (104, 108)},
 ]
 
 
@@ -90,6 +92,7 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None,
         ("reverse charge (cat09)", run_reverse_charge_tests),
         ("fraud & MTIC (cat11)", run_fraud_tests),
         ("e-commerce & special schemes (cat12)", run_ecommerce_tests),
+        ("cross-dimension checks (cat13)", run_cross_dimension_tests),
     ):
         logger.info("Running %s", label)
         cat_findings = runner(data)

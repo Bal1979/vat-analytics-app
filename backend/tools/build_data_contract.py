@@ -52,7 +52,7 @@ def _analytics_modules_run_config() -> dict:
             "beskrivelse": meta["beskrivelse"],
             "default_aktiv": meta["default_active"],
             "antal_kontroller": sum(
-                1 for tid in range(1, 104) if _modules.module_of(tid) == key
+                1 for tid in range(1, 109) if _modules.module_of(tid) == key
             ),
         }
         for key, meta in _modules.MODULES.items()

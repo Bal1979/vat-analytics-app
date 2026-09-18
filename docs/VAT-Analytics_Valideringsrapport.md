@@ -2,7 +2,7 @@
 
 > Auto-genereret af `python -m validation.run_validation` · 2026-09-18
 
-✅ **BESTÅET** — 99/99 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 104/104 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -105,6 +105,11 @@
 | 101 | Teleydelse uden momskode | ja | ja | ✅ |
 | 102 | Rejseydelse med fuld moms | ja | ja | ✅ |
 | 103 | Brugtmoms-vare med fuld moms | ja | ja | ✅ |
+| 104 | Udenlandsk valuta med indenlandsk standardmoms | ja | ja | ✅ |
+| 105 | EU-/udlandskøb uden reverse charge-beregning | ja | ja | ✅ |
+| 106 | Varekøb fra 3.-land — bekræft importørregistrering | ja | ja | ✅ |
+| 107 | Atypisk moms på bilagstype | ja | ja | ✅ |
+| 108 | Salg/køb spredt over mange bilagstyper | ja | ja | ✅ |
 
-Dækning: **99** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **104** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 

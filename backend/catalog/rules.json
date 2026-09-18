@@ -1,8 +1,8 @@
 {
-  "catalog_version": "1.3.0",
-  "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 103 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
+  "catalog_version": "1.4.0",
+  "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 108 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
   "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
-  "antal_kontroller": 103,
+  "antal_kontroller": 108,
   "kategorier": [
     {
       "id": 1,
@@ -99,6 +99,14 @@
         94,
         103
       ]
+    },
+    {
+      "id": 13,
+      "navn": "Krydsdimensionelle kontroller",
+      "test_range": [
+        104,
+        108
+      ]
     }
   ],
   "analyse_moduler": [
@@ -107,7 +115,7 @@
       "navn": "Momskerne",
       "beskrivelse": "Kontroller med direkte momsfaglig konsekvens: sats, fradragsret, angivelse, reverse charge, place-of-supply og momsafstemning. Fundamentet i en momsgennemgang.",
       "default_aktiv": true,
-      "antal_kontroller": 60
+      "antal_kontroller": 65
     },
     {
       "noegle": "forensic_statistik",
@@ -2492,6 +2500,123 @@
       "default_aktiv": false,
       "modul": "analytics/categories/cat12_ecommerce_special.py",
       "funktion": "test_103_used_goods_margin",
+      "kilde": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
+    },
+    {
+      "id": "VATA-104",
+      "test_id": 104,
+      "navn": "Udenlandsk valuta med indenlandsk standardmoms",
+      "kategori_id": 13,
+      "kategori": "Krydsdimensionelle kontroller",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
+      "modul": "analytics/categories/cat13_cross_dimension.py",
+      "funktion": "test_104_foreign_currency_domestic_vat",
+      "kilde": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
+    },
+    {
+      "id": "VATA-105",
+      "test_id": 105,
+      "navn": "Nulkode på udenlandsk køb",
+      "kategori_id": 13,
+      "kategori": "Krydsdimensionelle kontroller",
+      "impact_type": [
+        "compliance",
+        "interest_risk"
+      ],
+      "severity": [
+        "high",
+        "medium"
+      ],
+      "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
+      "modul": "analytics/categories/cat13_cross_dimension.py",
+      "funktion": "test_105_cross_border_purchase_no_rc",
+      "kilde": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
+    },
+    {
+      "id": "VATA-106",
+      "test_id": 106,
+      "navn": "Varekøb fra 3.-land — bekræft importørregistrering",
+      "kategori_id": 13,
+      "kategori": "Krydsdimensionelle kontroller",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
+      "modul": "analytics/categories/cat13_cross_dimension.py",
+      "funktion": "test_106_import_indicator",
+      "kilde": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
+    },
+    {
+      "id": "VATA-107",
+      "test_id": 107,
+      "navn": "Atypisk moms på bilagstype",
+      "kategori_id": 13,
+      "kategori": "Krydsdimensionelle kontroller",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "medium"
+      ],
+      "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
+      "modul": "analytics/categories/cat13_cross_dimension.py",
+      "funktion": "test_107_atypical_vat_by_source_code",
+      "kilde": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
+    },
+    {
+      "id": "VATA-108",
+      "test_id": 108,
+      "navn": "Salg/køb spredt over mange bilagstyper",
+      "kategori_id": 13,
+      "kategori": "Krydsdimensionelle kontroller",
+      "impact_type": [
+        "compliance"
+      ],
+      "severity": [
+        "low"
+      ],
+      "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
+      "modul": "analytics/categories/cat13_cross_dimension.py",
+      "funktion": "test_108_source_code_spread",
       "kilde": "",
       "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 build_rules_catalog.py — udled det versionerede regelkatalog for VAT Analytics
-DIREKTE fra koden (de 103 test_NN-funktioner), så kataloget aldrig kan drifte
+DIREKTE fra koden (de 108 test_NN-funktioner), så kataloget aldrig kan drifte
 fra de faktiske kontroller.
 
 Statisk AST-analyse (kører ingen kode, intet netværk):
@@ -26,7 +26,7 @@ import os
 import re
 import sys
 
-CATALOG_VERSION = "1.3.0"
+CATALOG_VERSION = "1.4.0"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)
@@ -51,6 +51,7 @@ CATEGORIES = [
     (10, "Indgående/Udgående Moms Afstemning", 76, 83),
     (11, "Svindeldetektion & Karrusel/MTIC", 84, 93),
     (12, "E-handel, Digitale Ydelser & Særordninger", 94, 103),
+    (13, "Krydsdimensionelle kontroller", 104, 108),
 ]
 
 _TEST_FN_RE = re.compile(r"^test_(\d+)_")
@@ -171,14 +172,14 @@ def build_catalog():
     valid_ids = {r["test_id"] for r in rules}
     unknown_notes = sorted(int(k) for k in notes if k.isdigit() and int(k) not in valid_ids)
 
-    # Konsistenstjek: præcis 103 kontroller, ingen huller i 1..103.
+    # Konsistenstjek: præcis 108 kontroller, ingen huller i 1..108.
     ids = [r["test_id"] for r in rules]
-    missing = [i for i in range(1, 104) if i not in ids]
+    missing = [i for i in range(1, 109) if i not in ids]
     dupes = sorted({i for i in ids if ids.count(i) > 1})
 
     catalog = {
         "catalog_version": CATALOG_VERSION,
-        "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 103 "
+        "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 108 "
                        "test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; "
                        "kør tools/build_rules_catalog.py.",
         "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
@@ -224,7 +225,7 @@ def build():
         print(f"  ADVARSEL dublerede test_id: {problems['dupes']}")
     if problems["unknown_notes"]:
         print(f"  ADVARSEL rule_notes peger på ukendte test_id: {problems['unknown_notes']}")
-    ok = (len(rules) == 103 and not problems["missing"]
+    ok = (len(rules) == 108 and not problems["missing"]
           and not problems["dupes"] and not problems["unknown_notes"])
     return 0 if ok else 1
 

@@ -145,6 +145,38 @@ VAT_DECLARATION_TOLERANCE = _f("MATERIALITY_VAT_DECLARATION_TOLERANCE", 1.0)
 # spillover hen over årsgrænsen) og giver LAV i stedet for HØJ pr. periode.
 VAT_DECLARATION_ANNUAL_TIMING_PCT = _f("MATERIALITY_VAT_DECLARATION_ANNUAL_TIMING_PCT", 1.0)
 
+# Kontrol 104-108 (krydsdimensionelle kontroller, gap-analysen, Bal-godkendt
+# 2026-09-18, analytics/categories/cat13_cross_dimension.py):
+
+# Produktkode-mønstre der identificerer en "ægte nulsats/fritaget"-kode i
+# BC/NAV's "Bus.-gruppe|Produktkode"-konvention (fx "NO_VAT", "NO_VAT_EU",
+# "NO_VAT_NOT_EU") -- modsat en reverse charge-kode (GOODS_VAT_*/SERVICE_VAT_*).
+# Delstrengs-match, case-insensitivt. Samme kalibrerings-filosofi som kontrol
+# 82's DKRC/SERVICE_VAT-mønstre: kalibreret til den observerede BC/NAV-
+# taksonomi, ikke en universel standard — override via env for en klient med
+# en anden navnekonvention.
+NO_VAT_PRODUCT_PATTERNS = [
+    p.lower() for p in _strlist("MATERIALITY_NO_VAT_PRODUCT_PATTERNS", ["NO_VAT"])
+]
+
+# Kontrol 107 (atypisk moms på bilagstype): en bilagstype (source_code) skal
+# have mindst dette antal linjer, før dens moms-andel overhovedet kan siges at
+# være "typisk" (undgår at dømme et mønster ud fra en håndfuld linjer).
+CONTROL_107_MIN_LINES_PER_SOURCE_CODE = _i("MATERIALITY_CONTROL_107_MIN_LINES", 20)
+
+# Kontrol 107: en bilagstype er "typisk momsfri", når højst denne andel af
+# dens linjer bærer et momsbeløb. De ENKELTE linjer der alligevel har moms på
+# en sådan bilagstype, er kontrollens fund.
+CONTROL_107_MAX_TYPICAL_VAT_SHARE = _f("MATERIALITY_CONTROL_107_MAX_VAT_SHARE", 0.05)
+
+# Kontrol 108 (salg/køb spredt over mange bilagstyper): minimumspopulation
+# for en retning (salg/køb), før spredningen overhovedet vurderes.
+CONTROL_108_MIN_LINES = _i("MATERIALITY_CONTROL_108_MIN_LINES", 30)
+
+# Kontrol 108: minimum antal DISTINKTE bilagstyper i én retning, før det
+# tæller som "spredt" (procesobservation, ikke en fejlpåstand).
+CONTROL_108_MIN_SOURCE_CODES = _i("MATERIALITY_CONTROL_108_MIN_SOURCE_CODES", 3)
+
 # Kunderapportens kuraterings-seed (byggetrin ~10, Bal-godkendt 2026-09-18,
 # tools/report_curation.py): et tema-gruppe uden kritiske/høje fund
 # forfremmes ("medtag": true i den auto-genererede kuration) hvis dens

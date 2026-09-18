@@ -52,6 +52,7 @@ CATEGORY_REQUIREMENTS = {
     10: ["tax_code"],               # afstemning: momskode/sats
     11: ["country"],                # MTIC: land (+ tværvirksomhed = eksternt)
     12: ["country"],                # e-handel: land/salgskanal
+    13: [],                         # krydsdimensionelle kontroller: se CONTROL_REQUIREMENTS (107/108)
 }
 
 # Per-kontrol-override (mere præcise krav end kategoriens default).
@@ -64,6 +65,14 @@ CONTROL_REQUIREMENTS = {
     # strukturelt blind for "intet landesignal i hele filen" og gav 10.671
     # falske "ingen udenlandsk modpart"-fund på et GL-udtræk uden landekolonne.
     25: ["country"],
+    # Kontrol 107-108 (gap-analysen, Bal-godkendt 2026-09-18, cat13_cross_
+    # dimension.py): bilagstype-krydskontroller kræver ``source_code``
+    # (BC/NAV "Source Code") — et felt der endnu ikke er udbredt på nogen
+    # input-vej. Kategori 13's øvrige kontroller (104-106) har intet
+    # kategori-krav (se CATEGORY_REQUIREMENTS), så override er nødvendig
+    # her, samme mønster som kontrol 25/36/49 ovenfor.
+    107: ["source_code"],
+    108: ["source_code"],
 }
 
 # Kontroller der kræver EKSTERNE data, som en enkelt-virksomheds-eksport ikke
@@ -88,6 +97,7 @@ FIELD_INFO = {
     # Del B (medium-fund-analysen, Bal-godkendt 2026-09-17): kun brugt af
     # SUBCHECK_FIELDS (kontrol 4's Description-delcheck) i dag — se dér.
     "description": ("Bilagstekst/beskrivelse", "SAF-T Description (transaktion/linje) eller en kolonne 'Beskrivelse/Tekst'"),
+    "source_code": ("Bilagstype/Source Code", "Den kanoniske vejs 'source_code'-kolonne (BC/NAV Source Code) eller en kolonne 'Bilagstype'"),
 }
 
 # Effektive statusser (prioriteret rækkefølge afgøres i assess).
@@ -244,7 +254,7 @@ def assess(data: dict, active_modules: set, categories: list,
     few_tx = prof["transaktioner"] < _MIN_TX_FOR_STATISTIK
 
     controls = []
-    for tid in range(1, 104):
+    for tid in range(1, 109):
         cat_id, cat_name = _category_of(tid, categories)
         modul = modules.module_of(tid)
         modul_aktiv = modul in active_modules

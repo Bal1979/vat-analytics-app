@@ -111,6 +111,11 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
             "ship_from_country": txn.get("ship_from_country", "") or "",
             "ship_to_country": txn.get("ship_to_country", "") or "",
             "vat_number": txn.get("vat_number", "") or "",
+            # GAP-14 (kontrakt v0.5.0, Bal-godkendt 2026-09-18): bilagstype/BC
+            # "Source Code" -- valgfri Excel-kolonne (COLUMN_ALIASES
+            # "source_code"), "" hvis kildefilen ikke har den. Nøglesæt-
+            # symmetri med canonical/SAF-T-vejen (kontrol 107-108).
+            "source_code": txn.get("source_code", "") or "",
         }
 
         # Derive period and period_year from the date if not already present

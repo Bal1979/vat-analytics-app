@@ -200,7 +200,7 @@ def test_engine_runs_on_saft(tmp_path):
     data, _ = saft_parser.parse_saft(path)
     report = run_all_tests(data)
     assert isinstance(report["total_findings"], int)
-    assert len(report["categories"]) == 12
+    assert len(report["categories"]) == 13
 
 
 def test_scope_suppresses_balance_line_via_saft_account_type(tmp_path):

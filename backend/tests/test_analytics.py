@@ -56,7 +56,7 @@ class TestRunAllTests:
     def test_returns_all_12_categories(self):
         data = _make_minimal_data()
         result = run_all_tests(data)
-        assert len(result["categories"]) == 12
+        assert len(result["categories"]) == 13
 
     def test_empty_data_returns_no_findings(self):
         data = _make_minimal_data()

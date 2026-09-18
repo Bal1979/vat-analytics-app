@@ -18,8 +18,22 @@ Tema -> kontrol-mapping (Bal-godkendt, ikke konfigurerbar pr. kørsel — en
                                  ugyldig — residual efter 2026-09-18-
                                  kalibreringen, negativt momsbeløb —
                                  samme residual)
-    proces                    -> 46, 14 (faktura-/bogføringslag,
-                                 genbrugt fakturanummer)
+    udlandshandel             -> 104, 105, 106 (gap-analysen, Bal-godkendt
+                                 2026-09-18: valuta × momskode, EU-/udlands-
+                                 køb uden reverse charge-beregning, import
+                                 fra 3.-land — ét samlet tema, fordi alle tre
+                                 handler om samme spørgsmål set fra kunden:
+                                 "er den udenlandske handel momsbehandlet
+                                 rigtigt?". Adskilt fra 'kodeopsaetning', som
+                                 handler om den INDENLANDSKE kodeopsætnings
+                                 korrekthed, ikke om grænsen til udlandet.)
+    proces                    -> 46, 14, 107, 108 (faktura-/bogføringslag,
+                                 genbrugt fakturanummer, atypisk moms på
+                                 bilagstype, salg/køb spredt over mange
+                                 bilagstyper — gap-analysen, Bal-godkendt
+                                 2026-09-18: 107/108 er PROCES-observationer
+                                 (bilagstype-brug/bogføringsvej), ikke
+                                 momsberegningsfejl, samme karakter som 46/14)
     timing                    -> 82, 5 (periode-/rubrikafstemning,
                                  dato-/periodekonsistens)
 
@@ -49,9 +63,14 @@ THEMES = {
         "kontroller": (1, 7, 24, 60),
         "default_horisont": "0-3",
     },
+    "udlandshandel": {
+        "navn": "Udlandshandel",
+        "kontroller": (104, 105, 106),
+        "default_horisont": "0-3",
+    },
     "proces": {
         "navn": "Proces",
-        "kontroller": (46, 14),
+        "kontroller": (46, 14, 107, 108),
         "default_horisont": "3-12",
     },
     "timing": {
@@ -179,12 +198,33 @@ def draft_dataanomalier(findings: list) -> dict:
 def draft_proces(findings: list) -> dict:
     stats = _stats(findings)
     return {
-        "spoergsmaal": "Hvordan er jeres proces for fakturanumre og bogføringstiming organiseret i dag?",
-        "hvorfor": (f"{stats['antal']} posteringer peger på genbrugte fakturanumre eller et "
-                    "usædvanligt stort tidsmæssigt lag mellem faktura- og bogføringsdato. "
-                    "Det er ikke nødvendigvis en fejl, men bør kunne forklares proces-mæssigt."),
-        "anbefaling": ("Bekræft rutinen for fakturanummerering og bogføringsfrister, og "
-                        "overvej om den bør strammes op."),
+        "spoergsmaal": ("Hvordan er jeres proces for fakturanumre, bogføringstiming og "
+                         "bilagstype-/journalbrug organiseret i dag?"),
+        "hvorfor": (f"{stats['antal']} posteringer peger på genbrugte fakturanumre, et "
+                    "usædvanligt stort tidsmæssigt lag mellem faktura- og bogføringsdato, eller "
+                    "en bilagstype-/journalbrug der afviger fra det gængse mønster i jeres egne "
+                    "bogføringer. Det er ikke nødvendigvis en fejl, men bør kunne forklares "
+                    "proces-mæssigt."),
+        "anbefaling": ("Bekræft rutinen for fakturanummerering, bogføringsfrister og "
+                        "bilagstype-/journalbrug, og overvej om den bør strammes op."),
+    }
+
+
+def draft_udlandshandel(findings: list) -> dict:
+    stats = _stats(findings)
+    return {
+        "spoergsmaal": ("Er den udenlandske handel (valuta, EU-/3.-landskøb og import) "
+                         "momsbehandlet korrekt på de fremhævede posteringer?"),
+        "hvorfor": (f"{stats['antal']} posteringer for i alt {stats['beloeb']:,.0f} DKK rejser "
+                    "spørgsmål om momsbehandlingen af udenlandsk handel: udenlandsk valuta bogført "
+                    "med en dansk standardmomskode, EU-/udlandskøb uden en beregnet reverse "
+                    "charge-moms, eller varekøb fra lande uden for EU. Ingen af delene er "
+                    "nødvendigvis en fejl — fx kan en dansk leverandør lovligt fakturere i "
+                    "udenlandsk valuta — men bør bekræftes, ikke antages."),
+        "anbefaling": ("Gennemgå de fremhævede posteringer med jeres bogholderi: bekræft "
+                        "leverandørens hjemsted/momsbehandling, om reverse charge-moms mangler "
+                        "at blive beregnet, og at importørregistrering/toldbehandling er på "
+                        "plads for varekøb fra 3.-lande."),
     }
 
 
@@ -206,6 +246,7 @@ _DRAFT_BUILDERS = {
     "kodeopsaetning": draft_kodeopsaetning,
     "momsbehandling_pr_konto": draft_momsbehandling_pr_konto,
     "dataanomalier": draft_dataanomalier,
+    "udlandshandel": draft_udlandshandel,
     "proces": draft_proces,
     "timing": draft_timing,
 }

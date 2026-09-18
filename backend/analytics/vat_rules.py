@@ -294,6 +294,57 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
     return bus_group != "DOMESTIC"
 
 
+# --- BC/NAV "Bus.-gruppe|Produktkode"-konvention: generelle helpers ---------
+#
+# Gap-analyse-kontrollerne 104-108 (2026-09-18, Bal-godkendt, cat13_cross_
+# dimension.py) genbruger den samme opaque "gruppe|kode"-streng som
+# is_reverse_charge_sale_code ovenfor, men har brug for BEGGE led hver for
+# sig (ikke kun "er det udenlandsk"). Disse to helpers er bevidst dumme
+# streng-splits — ingen fortolkning af selve koden — samme "opaque streng"-
+# disciplin som canonical_parser.py's modul-docstring beskriver for
+# ``vat_codes``.
+
+def vat_bus_group(tax_code):
+    """Bus.-gruppen (FØRSTE led før '|'), uppercase/trimmet. '' hvis koden
+    ikke følger 'gruppe|kode'-konventionen (intet '|')."""
+    code = tax_code or ""
+    if "|" not in code:
+        return ""
+    return code.split("|", 1)[0].strip().upper()
+
+
+def vat_product_code(tax_code):
+    """Produktkoden (efter '|'), uppercase/trimmet. Følger koden ikke
+    konventionen (intet '|'), returneres HELE koden uppercase/trimmet —
+    så et opslag som ``"NO_VAT" in vat_product_code(code)`` også virker på en
+    kode uden Bus.-gruppe-præfiks."""
+    code = tax_code or ""
+    if "|" not in code:
+        return code.strip().upper()
+    return code.split("|", 1)[1].strip().upper()
+
+
+def is_rc_calc_type(vat_calculation_type):
+    """True hvis ``vat_calculation_type`` (balai_extensions, fra vat_setup.csv)
+    eksplicit siger reverse charge. Tomt/ukendt -> False (intet signal, ikke
+    en gættet RC-status)."""
+    return "reverse charge" in (vat_calculation_type or "").strip().lower()
+
+
+def is_no_vat_product(tax_code):
+    """True hvis produktkoden matcher et af de konfigurerede 'ægte nulsats/
+    fritaget'-mønstre (materiality.NO_VAT_PRODUCT_PATTERNS, default kun
+    'NO_VAT') -- BC/NAV's egen navnekonvention for eksplicit nulsats-koder
+    (modsat en reverse charge-kode, der bruger GOODS_VAT_*/SERVICE_VAT_*-
+    navne). Delstrengs-match, case-insensitivt, samme princip som
+    text_matches_any/kontrol 82's mønstre."""
+    from analytics import materiality  # lokal import: undgår cirkularitet ved modulindlæsning
+    product = vat_product_code(tax_code).lower()
+    if not product:
+        return False
+    return any(p in product for p in materiality.NO_VAT_PRODUCT_PATTERNS)
+
+
 # === STATISTIK ===
 
 def mean(values):

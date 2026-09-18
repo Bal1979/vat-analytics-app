@@ -269,6 +269,10 @@ def parse_saft(path: str):
                     "ship_from_country": "", "ship_to_country": "",  # ikke i SAF-T Financial
                     "vat_number": vat_number,
                     "non_deductible_amount": non_deductible,
+                    # GAP-14 (kontrakt v0.5.0, Bal-godkendt 2026-09-18): SAF-T
+                    # Financial har intet nativt "Source Code"-element -- altid
+                    # "" på denne vej. Nøglesæt-symmetri med canonical/Excel.
+                    "source_code": "",
                 })
             # SAF-T Period er en regnskabsperiode ("1"); kontrollerne forventer
             # kalendermåned. Udled måneden af posteringsdatoen for at undgå

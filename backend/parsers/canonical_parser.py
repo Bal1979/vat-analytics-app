@@ -113,6 +113,10 @@ KNOWN_CANONICAL_COLUMNS = {
     # description-kolonne parallelt med denne opgave. Valgfri -- se
     # kolonnehåndteringen i parse_canonical nedenfor.
     "description",
+    # GAP-14 (åben, gap-analysen, Bal-godkendt 2026-09-18): bilagstype/BC
+    # "Source Code" -- kontrol 107-108 (cat13_cross_dimension.py). Valgfri,
+    # samme best-effort-mønster som description.
+    "source_code",
 }
 
 # Minimumssæt for overhovedet at genkende filen som "kanonisk gl_entries" i
@@ -380,6 +384,12 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         # saft_parser.py). Ingen gætning/udledning ved fravær.
         description = (row.get("description") or "").strip() if "description" in row else ""
 
+        # GAP-14 (åben, gap-analysen, Bal-godkendt 2026-09-18): bilagstype/BC
+        # "Source Code" -- valgfri kolonne, samme fravær-giver-""-mønster som
+        # description ovenfor. Kontrol 107-108 (cat13_cross_dimension.py)
+        # 'ikke målbar'-gates pænt, når kolonnen (endnu) ikke findes i kilden.
+        source_code = (row.get("source_code") or "").strip() if "source_code" in row else ""
+
         line = {
             "account_id": gl_account,
             # KENDT GAB (GAP-11): ingen kontoplan-fil på denne vej -> altid "".
@@ -407,6 +417,9 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "ship_to_country": (row.get("ship_to") or "").strip() if "ship_to" in row else "",
             "vat_number": (row.get("vat_registration_numbers") or "").strip() if "vat_registration_numbers" in row else "",
             "non_deductible_amount": None,
+            # GAP-14 (kontrakt v0.5.0): nøglesæt-symmetri -- ALTID til stede,
+            # default "" (intet signal). Se kommentaren ved source_code ovenfor.
+            "source_code": source_code,
             # Ekstra, endnu-ikke-kontraktbårne canonical-only felter — bevares
             # for sporbarhed/fremtidig kontraktudvidelse, ingen kontrol læser
             # dem i dag (jf. analytics_mapping.json's object_model_only-liste):

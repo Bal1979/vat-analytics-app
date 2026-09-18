@@ -28,9 +28,9 @@ def test_timing_is_always_promoted():
     assert "timing" in rt.ALWAYS_PROMOTED_THEMES
 
 
-def test_theme_order_covers_all_five_themes():
+def test_theme_order_covers_all_six_themes():
     assert set(rt.THEME_ORDER) == set(rt.THEMES)
-    assert len(rt.THEME_ORDER) == 5
+    assert len(rt.THEME_ORDER) == 6
 
 
 def _finding(test_id, account_id=None, tax_code=None, amount=0.0, description=""):

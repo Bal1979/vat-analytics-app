@@ -45,6 +45,8 @@ RETSOMRAADE = {
     10: "Opgørelse og afstemning af ind-/udgående moms; (delvis) fradragsret (momsloven)",
     11: "Svig/MTIC: solidarisk hæftelse og karruselindikatorer (momsloven, EU)",
     12: "E-handel, digitale ydelser og særordninger: OSS, brugtmoms, rejsebureau (momsloven)",
+    13: "Krydsdimensionelle kontroller: valuta/kode, EU-/3.-landskøb uden RC-beregning, "
+        "import, bilagstype (momsloven, Skattestyrelsens kontrolmetoder)",
 }
 
 FONT = "Arial"
