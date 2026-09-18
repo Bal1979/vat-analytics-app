@@ -1,10 +1,10 @@
 {
-  "contract_version": "0.4.3",
+  "contract_version": "0.4.4",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
   "antal_objekter": 7,
-  "antal_felter": 74,
+  "antal_felter": 77,
   "objekter": {
     "header": {
       "beskrivelse": "Fil-/regnskabs-metadata. Ét objekt pr. upload.",
@@ -423,6 +423,51 @@
           "ekstension": true,
           "kraeves_af": "Kontrol 82 AKTIV (byggetrin 9, Del A, Bal-godkendt 2026-09-17): cat10._purchase_rubric bruger feltet FØR DKRC/SERVICE_VAT-navnemønstrene, når det er til stede (deterministisk 'reverse charge'-detektion + Bus.-gruppen til indenlandsk/udenlandsk-skellet); mønstrene bevares som fallback uden feltet, og som sidste skelnen mellem RC-ydelser og RC-varekøb fra udlandet (se noter). Sekundært kategori 9 (70-75, ikke konsumeret endnu).",
           "noter": "balai_extension pr. §2a (Bal-godkendt 2026-09-17). Kilde: vat_setup.csv-sidecarens ext_vat_calculation_type, joinet BÅDE på tax_table[] og transactions[].lines[] (kontrol 82 klassificerer pr. linje). Dokumenteret forbehold (uændret efter aktivering): flaget skelner reverse charge fra normal OG (sammen med Bus.-gruppen) indenlandsk fra udenlandsk RC, men IKKE alene RC-ydelser fra RC-varekøb fra udlandet — begge bruger samme beregningstype og Bus.-gruppe i den observerede BC/NAV-taksonomi. Den sidste skelnen falder fortsat tilbage til SERVICE_VAT-navnemønstret (materiality.VAT_DECLARATION_SERVICE_VAT_PATTERNS), bevidst, ikke en overset huls. Regressionsverificeret: kontrol 82's E2E-resultat på byggetrin 8/9's v4-datasæt er uændret efter aktiveringen. SAF-T-nativt alternativ på sigt: en eksplicit besluttet StandardTaxCode-mapping (jf. vat-extracts ext_tax_category-rationale), som kan overflødiggøre denne ekstension — migreringsomfanget er dermed dokumenteret på forhånd, som §2a kræver. Nøglesæt-symmetri: altid til stede på den kanoniske vej, default \"\"."
+        },
+        {
+          "navn": "sales_vat_account",
+          "type": "string",
+          "obligatorisk": false,
+          "format": "kontonummer, rå ERP-værdi (fx BC 'Sales VAT Account')",
+          "status": "implemented_partial",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": "partial"
+          },
+          "ekstension": true,
+          "kraeves_af": "Kunderapportens 'Momsmotoren'-sektion (tools/generate_report.py, byggetrin ~10, Bal-godkendt 2026-09-18) — kobler momskoden til den momskonto, ERP'et selv bogfører salgsmoms på for koden. Ingen aktiv KONTROL konsumerer feltet — det er pædagogisk/dokumenterende i kunderapporten, ikke et input til en regel.",
+          "noter": "balai_extension pr. §2a. Kilde: vat_setup.csv-sidecarens ext_sales_vat_account. Bæres RÅT. Nøglesæt-symmetri: altid til stede på den kanoniske vej, default \"\"."
+        },
+        {
+          "navn": "purchase_vat_account",
+          "type": "string",
+          "obligatorisk": false,
+          "format": "kontonummer, rå ERP-værdi (fx BC 'Purch. VAT Account')",
+          "status": "implemented_partial",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": "partial"
+          },
+          "ekstension": true,
+          "kraeves_af": "Kunderapportens 'Momsmotoren'-sektion — samme begrundelse som sales_vat_account, købssiden.",
+          "noter": "balai_extension pr. §2a. Kilde: vat_setup.csv-sidecarens ext_purchase_vat_account. Bæres RÅT. Nøglesæt-symmetri: altid til stede på den kanoniske vej, default \"\"."
+        },
+        {
+          "navn": "reverse_charge_vat_account",
+          "type": "string",
+          "obligatorisk": false,
+          "format": "kontonummer, rå ERP-værdi (fx BC 'Reverse Chrg. VAT Acc.')",
+          "status": "implemented_partial",
+          "kilder": {
+            "excel": false,
+            "saft": false,
+            "canonical": "partial"
+          },
+          "ekstension": true,
+          "kraeves_af": "Kunderapportens 'Momsmotoren'-sektion — viser den separate omvendt betalingspligt-konto ved siden af sales_vat_account/purchase_vat_account, når ERP'et bogfører RC-moms på sin egen konto (typisk BC/NAV).",
+          "noter": "balai_extension pr. §2a. Kilde: vat_setup.csv-sidecarens ext_reverse_charge_vat_account. Bæres RÅT. Nøglesæt-symmetri: altid til stede på den kanoniske vej, default \"\"."
         }
       ]
     },
@@ -1216,6 +1261,12 @@
         "begrundelse": "Kontrol 82 AKTIV (byggetrin 9, Del A, Bal-godkendt 2026-09-17) — deterministisk mekanisme-flag pr. momskode (Normal/Reverse Charge/Full VAT; vat_setup.csv, ext_vat_calculation_type), joinet både på tax_table[] og lines[] og brugt i cat10._purchase_rubric FØR DKRC/SERVICE_VAT-navnemønstrene, der ellers er kalibreret til én kundes kodenavngivning: 'reverse charge' i feltet + Bus.-gruppen (vat_codes' første led) skelner indenlandsk RC (-> udgående rubrik) fra RC fra udlandet deterministisk; navnemønstret bevares som fallback (feltet fraværende) OG som sidste skelnen mellem RC-ydelser og RC-varekøb fra udlandet (feltet kan ikke alene afgøre den skelnen). Sekundært kategori 9 (70-75, ikke konsumeret endnu). Hvorfor ikke SAF-T Financial: TaxTable har intet mekanisme-flag pr. kode — det native alternativ er en fremtidig, eksplicit besluttet StandardTaxCode-mapping, som kan overflødiggøre denne ekstension. Regressionsverificeret uændret E2E-resultat på v4-datasættet efter aktiveringen."
       },
       {
+        "felt": "sales_vat_account / purchase_vat_account / reverse_charge_vat_account",
+        "sti": "tax_table[].sales_vat_account / tax_table[].purchase_vat_account / tax_table[].reverse_charge_vat_account",
+        "status": "implemented_partial",
+        "begrundelse": "Kunderapportens 'Momsmotoren'-sektion (byggetrin ~10, Bal-godkendt 2026-09-18): pædagogisk tabel der kobler momskode -> momskonto -> angivelsens rubrik for kunden. Findes ikke i SAF-T Financial TaxTable (som ikke bærer kontoreferencer pr. kode) — hentet fra vat_setup.csv-sidecarens ext_sales_vat_account/ext_purchase_vat_account/ext_reverse_charge_vat_account. Ingen aktiv kontrol konsumerer felterne (kun rapport-laget)."
+      },
+      {
         "felt": "version_erklaeret",
         "sti": "header.saft_version",
         "status": "implemented_partial",
@@ -1412,6 +1463,12 @@
           "kode_navn": "CONTROL_60_REVERSAL_WINDOW_DAYS",
           "default": 31,
           "beskrivelse": "Antal dage en negativ momslinje og en modsvarende positiv postering (samme konto+momskode) må ligge fra hinanden for at tælle som et 'reversal-par' i kontrol 60 og dermed undertrykkes — 2026-09-18-rettelsen."
+        },
+        {
+          "env": "MATERIALITY_REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD",
+          "kode_navn": "REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD",
+          "default": 100000.0,
+          "beskrivelse": "Kunderapportens kuraterings-seed (tools/report_curation.py, byggetrin ~10): en tema-gruppe uden kritiske/høje fund forfremmes ('medtag': true) i den auto-seedede kuration, når gruppens samlede estimerede beløb når denne tærskel. Høj-fund-grupper og timing-temaet forfremmes altid, uanset beløb."
         }
       ]
     }

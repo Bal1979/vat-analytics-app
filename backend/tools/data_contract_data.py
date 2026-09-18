@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.4.3"
+CONTRACT_VERSION = "0.4.4"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -444,6 +444,50 @@ TAX_TABLE_FIELDS = [
                  "ekstension — migreringsomfanget er dermed dokumenteret på "
                  "forhånd, som §2a kræver. Nøglesæt-symmetri: altid til stede "
                  "på den kanoniske vej, default \"\".",
+    },
+    {
+        "navn": "sales_vat_account", "type": "string", "obligatorisk": False,
+        "format": "kontonummer, rå ERP-værdi (fx BC 'Sales VAT Account')",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"},
+        "ekstension": True,
+        "kraeves_af": "Kunderapportens 'Momsmotoren'-sektion "
+                       "(tools/generate_report.py, byggetrin ~10, Bal-godkendt "
+                       "2026-09-18) — kobler momskoden til den momskonto, "
+                       "ERP'et selv bogfører salgsmoms på for koden. Ingen "
+                       "aktiv KONTROL konsumerer feltet — det er "
+                       "pædagogisk/dokumenterende i kunderapporten, ikke et "
+                       "input til en regel.",
+        "noter": "balai_extension pr. §2a. Kilde: vat_setup.csv-sidecarens "
+                 "ext_sales_vat_account. Bæres RÅT. Nøglesæt-symmetri: altid "
+                 "til stede på den kanoniske vej, default \"\".",
+    },
+    {
+        "navn": "purchase_vat_account", "type": "string", "obligatorisk": False,
+        "format": "kontonummer, rå ERP-værdi (fx BC 'Purch. VAT Account')",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"},
+        "ekstension": True,
+        "kraeves_af": "Kunderapportens 'Momsmotoren'-sektion — samme "
+                       "begrundelse som sales_vat_account, købssiden.",
+        "noter": "balai_extension pr. §2a. Kilde: vat_setup.csv-sidecarens "
+                 "ext_purchase_vat_account. Bæres RÅT. Nøglesæt-symmetri: "
+                 "altid til stede på den kanoniske vej, default \"\".",
+    },
+    {
+        "navn": "reverse_charge_vat_account", "type": "string", "obligatorisk": False,
+        "format": "kontonummer, rå ERP-værdi (fx BC 'Reverse Chrg. VAT Acc.')",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"},
+        "ekstension": True,
+        "kraeves_af": "Kunderapportens 'Momsmotoren'-sektion — viser den "
+                       "separate omvendt betalingspligt-konto ved siden af "
+                       "sales_vat_account/purchase_vat_account, når ERP'et "
+                       "bogfører RC-moms på sin egen konto (typisk BC/NAV).",
+        "noter": "balai_extension pr. §2a. Kilde: vat_setup.csv-sidecarens "
+                 "ext_reverse_charge_vat_account. Bæres RÅT. "
+                 "Nøglesæt-symmetri: altid til stede på den kanoniske vej, "
+                 "default \"\".",
     },
 ]
 
@@ -1033,6 +1077,22 @@ BALAI_EXTENSIONS = [
                         "v4-datasættet efter aktiveringen.",
     },
     {
+        "felt": "sales_vat_account / purchase_vat_account / "
+                "reverse_charge_vat_account",
+        "sti": "tax_table[].sales_vat_account / tax_table[].purchase_vat_account / "
+               "tax_table[].reverse_charge_vat_account",
+        "status": "implemented_partial",
+        "begrundelse": "Kunderapportens 'Momsmotoren'-sektion (byggetrin ~10, "
+                        "Bal-godkendt 2026-09-18): pædagogisk tabel der kobler "
+                        "momskode -> momskonto -> angivelsens rubrik for "
+                        "kunden. Findes ikke i SAF-T Financial TaxTable "
+                        "(som ikke bærer kontoreferencer pr. kode) — hentet "
+                        "fra vat_setup.csv-sidecarens ext_sales_vat_account/"
+                        "ext_purchase_vat_account/ext_reverse_charge_vat_account. "
+                        "Ingen aktiv kontrol konsumerer felterne (kun "
+                        "rapport-laget).",
+    },
+    {
         "felt": "version_erklaeret", "sti": "header.saft_version",
         "status": "implemented_partial",
         "begrundelse": "Version-triplen (BAL-004/BAL-005-erfaring: Danoil/Føniksbyen "
@@ -1157,6 +1217,15 @@ MATERIALITY_RUN_CONFIG = [
         "default": 31, "beskrivelse": "Antal dage en negativ momslinje og en modsvarende positiv "
                        "postering (samme konto+momskode) må ligge fra hinanden for at tælle som "
                        "et 'reversal-par' i kontrol 60 og dermed undertrykkes — 2026-09-18-rettelsen.",
+    },
+    {
+        "env": "MATERIALITY_REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD",
+        "kode_navn": "REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD",
+        "default": 100000.0, "beskrivelse": "Kunderapportens kuraterings-seed (tools/"
+                       "report_curation.py, byggetrin ~10): en tema-gruppe uden kritiske/"
+                       "høje fund forfremmes ('medtag': true) i den auto-seedede kuration, "
+                       "når gruppens samlede estimerede beløb når denne tærskel. "
+                       "Høj-fund-grupper og timing-temaet forfremmes altid, uanset beløb.",
     },
 ]
 

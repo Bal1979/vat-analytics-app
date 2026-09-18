@@ -145,6 +145,24 @@ def build_report(csv_path: str, summary_path: str | None, reconciliation_path: s
             for a in canonical.get("accounts", [])
             if a.get("account_id") and a.get("description")
         },
+        # Byggetrin ~10 (Bal-godkendt 2026-09-18): letvægts-udtræk af
+        # tax_table til rapport-lagets 'Momsmotoren'-sektion
+        # (tools/generate_report.py) — kode, sats, beregningstype, konti.
+        # Kun de felter sektionen faktisk viser (ikke hele den interne
+        # tax_table-struktur), samme filosofi som konto_navne ovenfor.
+        "tax_table_oversigt": [
+            {
+                "tax_code": t.get("tax_code", ""),
+                "description": t.get("description", ""),
+                "tax_percentage": t.get("tax_percentage", 0.0),
+                "vat_calculation_type": t.get("vat_calculation_type", ""),
+                "sales_vat_account": t.get("sales_vat_account", ""),
+                "purchase_vat_account": t.get("purchase_vat_account", ""),
+                "reverse_charge_vat_account": t.get("reverse_charge_vat_account", ""),
+                "setup_matched": t.get("setup_matched", False),
+            }
+            for t in canonical.get("tax_table", [])
+        ],
         "analytics": analytics_report,
         "koeretid_sekunder": {
             "parsing": round(t_parse_done - t0, 3),

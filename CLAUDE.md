@@ -25,6 +25,27 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-18)
 
+- **Kunderapport-redesign, byggetrin ~10 (2026-09-18, Bal-godkendt,
+  designoplæg alle fire spørgsmål godkendt):** `backend/tools/
+  generate_report.py` bygget om til det nye 7-sektions-design (hero,
+  Momsmotoren, Afstemningen, Observationer & spørgsmål, Datagrundlag &
+  metode, Anbefalinger, lineage-footer), medieret af en ny **kurations-
+  mekanisme** (`tools/report_curation.py` + `tools/report_themes.py`):
+  fund grupperes efter FAST TEMA (aldrig kontrolnumre i kundens view),
+  kurationsfilen seedes med auto-forslag (høj-fund + timing altid
+  forfremmet, medium over en beløbstærskel) og rådgiverens redigerede
+  tekst overlever ordret ved genkørsel — nye temaer tilføjes uden at røre
+  eksisterende. Nyt Excel-arbejdsbilag (`tools/report_workbook.py`,
+  openpyxl) til rådgiveren (her ER kontrolnumre, alle severities). CLI:
+  `--curation`/`--niveau {1,2,3}`/`--workbook`/`--appendix` (det tidligere
+  rapportformat, nu valgfrit teknisk bilag, default fra). Datakontrakt
+  **v0.4.4** (3 nye `tax_table[]`-kontoreferencefelter til Momsmotoren-
+  sektionen), regelkatalog v1.3.0 uændret, **462 automatiserede tests**.
+  Verificeret end-to-end på v4-datasættet (22.608 fund, gate 208/208):
+  niveau 1/2/3 + workbook genereret; genkørsels-flowet bekræftet (redigeret
+  spørgsmål/status/note + manuel medtag-forfremmelse overlevede en frisk
+  motorkørsel uden at røre andre grupper). Se `docs/CHANGELOG.md` for det
+  fulde omfang og de bevidste designafvigelser fra forrige rapportversion.
 - **Kalibrering af kontrol 24 og 60 (2026-09-18, Bal-godkendt, sidste
   oprydning fra gap-analysen før kunderapport-designet):** data_contract
   **v0.4.3**, katalog v1.3.0 uændret, **408 automatiserede tests**. Begge
@@ -197,7 +218,8 @@ python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 99/99 uafhængig validering
 python tools/analyze_canonical.py <gl.csv> --out <rapport.json>      # offline E2E-kørsel
-python tools/generate_report.py <rapport.json> --out <rapport.html>  # kundedialog-HTML
+python tools/generate_report.py <rapport.json> --out <rapport.html> \
+    --curation <kuration.json> --niveau 3 --workbook <arbejdsbilag.xlsx>  # kundedialog-HTML (+ Excel)
 ```
 Bemærk: Railway auto-deployer ved `git push`. Bal kører pytest lokalt og
 committer/pusher (SSH ligger kun på hans Mac).

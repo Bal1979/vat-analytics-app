@@ -3,6 +3,81 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kunderapport-redesign (byggetrin ~10) — 2026-09-18 (catalog v1.3.0 uændret, data_contract v0.4.3 → v0.4.4)
+
+Bal-godkendt opgave (2026-09-18, designoplæg med alle fire spørgsmål
+godkendt). `backend/tools/generate_report.py` bygget om fra bunden til det
+nye kunderapport-design — **syv sektioner** (hero "Jeres moms — set gennem
+data", Momsmotoren, Afstemningen, Observationer & spørgsmål, Datagrundlag &
+metode, Anbefalinger, lineage-footer), og en helt ny **kuraterings-
+mekanisme** der medierer sektion 4/6 mellem motor og rådgiver.
+
+- **`backend/tools/report_themes.py` (ny):** den faste tema<->kontrol-
+  mapping (`kodeopsaetning`→19, `momsbehandling_pr_konto`→80,
+  `dataanomalier`→{1,7,24,60}, `proces`→{46,14}, `timing`→{82,5}) +
+  deterministiske tekst-udkast (spørgsmål/hvorfor/anbefaling) pr. tema.
+  INGEN sprogmodel — ren skabelon + simple frekvensoptællinger på fundenes
+  egne transaktionsreferencer/beskrivelser.
+- **`backend/tools/report_curation.py` (ny):** kurationsfilens format +
+  livscyklus (seed → merge). Findes filen ikke: seedes med auto-forslag
+  (alle høj-fund-grupper + timen-temaet forfremmet; medium forfremmes over
+  `materiality.REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD`, default 100.000
+  kr., env-konfigurerbar). Findes den: rådgiverens indhold vinder for
+  kendte temaer (kun den auto-genererede evidens-/nøgletalsblok
+  regenereres); et tema uden fund før men med fund nu tilføjes som
+  `ny_ikke_kurateret` (auto-forfremmelsesreglen anvendes stadig — en ægte
+  ny høj-fund-observation må ikke forsvinde stille efter en
+  motorkalibrering); et tema med fund før men ingen nu beholder
+  rådgiverens tekst men nulstilles til status `ingen_fund_i_seneste_koersel`
+  og vises ikke. Verificeret end-to-end på v4-datasættet (se nedenfor).
+- **`backend/tools/report_workbook.py` (ny, openpyxl):** rådgiverens Excel-
+  arbejdsbilag — oversigtsark (tema/kontrolnumre/antal/beløb/medtaget),
+  "Alle fund" (fladt, ALLE severities, kontrol-id'er), ét ark pr. tema.
+  Her (og i HTML-rapportens lineage-footer, som et kompakt tema→kontrol-
+  revisionsspor) må kontrolnumre optræde — ALDRIG i kundens narrative
+  sektioner 1-6.
+- **`generate_report.py`s CLI** udvidet: `--curation <fil.json>`,
+  `--niveau 1|2|3` (default 3; 1=Basis {1,3,5,7}, 2=Standard {+2,4, UDEN 6},
+  3=Fuld rådgivning {alt} — dokumenteret kobling til produktpakkerne i
+  modulets docstring), `--workbook <fil.xlsx>`, `--appendix` (det
+  tidligere aggregerede fundtabel-format, nu et VALGFRIT teknisk bilag,
+  default FRA).
+- **Bevidste afvigelser** (dokumenteret i modulets docstring): den
+  tidligere "Ledelsesresumé"-sektion (severity-kort) er UDGÅET af
+  kundenarrativet — erstattet af de kuraterede tema-observationer
+  (severity-fordelingen findes stadig i Excel-arbejdsbilagets
+  oversigtsark); kontrolnumre fjernet fra ALLE kundevendte sektioner,
+  inkl. den tidligere "Kontrol N: ..."-formulering i "ikke-målbar"-listen
+  (nu kun årsagsteksten, deduplikeret).
+- **Datakontrakt v0.4.4:** tre nye `tax_table[]`-felter
+  (`sales_vat_account`/`purchase_vat_account`/`reverse_charge_vat_account`,
+  balai_extension, kilde: `vat_setup.csv`s `ext_*_vat_account`-kolonner) til
+  Momsmotoren-sektionens kode→konto-kobling; ingen aktiv kontrol
+  konsumerer dem. `tools/analyze_canonical.py`s rapport bærer nu også et
+  letvægts `tax_table_oversigt`-udtræk (samme filosofi som `konto_navne`).
+  Ny `analytics.categories.cat10_vat_reconciliation.classify_purchase_rubric`
+  — offentlig alias for `_purchase_rubric`, så rapport-laget genbruger
+  kontrol 82's rubrik-logik i stedet for at gendanne en kopi af den.
+- **Ny materialitetsknap:** `MATERIALITY_REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD`
+  (default 100.000 kr.) — se ovenfor.
+- **54 nye automatiserede tests** (`tests/test_report_themes.py`,
+  `tests/test_report_curation.py`, `tests/test_report_workbook.py` +
+  udvidelser af `tests/test_generate_report.py`/
+  `tests/test_canonical_masterdata.py`/`tests/test_analyze_canonical_cli.py`).
+  Fuld testsuite: 462 grønne, valideringssuite 99/99.
+- **Verificeret end-to-end på v4-datasættet** (frisk `analyze_canonical`-
+  kørsel, 50.479 transaktioner, 22.608 fund, afstemningsgate 208/208, alle
+  5 analyse-moduler): kurationsfil seedet (5 tema-grupper, 4 auto-
+  forfremmet), rapporter genereret i niveau 1 (25 KB, 4 sektioner), niveau 2
+  (39 KB, 6 sektioner) og niveau 3 (40 KB, 7 sektioner) + Excel-arbejdsbilag
+  (1,7 MB, oversigt + "Alle fund" + 5 temaark). Genkørsels-flowet testet
+  ved at redigere ét felt (spørgsmål/status/rådgivernote) plus en manuel
+  `medtag`-forfremmelse programmatisk i kurationsfilen og genkøre hele
+  pipelinen (ny `analyze_canonical`-kørsel + `generate_report`): den
+  redigerede tekst og den manuelle forfremmelse overlevede ordret, mens
+  hver gruppes auto-blok (fundantal m.v.) blev opdateret — ingen
+  eksisterende rådgiverindhold blev overskrevet.
+
 ## Kalibrering af kontrol 24 og 60 — 2026-09-18 (catalog v1.3.0 uændret, data_contract v0.4.2 → v0.4.3)
 
 Bal-godkendt opgave (2026-09-18), sidste oprydning fra gap-analysen før

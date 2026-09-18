@@ -124,7 +124,8 @@ def _sidecar_path(csv_path: str, filename: str) -> str:
 def load_vat_setup(path: str) -> tuple:
     """Læs vat_setup.csv -> ({vat_codes_streng: {tax_percentage, description,
     standard_tax_code, country, non_deductible_vat_pct,
-    allow_non_deductible_vat, vat_calculation_type}}, advarsler). Manglende
+    allow_non_deductible_vat, vat_calculation_type, sales_vat_account,
+    purchase_vat_account, reverse_charge_vat_account}}, advarsler). Manglende
     fil -> ({}, []) (helt stille — filen er valgfri, jf. opgavens Del C).
 
     De tre sidste felter er balai_extensions (§2a, Bal-godkendt 2026-09-17,
@@ -176,6 +177,17 @@ def load_vat_setup(path: str) -> tuple:
             "vat_calculation_type": (row.get("ext_vat_calculation_type")
                                       or row.get("vat_calculation_type")
                                       or "").strip(),
+            # Byggetrin ~10 (Bal-godkendt 2026-09-18): tre kontoreference-felter
+            # til kunderapportens 'Momsmotoren'-sektion (tools/generate_report.py)
+            # — kobler momskoden til de konti, ERP'et selv bogfører moms på.
+            # Rå værdier, ikke normaliseret; kun rapport-laget læser dem i dag,
+            # ingen kontrol.
+            "sales_vat_account": (row.get("ext_sales_vat_account")
+                                   or row.get("sales_vat_account") or "").strip(),
+            "purchase_vat_account": (row.get("ext_purchase_vat_account")
+                                      or row.get("purchase_vat_account") or "").strip(),
+            "reverse_charge_vat_account": (row.get("ext_reverse_charge_vat_account")
+                                            or row.get("reverse_charge_vat_account") or "").strip(),
         }
     warnings = []
     if not lookup:
@@ -337,6 +349,12 @@ def enrich_canonical(canonical: dict, csv_path: str,
             entry["non_deductible_vat_pct"] = info["non_deductible_vat_pct"]
             entry["allow_non_deductible_vat"] = info["allow_non_deductible_vat"]
             entry["vat_calculation_type"] = info["vat_calculation_type"]
+            # Byggetrin ~10 (Bal-godkendt 2026-09-18): kontoreferencer til
+            # kunderapportens 'Momsmotoren'-sektion — sat ubetinget for
+            # MATCHEDE koder (samme mønster som linjerne ovenfor).
+            entry["sales_vat_account"] = info["sales_vat_account"]
+            entry["purchase_vat_account"] = info["purchase_vat_account"]
+            entry["reverse_charge_vat_account"] = info["reverse_charge_vat_account"]
         for txn in canonical.get("transactions", []):
             for line in txn.get("lines", []):
                 info = vat_lookup.get(line.get("tax_code", ""))

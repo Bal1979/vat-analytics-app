@@ -36,7 +36,9 @@ def _bare_canonical():
         "tax_table": [{"tax_code": "DOMESTIC|REDUCED_PRIVATE_DKRC", "description": "",
                        "tax_percentage": 0.0, "rate": 0.0, "standard_tax_code": "", "country": "",
                        "setup_matched": False, "non_deductible_vat_pct": None,
-                       "allow_non_deductible_vat": "", "vat_calculation_type": ""}],
+                       "allow_non_deductible_vat": "", "vat_calculation_type": "",
+                       "sales_vat_account": "", "purchase_vat_account": "",
+                       "reverse_charge_vat_account": ""}],
         "transactions": [{
             "transaction_id": "T1",
             "lines": [{"account_id": "5820", "tax_code": "DOMESTIC|REDUCED_PRIVATE_DKRC",
@@ -83,6 +85,35 @@ def test_load_vat_setup_reads_ext_prefixed_extension_columns(tmp_path):
     assert info["non_deductible_vat_pct"] == 40.0
     assert info["allow_non_deductible_vat"] == "Allow"
     assert info["vat_calculation_type"] == "Reverse Charge VAT"
+
+
+def test_load_vat_setup_reads_ext_prefixed_account_columns(tmp_path):
+    """Byggetrin ~10 (Bal-godkendt 2026-09-18, kontrakt v0.4.4): tre
+    kontoreference-felter til kunderapportens 'Momsmotoren'-sektion,
+    samme ext_-præfiks-mønster som de øvrige balai_extensions."""
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage", "ext_sales_vat_account",
+                           "ext_purchase_vat_account", "ext_reverse_charge_vat_account"],
+               [{"vat_codes": "DOMESTIC|REDUCED_PRIVATE_DKRC", "tax_percentage": "25.0",
+                 "ext_sales_vat_account": "961100", "ext_purchase_vat_account": "963100",
+                 "ext_reverse_charge_vat_account": "961400"}])
+    lookup, warnings = md.load_vat_setup(str(path))
+    assert warnings == []
+    info = lookup["DOMESTIC|REDUCED_PRIVATE_DKRC"]
+    assert info["sales_vat_account"] == "961100"
+    assert info["purchase_vat_account"] == "963100"
+    assert info["reverse_charge_vat_account"] == "961400"
+
+
+def test_load_vat_setup_account_columns_absent_gives_empty_string(tmp_path):
+    path = tmp_path / "vat_setup.csv"
+    _write_csv(str(path), ["vat_codes", "tax_percentage"],
+               [{"vat_codes": "STANDARD|I25", "tax_percentage": "25.0"}])
+    lookup, _ = md.load_vat_setup(str(path))
+    info = lookup["STANDARD|I25"]
+    assert info["sales_vat_account"] == ""
+    assert info["purchase_vat_account"] == ""
+    assert info["reverse_charge_vat_account"] == ""
 
 
 def test_load_vat_setup_extension_columns_absent_gives_no_signal(tmp_path):
@@ -323,6 +354,26 @@ def test_enrich_canonical_carries_extension_fields_onto_matched_tax_table(tmp_pa
     assert entry["non_deductible_vat_pct"] == 40.0
     assert entry["allow_non_deductible_vat"] == "Allow"
     assert entry["vat_calculation_type"] == "Reverse Charge VAT"
+
+
+def test_enrich_canonical_carries_account_fields_onto_matched_tax_table(tmp_path):
+    """Byggetrin ~10 (Bal-godkendt 2026-09-18, kontrakt v0.4.4): de tre
+    kontoreference-felter (kunderapportens 'Momsmotoren'-sektion) sættes
+    ubetinget for matchede koder, samme mønster som de øvrige
+    balai_extensions-felter."""
+    csv_path = str(tmp_path / "gl_entries.csv")
+    _write_csv(str(tmp_path / "vat_setup.csv"),
+               ["vat_codes", "tax_percentage", "ext_sales_vat_account",
+                "ext_purchase_vat_account", "ext_reverse_charge_vat_account"],
+               [{"vat_codes": "DOMESTIC|REDUCED_PRIVATE_DKRC", "tax_percentage": "25.0",
+                 "ext_sales_vat_account": "961100", "ext_purchase_vat_account": "963100",
+                 "ext_reverse_charge_vat_account": "961400"}])
+    canonical = _bare_canonical()
+    md.enrich_canonical(canonical, csv_path)
+    entry = canonical["tax_table"][0]
+    assert entry["sales_vat_account"] == "961100"
+    assert entry["purchase_vat_account"] == "963100"
+    assert entry["reverse_charge_vat_account"] == "961400"
 
 
 def test_enrich_canonical_carries_vat_calculation_type_onto_matched_lines(tmp_path):

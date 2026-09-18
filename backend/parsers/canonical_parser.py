@@ -467,6 +467,15 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "non_deductible_vat_pct": None,
             "allow_non_deductible_vat": "",
             "vat_calculation_type": "",
+            # Byggetrin ~10 (Bal-godkendt 2026-09-18, kontrakt v0.4.4):
+            # kontoreferencer til kunderapportens 'Momsmotoren'-sektion
+            # (tools/generate_report.py). Samme nøglesæt-symmetri som
+            # ovenstående -- ALTID til stede, default "". Udfyldt af
+            # canonical_masterdata.enrich_canonical NÅR vat_setup.csv er
+            # indlæst og koden matcher.
+            "sales_vat_account": "",
+            "purchase_vat_account": "",
+            "reverse_charge_vat_account": "",
         }
         for code in sorted(tax_codes_seen)
     ]

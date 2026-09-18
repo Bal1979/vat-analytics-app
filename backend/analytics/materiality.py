@@ -144,3 +144,12 @@ VAT_DECLARATION_TOLERANCE = _f("MATERIALITY_VAT_DECLARATION_TOLERANCE", 1.0)
 # TIMING (fx købsmoms angivet på settlement- frem for vat_period-basis, med
 # spillover hen over årsgrænsen) og giver LAV i stedet for HØJ pr. periode.
 VAT_DECLARATION_ANNUAL_TIMING_PCT = _f("MATERIALITY_VAT_DECLARATION_ANNUAL_TIMING_PCT", 1.0)
+
+# Kunderapportens kuraterings-seed (byggetrin ~10, Bal-godkendt 2026-09-18,
+# tools/report_curation.py): et tema-gruppe uden kritiske/høje fund
+# forfremmes ("medtag": true i den auto-genererede kuration) hvis dens
+# samlede estimerede beløb når denne tærskel. Høj-fund-grupper og
+# timing-temaet forfremmes ALTID (jf. designoplægget) uanset beløb.
+REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD = _f(
+    "MATERIALITY_REPORT_MEDIUM_GROUP_PROMOTION_THRESHOLD", 100000.0
+)

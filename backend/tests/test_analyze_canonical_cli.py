@@ -49,6 +49,14 @@ def test_build_report_happy_path_stamps_lineage(tmp_path):
     assert report["lineage"]["data_contract_version"]
     assert report["afstemning"]["gate_status"] == "afstemning_ikke_udfoert"
     assert report["analytics"]["summary"]["total_transactions"] == 1
+    # Byggetrin ~10 (Bal-godkendt 2026-09-18): letvægts tax_table-udtræk til
+    # rapportlagets 'Momsmotoren'-sektion.
+    assert report["tax_table_oversigt"] == [
+        {"tax_code": "U25", "description": "", "tax_percentage": 0.0,
+         "vat_calculation_type": "", "sales_vat_account": "",
+         "purchase_vat_account": "", "reverse_charge_vat_account": "",
+         "setup_matched": False}
+    ]
 
 
 def test_build_report_with_reconciliation_file(tmp_path):

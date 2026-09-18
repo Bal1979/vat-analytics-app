@@ -445,6 +445,16 @@ def _purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
     return "input"
 
 
+def classify_purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
+    """Offentlig alias for ``_purchase_rubric`` (byggetrin ~10, Bal-godkendt
+    2026-09-18): ``tools/generate_report.py``s 'Momsmotoren'-sektion skal
+    vise KUNDEN, hvilken angivelsesrubrik en given momskode klassificeres
+    til — samme rubrik-logik som kontrol 82, ikke en gendannet kopi af den
+    (kilde-af-sandhed-disciplinen). Ren gennemstilling; se ``_purchase_rubric``
+    for hele beslutningstræet."""
+    return _purchase_rubric(tax_code, vat_calculation_type)
+
+
 def _line_direction(line: dict):
     """Sale- vs. købs-retning for én linje. Foretrækker det ÆGTE
     ``supply_direction``-signal ("sale"/"purchase") — den kanoniske CSV's
