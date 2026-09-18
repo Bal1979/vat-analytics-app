@@ -337,7 +337,11 @@ def aggregate_findings_by_control(all_findings: list) -> list:
     return controls
 
 
-def build_findings_tables(analytics: dict, currency: str) -> str:
+def build_findings_tables(analytics: dict, currency: str, konto_navne: dict | None = None) -> str:
+    """``konto_navne``: valgfrit opslagskort {account_id: navn} fra rapportens
+    top-level (analyze_canonical) — viser 'nummer · navn' i konto-tabellerne,
+    når kontoplan-stamdata var indlæst; ellers kun nummeret (uændret)."""
+    konto_navne = konto_navne or {}
     all_findings = analytics.get("all_findings") or []
     if not all_findings:
         return (
@@ -384,8 +388,10 @@ def build_findings_tables(analytics: dict, currency: str) -> str:
             "<th>Beløb</th></tr></thead><tbody>"
         )
         for acc_id, agg in rows:
+            navn = konto_navne.get(acc_id, "")
+            label = f"{_esc(acc_id)} <span class='account-name'>· {_esc(navn)}</span>" if navn else _esc(acc_id)
             parts.append(
-                f"<tr><td>{_esc(acc_id)}</td><td>{fmt_int(agg['count'])}</td>"
+                f"<tr><td>{label}</td><td>{fmt_int(agg['count'])}</td>"
                 f"<td>{fmt_amount(agg['amount'], currency) if agg['amount'] else '–'}</td></tr>"
             )
         parts.append("</tbody></table>")
@@ -538,6 +544,7 @@ tfoot td { border-top: 2px solid var(--border); border-bottom: none; }
   padding: 14px 16px; margin-bottom: 14px; }
 .control-block h3 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
 .account-table { font-size: 0.82rem; }
+.account-name { color: #6B7280; font-weight: normal; }
 .more-note { color: var(--muted); font-size: 0.82rem; font-style: italic; }
 .gate-list { padding-left: 20px; line-height: 1.7; }
 .lineage-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; font-size: 0.85rem; }
@@ -584,7 +591,7 @@ def render_html(report: dict, data_contract: dict | None) -> str:
         'Se afsnittet "Datagrundlag &amp; metode" for forbehold og forudsætninger.</p>',
         build_trust_anchor(report, analytics, currency),
         build_executive_summary(report, analytics),
-        build_findings_tables(analytics, currency),
+        build_findings_tables(analytics, currency, report.get("konto_navne")),
         build_data_foundation(report, analytics, data_contract),
         build_lineage_footer(report),
         '</div>',

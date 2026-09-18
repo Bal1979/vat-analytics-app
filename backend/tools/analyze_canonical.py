@@ -138,6 +138,13 @@ def build_report(csv_path: str, summary_path: str | None, reconciliation_path: s
             "sections": parse_info.get("sections", {}),
             "stamdata": parse_info.get("stamdata", {}),
         },
+        # Kontonavne-opslagskort til rapport-laget (generate_report.py) —
+        # udfyldt når chart_of_accounts-stamdata er indlæst (ext_name-aliaset).
+        "konto_navne": {
+            a["account_id"]: a["description"]
+            for a in canonical.get("accounts", [])
+            if a.get("account_id") and a.get("description")
+        },
         "analytics": analytics_report,
         "koeretid_sekunder": {
             "parsing": round(t_parse_done - t0, 3),
