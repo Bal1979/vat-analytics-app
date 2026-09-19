@@ -16,3 +16,4 @@ backend/tests/test_data.xlsx
 
 # Node (docx-generator, porteres i Fase E)
 node_modules/
+.claude/
