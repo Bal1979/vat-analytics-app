@@ -584,6 +584,23 @@ def build_declaration_reconciliation_table(data, declarations=None):
 
     tolerance = materiality.VAT_DECLARATION_TOLERANCE
 
+    # Støjfilter (2026-09-19, Bal-fund i rapporten): perioder UDEN angivelse
+    # OG uden nogen beregnet moms over tolerancen er rene artefakter fra
+    # enkeltlinjer med momsdato uden for analyseåret (gamle korrektioner/
+    # efterposteringer med vat_amount=0). De fjernes fra tabellen og
+    # opsummeres i én tællings-note i stedet — en periode uden angivelse,
+    # men MED beregnet moms, vises fortsat (det er et reelt signal).
+    def _has_signal(key: str) -> bool:
+        if key in declared_by_period:
+            return True
+        c = computed.get(key, {})
+        return any(abs(c.get(r, 0.0)) > tolerance for r in _DECLARATION_RUBRICS)
+
+    udeladte = [k for k in all_periods if not _has_signal(k)]
+    all_periods = [k for k in all_periods if _has_signal(k)]
+    if not all_periods:
+        return None
+
     annual_computed = {r: 0.0 for r in _DECLARATION_RUBRICS}
     annual_declared = {r: 0.0 for r in _DECLARATION_RUBRICS}
     for key in all_periods:
@@ -629,6 +646,13 @@ def build_declaration_reconciliation_table(data, declarations=None):
             for r in _DECLARATION_RUBRICS
         },
         "rubrik_labels": dict(_RUBRIC_LABELS),
+        # Antal + spænd af perioder udeladt af støjfilteret (kun til en
+        # forklarende note i rapporten — aldrig rækker).
+        "udeladte_nul_perioder": {
+            "antal": len(udeladte),
+            "foerste": udeladte[0] if udeladte else None,
+            "sidste": udeladte[-1] if udeladte else None,
+        },
     }
 
 

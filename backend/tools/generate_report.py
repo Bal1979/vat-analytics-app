@@ -632,6 +632,14 @@ def build_trust_anchor(report: dict, analytics: dict, currency: str) -> str:
         labels = decl.get("rubrik_labels", {})
         rubrics = list(labels.keys()) or ["output_vat", "rc_services", "input_vat"]
         parts.append('<h3>Momsangivelse pr. periode</h3>')
+        udeladt = decl.get("udeladte_nul_perioder") or {}
+        if udeladt.get("antal"):
+            parts.append(
+                f"<p class='section-hint'>{udeladt['antal']} perioder uden angivelse og uden "
+                f"beregnet moms ({_esc(udeladt.get('foerste'))} – {_esc(udeladt.get('sidste'))}) "
+                "er udeladt af tabellen — de stammer fra enkeltposteringer med momsdato uden for "
+                "analyseåret (typisk korrektioner) og påvirker ikke afstemningen.</p>"
+            )
         parts.append('<div class="table-scroll"><table class="recon-table"><thead><tr><th>Periode</th>')
         for r in rubrics:
             parts.append(f"<th colspan='4'>{_esc(labels.get(r, r))}</th>")
