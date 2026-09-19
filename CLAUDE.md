@@ -23,8 +23,25 @@ Resultatfilosofi (vigtig): **RØD = handling krævet** — ingen falske alarmer
 (jf. VIES: 37 røde → 4 reelle). Konservativ mod falske negativer. Prioriteret
 handlingsliste, ikke en mur af flag.
 
-## Status (pr. 2026-09-18)
+## Status (pr. 2026-09-19)
 
+- **Kunderapportens visuelle løft (2026-09-19, Bal-godkendt, ren
+  præsentation — ingen logik-/indholdsændring):** `backend/tools/
+  generate_report.py` løftet fra "internt værktøj" til "kundeleverance"-
+  kvalitet — typografisk skala, hero som rigtig cover-forside (kunde-/
+  periode-pladsholder + to fremhævede gennemstrømnings-/tilsvar-fliser),
+  et nyt håndbygget inline-SVG-flowdiagram i Momsmotoren (momskoder →
+  momskonti → rubrikker, forenklet/proportionalt — tabellen ved siden af
+  er stadig den præcise kilde), håndbyggede SVG-søjlediagrammer pr. rubrik
+  i Afstemningen (beregnet vs. angivet, farvet efter status), tydeligere
+  visuel adskillelse af observations-spørgsmål/anbefaling/rådgiver-note, og
+  print-CSS (`@page`/sideskift pr. hovedsektion/`break-inside: avoid`).
+  Fortsat selvbærende (ét `<style>`-tag, ingen CDN, ingen chart-bibliotek).
+  De syv sektioners indhold, niveau-filtreringen og kurationsmekanikken er
+  UÆNDREDE. Alle 494 tests grønne uændret. Verificeret ved at regenerere
+  niveau 1/2/3 fra en frisk `analyze_canonical.py`-kørsel på v5-datasættet
+  (22.997 fund, gate 208/208, uændret) til scratchpad — 51-73 KB pr.
+  niveau, fortsat langt under 300 KB. Se `docs/CHANGELOG.md`.
 - **Semantik-PoC: LLM-klassifikation af posteringslinjer (2026-09-18,
   Bal-godkendt):** ny `examples/poc_semantik/` — spejler mapping-PoC'en i
   `vat-extract/examples/poc_bc_gl_2025/`, men for LINJE-klassifikation mod

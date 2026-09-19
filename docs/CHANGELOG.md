@@ -3,6 +3,80 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kunderapportens visuelle løft — 2026-09-19 (katalog/data_contract uændret, ren præsentation)
+
+Bal-godkendt opgave (2026-09-19): "fra internt værktøj til kundeleverance"-
+kvalitet for `backend/tools/generate_report.py`. UDELUKKENDE typografi,
+layout, grafik og print-kvalitet — de syv sektioners INDHOLD/rækkefølge,
+niveau-filtreringen, kurationsmekanikken og "aldrig kontrolnumre uden for
+lineage/appendix"-disciplinen er UÆNDREDE (samme tal, samme tekst-kilder).
+Referencen for håndværket var kundens X-RAY-præsentationskvalitet
+(`GAP-ANALYSE-motor-vs-ekspert.md`, uden for repoet, kun læst for kontekst)
+— identiteten er fortsat neutral BALAI, intet kunde-skin.
+
+- **Typografisk system:** CSS custom properties for en konsistent skala
+  (forside-titel → sektionsoverskrift → brødtekst → metadata), systemfont-
+  stak, opstrammet linjeafstand/marginer. `--content-max: 880px` (var
+  1000px) for kortere, mere læsbare linjer.
+- **Hero som rigtig forside (sektion 1):** mørk "cover"-panel (navy-
+  gradient) med kicker ("Momsanalyse · Resultatrapport"), stor titel,
+  kunde-/periode-pladsholder (`[Kundenavn]`, periode fra `summary.period_*`,
+  dansk datoformat via ny `_fmt_date()`) og diskret BALAI-afsender. De fire
+  nøgletalsfliser er bevaret; "hero-facts"-definitionslisten er erstattet af
+  to fremhævede "hero-flow"-fliser (momsgennemstrømning, årets tilsvar) i
+  samme store-tal-lille-etiket-stil som nøgletalsfliserne. Den tidligere
+  globale `<h1>Momsanalyse — resultatrapport</h1>` + underrubrik uden for
+  sektionerne er fjernet — hero ER nu forsiden; niveau-pakkenavnet er
+  flyttet ind i hero-meta-linjen.
+- **Momsmotoren som grafik (sektion 2):** nyt håndbygget, afhængighedsfrit
+  inline-SVG-flowdiagram (`_engine_diagram_html`/`_build_engine_flow_svg`-
+  logik) — tre kolonner (Momskoder → Momskonti → rubrikker i angivelsen)
+  med streger, hvis tykkelse er proportional med antal momskoder pr.
+  rubrik, plus en farvelegend med de fulde rubrik-betegnelser. Bevidst
+  FORENKLET (proportionalt pr. rubrik, ikke en literal kode-for-kode-
+  tegning, jf. figurteksten) — den eksisterende, præcise tabel står
+  uændret lige under som kilden til sandhed.
+- **Afstemningen som tillidsanker, visuelt (sektion 3):** uændret 12-
+  måneders/periode-tabel med status-chips: nyt håndbygget SVG-søjle-
+  diagram PR. RUBRIK (`_recon_barchart_svg`/`_build_recon_charts`) —
+  beregnet vs. angivet side om side pr. periode, søjlefarve følger
+  celle-status (grøn=match/blå=timing/rød=afvigelse), fælles
+  status-legend. Vises kun når der er ≥2 perioder at sammenligne.
+- **Observationer & spørgsmål (sektion 4):** tema-etiketten er nu en
+  rigtig "chip" (`obs-theme-badge`, pilleform); spørgsmålet har fået en
+  "Spørgsmål"-eyebrow og større skrift som visuelt anker
+  (`obs-question`); bevis-tabellen er zebra-stribet (CSS); anbefalings-
+  udkast (`obs-recommendation`, grøn venstre-accent) og rådgiver-note
+  (`advisor-note`, gul/amber venstre-accent) er nu tydeligt visuelt
+  adskilt fra hinanden og fra brødteksten.
+- **Print/PDF-kvalitet:** `@page { size: A4; margin: 16mm 14mm; }`,
+  sideskift PR. HOVEDSEKTION (`section:not(.hero) { break-before: page; }`
+  — hero er side 1), `break-inside: avoid` på kort/rækker/diagrammer så de
+  ikke deles over et sideskift, samt en ny (kun i print synlig)
+  `.print-footer` med kort kørselsinfo/kunde-pladsholder.
+- **Selvbærende, uændret:** stadig ét `<style>`-tag, ingen CDN/eksterne
+  scripts — de nye diagrammer er 100 % håndskrevet inline-SVG (ingen
+  chart-bibliotek). Excel-arbejdsbilaget (`tools/report_workbook.py`) er
+  IKKE rørt.
+- **Tests:** alle 27 eksisterende `test_generate_report.py`-tests grønne
+  uændret (ingen af de tekst-/struktur-baserede assertions krævede
+  opdatering — markup-tilføjelserne bryder ikke de checkede substrings).
+  Fulde suite **494/494** grøn. Verificeret ved at regenerere niveau 1/2/3
+  fra en FRISK `analyze_canonical.py`-kørsel på v5-datasættet (samme
+  22.997 fund/gate 208/208 som byggetrin ~11's statuspunkt) + eksisterende
+  `kuration_v2.json` → `kunderapport_niveau{1,2,3}_v3.html` i scratchpad
+  (uden for repoet). Filstørrelser 51-73 KB pr. niveau (mod 26-44 KB før
+  redesignet) — fortsat langt under 300 KB-loftet. HTML-struktur
+  verificeret programmatisk (afbalancerede tags, alle indlejrede SVG'er
+  parser som gyldig XML) — ingen browser tilgængelig i denne session.
+- **Bevidst udeladt (uden for opgavens scope):** kunde-specifikt farve-
+  skin (skal være en senere template-parameter, jf. opgaven — identiteten
+  er fortsat neutral BALAI), reelle sidetal i print (Chromium understøtter
+  ikke CSS Paged Media-margin-bokse til `counter(page)`; en fast
+  `.print-footer` bruges i stedet), og motorens 31-perioders periode-liste
+  i testdatasættet (data-artefakt fra v5-datasættets tidsspand, ikke en
+  del af denne rent visuelle opgave).
+
 ## Semantik-PoC: LLM-klassifikation af posteringslinjer — 2026-09-18 (katalog v1.4.0 uændret)
 
 Bal-godkendt opgave (2026-09-18). Ny `examples/poc_semantik/` (spejler
