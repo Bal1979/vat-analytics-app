@@ -17,6 +17,21 @@ _RC_TEXT_HINTS = ("omvendt betalingspligt", "reverse charge", "reverse-charge",
 
 
 def _is_reverse_charge_marked(line, txn):
+    """True hvis linjen er markeret omvendt betalingspligt.
+
+    Kalibrering "chip 2's tråd A" (2026-09-20, Bal-godkendt): ``vat_
+    calculation_type`` (balai_extensions, fra vat_setup.csv, se
+    ``vat_rules.is_rc_calc_type``) er nu DETERMINISTISK og prøves FØRST --
+    samme princip som ``vat_rules.is_reverse_charge_sale_code``/kontrol
+    82's ``_purchase_rubric``. Feltet til stede (ikke tomt) -> resultatet
+    er ENDELIGT, uanset udfald -- falder IKKE videre til kode-/tekst-
+    hints. Kun når feltet MANGLER (Excel-/SAF-T-oprindelse, eller kanonisk
+    vej uden vat_setup.csv) bruges de hidtidige, opaque hints (kode-
+    præfiks/-substring RC/OMV/REV/OB, eller fritekst "reverse charge"/
+    "omvendt betalingspligt" m.fl.) -- uændret adfærd i det tilfælde."""
+    calc_type = (line.get("vat_calculation_type") or "").strip().lower()
+    if calc_type:
+        return vr.is_rc_calc_type(calc_type)
     code = (line.get("tax_code") or "").upper()
     if any(h in code for h in _RC_CODE_HINTS):
         return True

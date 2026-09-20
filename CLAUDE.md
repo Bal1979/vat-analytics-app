@@ -25,6 +25,37 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-20)
 
+- **RC-detektion via beregningstype + BC-v5-baseline-afklaring (2026-09-20,
+  committet lokalt — ikke pushet):** vat-extract udvidede IFS' vat_setup-
+  mapping med `ext_vat_calculation_type` (IFS' rå "Tax Type"-kolonne).
+  Værdien "Calculated Tax" rammer PRÆCIS de fire hidtil uafklarede E-koder +
+  de to kendte RC-koder — dommen kontrol 70's residual (9.438) har ventet
+  på. Centraliseret RC-genkendelse: ny `materiality.RC_CALC_TYPE_VALUES`
+  (engagement-overstyrbar, eksplicit værdiliste, ingen fuzzy-match) +
+  udvidet `vat_rules.is_rc_calc_type`, nu det ENE sted alle tre tidligere
+  uafhængige "reverse charge"-substring-kopier (`is_reverse_charge_sale_
+  code`, kontrol 70-75's `_is_reverse_charge_marked`, kontrol 82's
+  `_purchase_rubric`) konsulterer. Katalog v1.5.1/kontrakt v0.5.0 uændrede,
+  **567 tests** (17 nye, syntetiske koder), 105/105 validering. Kunde 2:
+  kontrol 70 9.438→41 høj (residual stort set opløst), kontrol 22 78→12 høj,
+  kontrol 75 0→190 medium (ny, tilsigtet opdagelse); vagtposter
+  27/30/84/87/88/109 uændrede. Kontrol 71 voksede 2.478→10.836 medium —
+  IKKE rettet i denne runde (uden for godkendt scope), rapporteret som en
+  ny "K6"-kalibreringskandidat (en stor, ensartet population på to
+  momskoder brugt på eksplicit danske linjer — mønster, ikke enkeltfejl).
+  BC-v5 byte-for-byte identisk (23.161 fund begge veje, MED BC's eget
+  vat_setup.csv — BC's "Reverse Charge VAT"-vokabular uberørt). **BC-v5-
+  baseline-afklaring** (dokumentation, ingen kodeændring): den tidligere
+  dokumenterede "23.095"-baseline kunne IKKE reproduceres — hverken
+  landetabel-runden, senere motorkode eller vat-extracts mapping/transform
+  ændrer BC-v5's tal (alle tre hypoteser empirisk afkræftet med isolerede
+  worktrees/byte-for-byte CSV-sammenligning). Sandsynlig årsag: den
+  oprindelige måling brugte et andet, ikke-bevaret input, eller en
+  transskriptionsfejl — rapporteret som IKKE fuldt forklaret. Ny, fuldt
+  reproducerbar baseline anbefalet: **23.083** fund MED alle tre kanoniske
+  stamdata-sidecars (den eneste tilstand hvor kontrol 109 er målbar), eller
+  **23.549** UDEN sidecars — se `docs/CHANGELOG.md` for det fulde
+  nedbrydningsbevis.
 - **Kalibrering: højrisikovare-nøgleord matchede leverandørnavne (2026-09-20,
   committet lokalt — ikke pushet):** kunde 2's åbne tråd fra kontrol
   84-efterforskningen lukket. Feltkortlægning bekræftede at
@@ -355,7 +386,7 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **550 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
+- **567 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
   øverste statuspunkter for de seneste opdateringer (2026-09-20).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
@@ -368,7 +399,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 550 tests
+python -m pytest -q                            # 567 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 105/105 uafhængig validering

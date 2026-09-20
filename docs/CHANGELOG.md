@@ -3,7 +3,161 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
-## Kalibrering: højrisikovare-nøgleord matchede leverandørnavne (kontrol 84/87/88) — 2026-09-20
+## RC-detektion via beregningstype (chip 2's tråd A) + BC-v5-baseline-afklaring — 2026-09-20
+
+Baggrund: vat-extract udvidede IFS' `vat_setup`-mapping (mapping v1.1.0, commit
+`e86901a`) med `ext_vat_calculation_type`, der bærer IFS' rå "Tax Type"-kolonne
+råt igennem. Kunde 2's regenererede `vat_setup.csv` (21 koder): "Tax" (14),
+"No Tax" (1), "Calculated Tax" (PRÆCIS de fire hidtil uafklarede E-koder
+sammen med de to kendte RC-koder) — dommen kontrol 70's residual har ventet
+på. Katalog v1.5.1/kontrakt v0.5.0 uændrede (ren regeladfærd), **567
+automatiserede tests** (17 nye, `tests/test_rc_calctype_2026_09_20.py`,
+syntetiske koder), valideringssuite **105/105** uændret.
+
+### RC-kortlægning (empirisk-først, FØR nogen kodeændring)
+
+RC-genkendelse skete FØR denne runde tre uafhængige steder, hver med sin
+egen "reverse charge"-substring-kopi:
+
+1. `vat_rules.is_reverse_charge_sale_code` (kontrol 22's salgsretning,
+   kontrol 104/105) — `vat_calculation_type` DETERMINISTISK når til stede,
+   ellers Bus.-gruppe-fallback (BC's "gruppe|kode"), ellers
+   `materiality.RC_CODE_PREFIXES` (IFS' opake koder, default kun "RC").
+2. `cat09_reverse_charge._is_reverse_charge_marked` (kontrol 70-75's
+   momskode-værn/RC-markering) — kendte KUN kode-substring-hints
+   ("RC"/"OMV"/"REV"/"OB") og fritekst-hints ("reverse charge"/"omvendt
+   betalingspligt" m.fl.). Konsulterede IKKE `vat_calculation_type`
+   overhovedet — årsagen til at IFS' E-koder (ingen af hints'ene rammer
+   "E1G"/"E0S" osv.) forblev uafklarede for kontrol 70/71/72/73/74/75.
+3. `cat10_vat_reconciliation._purchase_rubric` (kontrol 82's
+   angivelsesrubrik) — egen lokal "reverse charge"-substring-check.
+
+### Fix
+
+Én central, delt konstant + funktion, alle tre kaldssteder omlagt til at
+bruge den:
+
+- `materiality.RC_CALC_TYPE_VALUES` (ny, engagement-overstyrbar via
+  `MATERIALITY_RC_CALC_TYPE_VALUES`, default `["calculated tax"]`) —
+  eksplicit værdiliste for ERP'er hvis beregningstype-vokabular IKKE
+  indeholder "reverse charge" som substring. INGEN fuzzy-match.
+- `vat_rules.is_rc_calc_type` udvidet: "reverse charge"-substring (uændret,
+  BC/NAV) ELLER eksakt match mod `RC_CALC_TYPE_VALUES` (nyt, IFS' "Calculated
+  Tax" m.fl.).
+- `is_reverse_charge_sale_code` delegerer nu til `is_rc_calc_type` for
+  calc-type-grenen (samme prioriterede beslutningstræ, bredere genkendelse).
+- `cat09._is_reverse_charge_marked` konsulterer nu `vat_calculation_type`
+  FØRST og ENDELIGT (samme "deterministisk før navnemønstre"-disciplin som
+  resten af motoren) — falder kun til kode-/tekst-hints, når feltet mangler.
+- `cat10._purchase_rubric` bruger nu `is_rc_calc_type` i stedet for sin
+  egen substring-kopi (adfærd uændret for BC's "reverse charge"-værdier,
+  udvidet for IFS' "Calculated Tax").
+
+### Empirisk eftermåling (kunde 2, `analyze_canonical.py --modules alle`,
+samme sidecar-filer som tidligere kalibreringer)
+
+| Kontrol | Før | Efter | Note |
+|---|---|---|---|
+| 70 (EU-køb uden RC-markering) | 9.438 høj | **41 høj** | Residualet stort set opløst (-99,6 %) — de fire E-koder er nu korrekt RC-genkendt |
+| 22 (Manglende salgsmoms) | 78 høj | **12 høj** | E-/RC-kodede salgslinjer med 0 kr. udgående moms er nu korrekt eksport, ikke et fund |
+| 75 (RC uden dokumentation) | 0 | **190 medium** | NY, tilsigtet opdagelse: udenlandske RC-markerede linjer uden momsnr. — reel afklaringsværdi, kontrollen var strukturelt inaktiv før (ingen linjer blev nogensinde RC-markeret på IFS-koder) |
+| 71 (RC på indenlandsk handel) | 2.478 medium | **10.836 medium** | Se advarsel nedenfor — IKKE en del af denne rundes rettede scope |
+| 72/73/74 | 74 / 1 / 9 | 74 / 1 / 9 | UÆNDREDE |
+| 27 / 30 / 84 / 87 / 88 / 109 (vagtposter) | 520/40/23/28/11/402 | 520/40/23/28/11/402 | **UÆNDREDE**, som krævet |
+
+**Advarsel om kontrol 71's vækst (rapporteret eksplicit, IKKE rettet i denne
+runde):** de 8.358 nye fund er IKKE tilfældige fejl — de sidder næsten
+udelukkende (7.887+2.478 af 10.836) på to specifikke momskoder, hvor
+beregningstypen nu korrekt siger "Calculated Tax"/RC, men linjens EGEN
+`country`-felt eksplicit siger Danmark (ikke tomt/ukendt). Én af de to koder
+er en ren indenlandsk RC-kode og var ALLEREDE en del af kontrollens
+population før denne runde (2.478, uændret sammensætning — nu nået via
+beregningstypen i stedet for kode-substring-hintet, samme resultat). Den
+anden er en af de fire E-koder, der ellers (i langt de fleste tilfælde,
+jf. kontrol 70's fix) bruges på udenlandske linjer — men også med ~8.000
+linjer eksplicit kodet til Danmark. Dette ligner en konsistent, ensartet
+forretningskonvention (samme kode, samme mønster på tværs af hele
+datasættet) snarere end individuelle fejl, men ÅRSAGEN er ikke undersøgt
+her — det er UDEN FOR denne opgaves godkendte scope (kun RC-genkendelsens
+udvidelse, ikke kontrol 71's egen kalibrering). Kandidat til en selvstændig
+"K6"-kalibreringsrunde, samme disciplin som kontrol 70/84's tidligere
+momskode-løse residual.
+
+**BC-v5-regression:** frisk canonical CSV (samme kilde som tidligere
+runder) + `analyze_canonical.py --modules alle`, isoleret git-worktree (FØR
+= commit `c21296f`) mod arbejdstræet (EFTER), MED BC's eget `vat_setup.csv`
+(VAT Posting Setup-udtrækket, "Normal VAT"/"Reverse Charge VAT"/"Full VAT" —
+BC's eget vokabular, uberørt af den nye IFS-specifikke "Calculated Tax"-
+værdi). **Synligt output byte-for-byte identisk**: 23.161 fund begge veje
+(kritisk=0 høj=264 medium=14.485 lav=8.412); kontrol 22/70/71/84/87/88
+fortsat 0 fund begge veje ('ikke_maalbar'-gated på BC-vejen). Eneste
+difference: det interne, ikke-rapporterede tælletal
+`ikke_maalbare_fund_fjernet` (samme benigne mønster som tidligere runder).
+**Ingen commit-blokerende ændring** — fixet er gate-godkendt.
+
+### BC-v5-baseline-afklaring (dokumentation, ingen kodeændring)
+
+Opgave: forklare hvorfor en frisk BC-v5-regression gav 23.549 fund, mens den
+tidligere dokumenterede baseline var 23.095 (= "22.997 (F-rundens tal) +
+kontrol 109's 98", en arbejdshypotese om at landetabel-runden var årsagen).
+
+**Landetabel-hypotesen er EMPIRISK AFKRÆFTET:** kørt commit `d72fa48` (FØR
+landetabel) og `ab19aeb` (EFTER landetabel) mod PRÆCIS samme kanoniske CSV
+(ingen sidecar-filer) — begge giver **23.549**, byte-for-byte identisk.
+Landetabel-runden ændrer intet på BC-v5, som allerede dokumenteret i dens
+egen regressionsverifikation.
+
+**Kodedrift er også afkræftet:** commit `78bc9e2` (byggetrin ~11, den
+oprindelige kilde til "22.608"/"22.997"-tallene) kørt mod DEN SAMME friske
+kanoniske CSV, som blev brugt til at måle 23.549 i dag, giver OGSÅ **23.549**
+— ikke 22.608/22.997. Samme kodes egen historiske adfærd reproducerer altså
+IKKE de dokumenterede historiske tal på dagens inputfil. Kontrol 104-108s
+delsum (389) er dog UÆNDRET og matcher det historiske tal eksakt — kun
+kontrol 1-103's sum (23.160 i dag vs. 22.608 dengang) afviger.
+
+**Mapping-/transform-drift i vat-extract er også afkræftet:** en kanonisk
+CSV genereret med vat-extract-commit `a7078e4` (samtidig med
+byggetrin ~11) er **byte-for-byte identisk (MD5-match)** med en CSV
+genereret med dagens vat-extract-commit `e86901a`, fra samme kildefil.
+Transformationslaget har altså ikke ændret sig.
+
+**Konklusion:** årsagen til "22.608"/"22.997" kan IKKE lokaliseres i nogen
+kodeændring i vat-analytics-app eller vat-extract mellem byggetrin ~11 og i
+dag — begge repos' relevante kode/mapping er verificeret uændrede for
+BC-vejen. Den mest sandsynlige forklaring (IKKE bekræftet, kildefilen har
+uændret mtime siden 2026-09-17 og kan ikke selv efterprøves mod en historisk
+kopi) er, at den oprindelige "22.608"-måling enten brugte en anden
+inputfil/mellemliggende CSV-version, der ikke er bevaret (kun kunde-/
+midlertidige filer, aldrig arkiveret pr. datapolitikken), eller var en
+transskriptionsfejl i det daværende changelog-afsnit. **Rapporteres derfor
+som IKKE fuldt forklaret**, som opgaven bad om i det tilfælde.
+
+**Ny, fuldt reproducerbar BC-v5-baseline (anbefalet fremover i stedet for
+det urekonstruerbare 23.095-estimat):** kørt MED alle tre kanoniske
+stamdata-sidecar-filer (samme princip som kunde 2's konvention — `vat_
+setup.csv`/`chart_of_accounts.csv`/`customers.csv`, genereret fra BC's egne
+kildefiler via `dataextract.transform`), da det er den ENESTE tilstand hvor
+kontrol 109 overhovedet kan måles (0 uden vat_setup):
+
+| Kontrol | Ingen sidecar | Med alle 3 sidecars | Diff |
+|---|---|---|---|
+| 1 | 0 | 2 | +2 |
+| 19 | 0 | 21 | +21 |
+| 24 | 525 | 16 | -509 |
+| 80 | 155 | 77 | -78 |
+| 109 | 0 | 98 | +98 |
+| (øvrige 104) | uændrede | uændrede | 0 |
+| **Total** | **23.549** | **23.083** | **-466** |
+
+Denne totalt selvkonsistente kørsel (23.083) er 12 fund fra det gamle
+23.095-estimat — en rest, der bekræfter selve METODEN bag det gamle
+estimat var forkert (det adderede en sidecar-fri kontrol-1-108-sum med en
+sidecar-afhængig kontrol-109-sum — to indbyrdes uforenelige tilstande, der
+aldrig kan opnås samtidigt i én reel kørsel), snarere end at pege på endnu
+en uforklaret kilde. **Anbefaling:** brug 23.083 (MED alle tre sidecars) som
+BC-v5-referencetal for alle fremtidige regressioner, ELLER 23.549 (UDEN
+sidecars) hvis sidecar-filerne ikke er en del af den pågældende rundes
+scope — men opgiv altid HVILKEN tilstand tallet er målt i.
 
 Baggrund: kunde 2's åbne tråd fra kontrol 84-efterforskningen ("højrisikovare-
 match på leverandørnavne") — Bal-godkendt, lille afgrænset kalibrering.

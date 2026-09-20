@@ -211,6 +211,23 @@ CONTROL_108_MIN_SOURCE_CODES = _i("MATERIALITY_CONTROL_108_MIN_SOURCE_CODES", 3)
 # for en klient med en anden kode-konvention (fx Oracle/SAP).
 RC_CODE_PREFIXES = [p.upper() for p in _strlist("MATERIALITY_RC_CODE_PREFIXES", ["RC"])]
 
+# Kalibrering "chip 2's tråd A" (2026-09-20, Bal-godkendt): vat-extract
+# udvidede efterfølgende IFS' vat_setup-mapping (mapping v1.1.0) med
+# ``ext_vat_calculation_type``, der bærer IFS' rå "Tax Type"-kolonne igennem
+# UÆNDRET (samme "opak streng, ingen fortolkning"-disciplin som resten af
+# canonical_masterdata.py). Empirisk værdirum på kunde 2s regenererede
+# vat_setup.csv (21 koder): "Tax" (14), "No Tax" (1), "Calculated Tax"
+# (PRÆCIS {E0G, E0S, E1G, E1S, RC, RC50}) — IFS grupperer selv de fire
+# tidligere uafklarede E-koder sammen med de kendte RC-koder. "Calculated
+# Tax" betyder ENTYDIGT omvendt betalingspligt i IFS' egen taksonomi og
+# tilføjes derfor til det genkendte vat_calculation_type-vokabular
+# (analytics/vat_rules.is_rc_calc_type), ud over BC/NAVs "reverse charge"-
+# substring-familie (håndteret separat, ingen ændring). INGEN fuzzy-match —
+# eksplicit værdiliste, lowercase-normaliseret. Engagement-overstyrbar for
+# andre ERP'ers tilsvarende, entydige RC-beregningstype-værdier.
+RC_CALC_TYPE_VALUES = [v.strip().lower() for v in
+                       _strlist("MATERIALITY_RC_CALC_TYPE_VALUES", ["calculated tax"])]
+
 # Kontrol 109 (Fradragsprocent-afvigelse, gap-analyse-runde 2, Bal-godkendt
 # 2026-09-20, cat13_cross_dimension.py): tolerance i DKK mellem bogført og
 # forventet (grundlag × sats × Deductible%) moms pr. bilag+momskode, før det

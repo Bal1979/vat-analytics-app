@@ -696,9 +696,12 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
 
       1. ``vat_calculation_type`` (balai_extensions, kontrakt v0.4.0,
          tax_table[]/lines[].vat_calculation_type -- kun til stede på den
-         kanoniske vej når vat_setup.csv er indlæst): DETERMINISTISK.
-         Værdien "Reverse Charge VAT" (fra BC) betyder pr. definition, at
-         opsætningens sats er købssidens RC-sats.
+         kanoniske vej når vat_setup.csv er indlæst): DETERMINISTISK, via
+         ``is_rc_calc_type`` (BC's "Reverse Charge VAT"-familie ELLER en af
+         ``materiality.RC_CALC_TYPE_VALUES``, fx IFS' "Calculated Tax" --
+         kalibrering "chip 2's tråd A", 2026-09-20). Feltet er til stede
+         (ikke tomt) -> resultatet er ENDELIGT, uanset udfald -- falder
+         IKKE videre til trin 2/3 (samme disciplin som hidtil).
       2. Fravær af feltet (Excel-/SAF-T-oprindelse, eller kanonisk vej uden
          vat_setup.csv): fallback på Bus.-gruppen -- ``tax_code``s FØRSTE
          led, adskilt med "|" (BC's egen "gruppe|kode"-konvention, fx
@@ -718,7 +721,7 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
     """
     calc_type = (vat_calculation_type or "").strip().lower()
     if calc_type:
-        return "reverse charge" in calc_type
+        return is_rc_calc_type(calc_type)
     code = (tax_code or "").strip()
     if "|" in code:
         bus_group = code.split("|", 1)[0].strip().upper()
@@ -763,8 +766,26 @@ def vat_product_code(tax_code):
 def is_rc_calc_type(vat_calculation_type):
     """True hvis ``vat_calculation_type`` (balai_extensions, fra vat_setup.csv)
     eksplicit siger reverse charge. Tomt/ukendt -> False (intet signal, ikke
-    en gættet RC-status)."""
-    return "reverse charge" in (vat_calculation_type or "").strip().lower()
+    en gættet RC-status).
+
+    To genkendte vokabularer (kalibrering "chip 2's tråd A", 2026-09-20,
+    Bal-godkendt -- se ``materiality.RC_CALC_TYPE_VALUES``s docstring for
+    den fulde empiri):
+
+      1. BC/NAVs "reverse charge"-substring-familie (fx "Reverse Charge
+         VAT") -- uændret, etableret 2026-09-17.
+      2. ``materiality.RC_CALC_TYPE_VALUES`` -- en eksplicit, engagement-
+         overstyrbar værdiliste for ERP'er, hvis beregningstype-vokabular
+         IKKE indeholder "reverse charge" som tekst (fx IFS' "Calculated
+         Tax"). INGEN fuzzy-match -- kun eksakte, lowercase-normaliserede
+         værdier i listen."""
+    calc_type = (vat_calculation_type or "").strip().lower()
+    if not calc_type:
+        return False
+    if "reverse charge" in calc_type:
+        return True
+    from analytics import materiality  # lokal import: undgår cirkularitet ved modulindlæsning
+    return calc_type in materiality.RC_CALC_TYPE_VALUES
 
 
 def is_no_vat_product(tax_code):

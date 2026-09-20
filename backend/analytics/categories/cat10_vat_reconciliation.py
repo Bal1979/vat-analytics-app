@@ -430,7 +430,7 @@ def _purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
     i mønster-genkendelsen."""
     calc_type = (vat_calculation_type or "").strip().lower()
     if calc_type:
-        if "reverse charge" not in calc_type:
+        if not vr.is_rc_calc_type(calc_type):
             return "input"
         bus_group = (tax_code or "").split("|", 1)[0].strip().upper()
         if bus_group == "DOMESTIC":
