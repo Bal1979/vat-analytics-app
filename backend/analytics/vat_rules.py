@@ -371,6 +371,18 @@ _COUNTRY_NAME_TO_CODE = {
 
 _WHITESPACE = re.compile(r"\s+")
 
+# Alle ISO 3166-1 alpha-2 koder motoren kan genkende -- EU-listen plus hele
+# landenavne-tabellens værdimængde (landetabel-runden, 2026-09-20: 250 koder,
+# global dækning). Bruges KUN til at afgøre om et momsnummers to-bogstavs-
+# præfiks er et RIGTIGT, kendt land (K6-hierarkiet nedenfor) -- ikke til at
+# validere selve momsnummerformatet (det gør ``validate_eu_vat_format``).
+_ALL_COUNTRY_CODES = EU_COUNTRY_CODES | set(_COUNTRY_NAME_TO_CODE.values())
+
+# Momsnummer-præfiks -> landekode, for de tilfælde hvor præfikset AFVIGER fra
+# selve ISO-koden (kun Grækenland: EL -> GR). Alle andre kendte lande bruger
+# deres egen ISO-kode direkte som præfiks (se ``vat_number_country``).
+_VAT_PREFIX_TO_ISO_COUNTRY = {prefix: country for country, prefix in VAT_PREFIX_FOR_COUNTRY.items()}
+
 
 def normalize_country(value):
     """Normalisér en landeangivelse til en ISO alpha-2 kode (uppercase).
@@ -425,6 +437,62 @@ def vat_prefix(vat):
     if len(v) >= 2 and v[:2].isalpha():
         return v[:2]
     return ""
+
+
+def vat_number_country(vat_number):
+    """Landet et momsnummers EGET præfiks peger på — ISO alpha-2, Grækenland
+    korrigeret (EL -> GR). "" hvis nummeret er tomt, uden alfabetisk præfiks,
+    eller præfikset ikke er et kendt land (K6, kontrol 71-kalibreringen,
+    2026-09-20 Bal-godkendt).
+
+    Dette er BEVIDST generisk: et ukendt to-bogstavs-præfiks (fx et internt
+    "XX"-dummy-/placeholder-præfiks i et kildesystems kartotek) er simpelthen
+    ikke i ``_ALL_COUNTRY_CODES`` og giver derfor "" uden nogen særkode for
+    "XX" — samme resultat som et momsnummer helt uden præfiks. Ingen gæt.
+    """
+    prefix = vat_prefix(vat_number)
+    if not prefix:
+        return ""
+    iso = _VAT_PREFIX_TO_ISO_COUNTRY.get(prefix)
+    if iso:
+        return iso
+    if prefix in _ALL_COUNTRY_CODES:
+        return prefix
+    return ""
+
+
+def counterparty_country(country_field, vat_number):
+    """Modpartens land — HIERARKI (K6, kontrol 71-kalibreringen, 2026-09-20
+    Bal-godkendt): et gyldigt momsnummer-landepræfiks FØRST, landefeltet som
+    fallback.
+
+    Baggrund/empiri (kunde 2/IFS): landefeltet i udtrækket viste sig ved
+    empirisk join mod kundens kanoniske data at være leverings-/bogførings-
+    land, IKKE modpartens hjemland — mens momsnummerets eget præfiks er
+    modpartens FAKTISKE registreringsland. Et ægte udenlandsk EU-momsnummer
+    på en linje mærket "DENMARK" er derfor et korrekt EU-varekøb, ikke en
+    fejl. Uden noget præfiks-signal (tomt nummer, eller et ukendt/"XX"-
+    placeholder-præfiks, jf. ``vat_number_country``) falder hierarkiet
+    tilbage til landefeltet uændret — ingen gæt udover det.
+    """
+    vat_country = vat_number_country(vat_number)
+    if vat_country:
+        return vat_country
+    return normalize_country(country_field)
+
+
+def country_field_mismatch(country_field, vat_number):
+    """Datakvalitetssignal (metadata, IKKE et selvstændigt fund — K6,
+    2026-09-20 Bal-godkendt "mindst indgribende" valg): True hvis landefeltet
+    og momsnummerets eget landepræfiks BEGGE er kendte, men UENIGE. None hvis
+    der intet grundlag er for sammenligning (tomt momsnummer-præfiks, ukendt/
+    "XX"-præfiks, eller tomt/ukendt landefelt) — IKKE det samme som "enige".
+    """
+    vat_country = vat_number_country(vat_number)
+    field_country = normalize_country(country_field)
+    if not vat_country or not field_country:
+        return None
+    return vat_country != field_country
 
 
 # K4 (gap-analyse-runde 2/kunde 2, Bal-godkendt 2026-09-20): et generisk,

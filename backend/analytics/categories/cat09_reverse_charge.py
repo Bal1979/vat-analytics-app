@@ -51,12 +51,15 @@ def run_reverse_charge_tests(data: dict) -> list:
     return findings
 
 
-def _country(line, supplier_lookup):
-    c = vr.normalize_country(line.get("country", ""))
+def _raw_country_field(line, supplier_lookup):
+    """Landefeltets rå værdi (linje, fallback til leverandørkartotek) —
+    UDEN momsnummer-hierarkiet. Kun til brug internt af ``_country``/
+    ``_country_mismatch``."""
+    c = line.get("country", "")
     if c:
         return c
     sup = supplier_lookup.get(line.get("supplier_id", ""))
-    return vr.normalize_country(sup.get("country", "")) if sup else ""
+    return sup.get("country", "") if sup else ""
 
 
 def _vat(line, supplier_lookup):
@@ -65,6 +68,24 @@ def _vat(line, supplier_lookup):
         return v
     sup = supplier_lookup.get(line.get("supplier_id", ""))
     return vr.clean_vat_number(sup.get("vat_number", "")) if sup else ""
+
+
+def _country(line, supplier_lookup):
+    """Modpartens land — K6-hierarki (kontrol 71-kalibreringen, 2026-09-20
+    Bal-godkendt, se ``vat_rules.counterparty_country``'s docstring for den
+    fulde empiri): et gyldigt momsnummer-landepræfiks FØRST, landefeltet
+    (linje, fallback leverandørkartotek) som fallback."""
+    vat = _vat(line, supplier_lookup)
+    return vr.counterparty_country(_raw_country_field(line, supplier_lookup), vat)
+
+
+def _country_mismatch(line, supplier_lookup):
+    """True/False/None — se ``vat_rules.country_field_mismatch``. Rent
+    metadata-signal, tælles med på fundet (highlighted_field ændres ikke,
+    ingen ny fundtype) i stedet for at blive et selvstændigt fund — "mindst
+    indgribende"-valget for K6."""
+    vat = _vat(line, supplier_lookup)
+    return vr.country_field_mismatch(_raw_country_field(line, supplier_lookup), vat)
 
 
 def _ref(txn, line, **extra):
@@ -120,7 +141,8 @@ def test_70_eu_service_no_rc(data, supplier_lookup):
                 fix_suggestion="Beregn erhvervelsesmoms (25% af købet) som både købs- og salgsmoms, og "
                                "markér posteringen som omvendt betalingspligt.",
                 estimated_amount=round(base * vr.STANDARD_RATE / 100, 2),
-                transactions=[_ref(txn, line, country=country, highlighted_field="tax_code")],
+                transactions=[_ref(txn, line, country=country, highlighted_field="tax_code",
+                                   country_source_mismatch=_country_mismatch(line, supplier_lookup))],
             ))
     return findings
 
@@ -149,7 +171,8 @@ def test_71_rc_on_domestic(data, supplier_lookup):
                             f"men modparten er dansk/ukendt og varen er ikke en kendt RC-vare.",
                 fix_suggestion="Almindelig indenlandsk handel skal have 25% moms. Omvendt betalingspligt "
                                "gælder kun specifikke varer/ydelser (eller udenlandsk handel).",
-                transactions=[_ref(txn, line, country=country or "(ingen)", highlighted_field="tax_code")],
+                transactions=[_ref(txn, line, country=country or "(ingen)", highlighted_field="tax_code",
+                                   country_source_mismatch=_country_mismatch(line, supplier_lookup))],
             ))
     return findings
 
@@ -179,7 +202,8 @@ def test_72_domestic_rc_goods(data, supplier_lookup):
                     fix_suggestion="Indenlandsk handel med mobiltelefoner, bærbare, chips, metalskrot m.v. "
                                    "over tærsklen skal afregnes med omvendt betalingspligt.",
                     estimated_amount=vat,
-                    transactions=[_ref(txn, line, highlighted_field="tax_code")],
+                    transactions=[_ref(txn, line, highlighted_field="tax_code",
+                                       country_source_mismatch=_country_mismatch(line, supplier_lookup))],
                 ))
     return findings
 
@@ -239,7 +263,8 @@ def test_74_construction_rc(data, supplier_lookup):
                     fix_suggestion="Byggeydelser mellem virksomheder og arbejdsudleje er omfattet af "
                                    "omvendt betalingspligt — kontrollér momsbehandlingen.",
                     estimated_amount=vat,
-                    transactions=[_ref(txn, line, highlighted_field="tax_code")],
+                    transactions=[_ref(txn, line, highlighted_field="tax_code",
+                                       country_source_mismatch=_country_mismatch(line, supplier_lookup))],
                 ))
     return findings
 
@@ -265,6 +290,7 @@ def test_75_rc_missing_documentation(data, supplier_lookup):
                             f"mangler modpartens momsnummer.",
                 fix_suggestion="Omvendt betalingspligt ved EU-handel forudsætter modpartens gyldige "
                                "momsnummer. Indhent og registrér det.",
-                transactions=[_ref(txn, line, country=country, highlighted_field="vat_number")],
+                transactions=[_ref(txn, line, country=country, highlighted_field="vat_number",
+                                   country_source_mismatch=_country_mismatch(line, supplier_lookup))],
             ))
     return findings

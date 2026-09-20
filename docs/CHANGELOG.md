@@ -3,7 +3,139 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
-## RC-detektion via beregningstype (chip 2's tråd A) + BC-v5-baseline-afklaring — 2026-09-20
+## K6-kalibrering: modpartens land — momsnummer-præfiks før landefelt (kontrol 70-75) — 2026-09-20
+
+Baggrund: RC-detektion-via-beregningstype-runden (chip 2's tråd A, samme dag)
+løste kontrol 70's E-kode-residual, men kontrol 71 (RC på indenlandsk
+handel) voksede som bivirkning 2.478 → 10.836 medium — rapporteret dengang
+som en åben "K6"-kalibreringskandidat, IKKE rettet i den runde (uden for dens
+godkendte scope). Bal godkendte sporet ("andre spor vi stadig mangler at
+dække") til denne selvstændige runde.
+
+### Dommen (verificeret uafhængigt, se empiri nedenfor)
+
+Hovedsessionens empiriske dyk (join af de 3.010 fund-bilag mod kunde 2's
+kanoniske CSV) viste at **landefeltet i IFS-udtrækket er leverings-/
+bogføringsland, IKKE modpartens hjemland**, mens **momsnummerets eget to-
+bogstavs-præfiks er modpartens faktiske registreringsland**. Krydstabel:
+E1G-bilagene (7.887 i alt på det tidspunkt) har ægte udenlandske EU-
+momsnumre (DE 5.657, GB 1.025, PL 15, XX 1.175/ukendt) og er korrekt kodede
+EU-varekøb — falske positive i kontrol 71's daværende population. RC×DK
+(2.478) er den reelle, oprindelige observation.
+
+Uafhængig verifikation (denne runde, samme kunde 2-datasæt via
+`analyze_canonical.py --modules alle` med alle tre sidecars, isoleret
+git-worktree FØR = commit `a38a6e6`): Bals tal reproduceret PRÆCIS —
+kontrol 71 10.836 medium, kontrol 70 41 høj, kontrol 75 190 medium, og alle
+ni vagtposter (22=12, 25=3.461, 27=520, 28=3.922, 30=40, 84=23, 87=28, 88=11,
+109=402) byte-for-byte som dokumenteret.
+
+### Fix — generisk hierarki, ingen ny parallel logik
+
+Tre nye funktioner i `analytics/vat_rules.py`, alle byggende på den
+eksisterende landetabel/EU-præfiksliste (ingen ny landeliste):
+
+- `vat_number_country(vat_number)`: landet momsnummerets EGET præfiks peger
+  på (EU-præfiks-tabellen, Grækenland korrigeret EL→GR; ellers, hvis
+  præfikset er en anden kendt ISO-alpha2-kode fra den samme generiske
+  landenavne-tabel som `normalize_country` bruger — fx GB/CH/US/CN — det
+  land). Et ukendt/"XX"-præfiks har INGEN særkode: det er simpelthen
+  fraværende fra landetabellen og giver derfor `""` (intet gæt), nøjagtig
+  samme kodesti som et helt tomt momsnummer.
+- `counterparty_country(country_field, vat_number)`: hierarkiet — gyldigt
+  momsnummer-landepræfiks FØRST, `normalize_country(country_field)` som
+  fallback.
+- `country_field_mismatch(country_field, vat_number)`: `True`/`False`/`None`
+  — `None` når der intet grundlag er for sammenligning (tomt/ukendt
+  præfiks, eller tomt landefelt), ellers om de to signaler er uenige.
+
+`cat09_reverse_charge._country` (kontrol 70-75's fælles landefunktion)
+bruger nu `vr.counterparty_country` (momsnummer først, linjens/leverandørens
+landefelt som fallback, som hidtil). Uoverensstemmelsen tælles som
+**metadata på fundet** (`country_source_mismatch: true/false/null` i
+`transactions[]`-referencen) — IKKE et selvstændigt fund eller en ny
+observationstype. "Mindst indgribende"-valget: ingen ny fundtype, ingen ny
+kontrol, kun et sporbart signal en rådgiver kan filtrere/sortere på senere,
+hvis det viser sig nyttigt. Ny helper `_country_mismatch`/`_raw_country_field`
+i `cat09_reverse_charge.py`, ingen ændring af `highlighted_field`-konventionen.
+
+Katalog v1.5.1/kontrakt v0.5.0 uændrede (ren regeladfærd, ingen nye felter).
+**591 automatiserede tests** (24 nye, `tests/test_k6_country_hierarchy_2026_09_20.py`,
+syntetiske momsnumre — DE/PL/XX/GB/CH m.fl., ingen kundedata), valideringssuite
+**105/105** uændret.
+
+### Empirisk eftermåling (kunde 2, samme `analyze_canonical.py --modules alle`-kørsel)
+
+| Kontrol | Før | Efter | Note |
+|---|---|---|---|
+| 71 (RC på indenlandsk handel) | 10.836 medium | **4.139 medium** | Se sammensætning nedenfor |
+| 70 (EU-køb uden RC-markering) | 41 høj | **348 høj** | +307 — ægte EU-køb, tidligere skjult bag et forkert landefelt (se nedenfor) |
+| 75 (RC uden dokumentation) | 190 medium | **190 medium** | UÆNDRET — forklaring nedenfor |
+| 72 / 73 / 74 | 74 / 1 / 9 | 74 / 1 / 9 | UÆNDREDE |
+| 22 / 25 / 27 / 28 / 30 / 84 / 87 / 88 / 109 (vagtposter) | 12/3.461/520/3.922/40/23/28/11/402 | **uændrede** | Som krævet |
+
+**Kontrol 71's nye population (4.139), sammensætning verificeret linje for
+linje:**
+
+| Delmængde | Antal | Forklaring |
+|---|---|---|
+| `RC` × momsnr.-præfiks `DK` | 2.478 | Kernepopulationen — momsnummeret bekræfter det samme land landefeltet siger. UÆNDRET af K6 (`country_source_mismatch=False`). |
+| `E1G` × momsnr.-præfiks `XX` | 1.175 | "XX" er ikke en kendt ISO-landekode — intet præfikssignal, hierarkiet falder tilbage til landefeltet (Danmark). Bevidst residual, ingen gæt (`country_source_mismatch=None`). |
+| `E0G`/`E0S`/`E1G`/`E1S` uden momsnummer overhovedet | 486 | Ingen momsnummer at udlede noget fra — uændret sti (landefeltet alene), samme som før K6 (`country_source_mismatch=None`). |
+
+De resterende **6.697** af de oprindelige 10.836 (E1G med et ægte DE-/GB-/
+PL-momsnummerpræfiks: 5.657 + 1.025 + 15, samt et mindre antal med tomt
+præfiks tidligere talt med) er nu korrekt genkendt som ægte udenlandske
+EU-varekøb og falder ud af kontrol 71 — nøjagtig den bivirkning K6 skulle
+rette. (6.697 = det eksakte fald i medium-fund i alt på tværs af HELE
+motoren i denne måling — ingen anden kontrol ændrede sig, jf. tabellen
+ovenfor.)
+
+**Kontrol 70's vækst (41 → 348, +307), forklaret empirisk (krydstabel,
+linje-niveau):**
+
+| Landefelt (rå) | Momsnr.-præfiks (afgørende) | Momskode | Antal |
+|---|---|---|---|
+| DENMARK | PL | `0` | 299 |
+| ESTONIA | EE | `VRA22` | 24 |
+| DENMARK | PL | `1P` | 11 |
+| ESTONIA | EE | `1` | 6 |
+| POLAND | PL | `0` | 3 |
+| SPAIN | ES | `0` | 2 |
+| UNITED STATES | NL | `S1` | 2 |
+| BELGIUM | BE | `0` | 1 |
+
+Alle 307 er linjer hvor landefeltet skjulte et ægte EU-momsnummer bag en
+anden landetekst (oftest "DENMARK") — nu korrekt genkendt som et EU-køb
+uden moms og uden RC-markering. 312 af de 348 samlede kontrol 70-fund bærer
+`country_source_mismatch=True` (landefelt og momsnummerpræfiks reelt uenige)
+— det forventede mønster, INGEN fund uden en forklarlig kilde.
+
+**Kontrol 75 (190), uændret — forklaret ved konstruktion:** testen kræver
+`_vat(...)` at være TOM for at fyre (manglende momsnummer er selve fundet).
+Når momsnummeret er tomt, giver `vat_number_country("")` intet signal, og
+hierarkiet falder tilbage til nøjagtig samme landefelt-sti som før K6 — der
+er derfor strukturelt INGEN linje hvor K6 kan ændre om testen fyrer. De 190
+fund er byte-for-byte de samme bilag før/efter (verificeret).
+
+### BC-v5-regression
+
+`analyze_canonical.py --modules alle`, isoleret git-worktree (FØR = commit
+`a38a6e6`) mod arbejdstræet (EFTER), på BC-datasættet
+(`bc-gl-2025/scratchpad_canonical/`), i begge de to dokumenterede
+baseline-tilstande:
+
+- **Med alle tre kanoniske stamdata-sidecars:** **23.083** fund begge veje
+  (kritisk=0 høj=214 medium=14.470 lav=8.399) — hele rapport-JSON'en
+  byte-for-byte identisk (bortset fra tidsstempel/køretid).
+- **Uden sidecars** (isoleret mappe uden `vat_setup.csv`/
+  `chart_of_accounts.csv`/`customers.csv` ved siden af `gl_entries.csv`):
+  **23.549** fund begge veje (kritisk=0 høj=143 medium=14.994 lav=8.412) —
+  samme byte-for-byte-resultat.
+
+Ingen ændring på BC-vejen: BC's landefelt/momsnummer-vokabular giver
+tilsyneladende ingen tilfælde hvor de to signaler er uenige på en måde der
+rammer kontrol 70-75.
 
 Baggrund: vat-extract udvidede IFS' `vat_setup`-mapping (mapping v1.1.0, commit
 `e86901a`) med `ext_vat_calculation_type`, der bærer IFS' rå "Tax Type"-kolonne
