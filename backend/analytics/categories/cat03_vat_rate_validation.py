@@ -536,7 +536,21 @@ def _test_24_line_based(data: dict) -> list:
 # === TEST 25: Nulsats på indenlandsk handel ===
 
 def test_25_zero_rate_domestic(data: dict) -> list:
-    """0% anvendt hvor modparten er dansk/ukendt (nulsats kræver eksport/EU/fritagelse)."""
+    """0% anvendt hvor modparten er dansk/ukendt (nulsats kræver eksport/EU/fritagelse).
+
+    F3/K3 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): form-bevidst. På
+    KONTOBASERET form (fx IFS) er 0% moms på en GRUNDLAGSLINJE strukturelt
+    normalt (momsen ligger på en separat momskonto-linje i samme bilag) —
+    en pr.-linje-tolkning gav 62.471 fund på kunde 2s IFS-datasæt. Se
+    ``_test_25_account_based`` for den fulde empiriske fordeling og de to
+    uafhængige rettelser (bilagsaggregering + konservativ landebestemmelse)."""
+    if vf.is_account_based(data):
+        return _test_25_account_based(data)
+    return _test_25_line_based(data)
+
+
+def _test_25_line_based(data: dict) -> list:
+    """Hidtidig pr.-linje-logik — UÆNDRET (BC/Excel/SAF-T-regression)."""
     findings = []
     for txn in data["transactions"]:
         for line in txn["lines"]:
@@ -563,6 +577,90 @@ def test_25_zero_rate_domestic(data: dict) -> list:
                 estimated_amount=round(base * vr.STANDARD_RATE / 100, 2),
                 transactions=[_txn_ref(txn, line, country=country or "(ingen)",
                                        highlighted_field="tax_percentage")],
+            ))
+    return findings
+
+
+def _test_25_account_based(data: dict) -> list:
+    """Kontobaseret gren af test_25 (K3, gap-analyse-runde 2, Bal-godkendt
+    2026-09-20) — se ``test_25_zero_rate_domestic``.
+
+    To UAFHÆNGIGE rettelser, begge nødvendige (empirisk fordeling på kunde
+    2s IFS-datasæt, 62.471 fund FØR denne gren):
+
+    1. **Bilagsniveau i stedet for linjeniveau** (selve F3-pointen): en
+       grundlagslinjes EGET beløb er ikke "nulsats uden moms" på kontobaseret
+       form — momsen kan sidde på en ANDEN linje i samme bilag. Kun når
+       bilagets AGGREGEREDE moms for koden er 0 alle steder, er det et fund.
+    2. **Konservativ landebestemmelse** (et selvstændigt, tidligere ukendt
+       hul denne gennemgang stødte på): en UDFYLDT, men ikke-normaliserbar
+       landetekst (fx et fuldt engelsk landenavn som "ROMANIA"/"THE
+       NETHERLANDS"/"CHINA", som ``vat_rules.normalize_country``s lille
+       navnetabel ikke kender) blev tidligere tolket som "indenlandsk" —
+       86,9% af de 62.471 FØR-fund var REELT udenlandske bilag, kun
+       fejlklassificeret pga. den manglende navnegenkendelse. Kun en HELT
+       TOM landetekst (ingen oplysning overhovedet) bruger fortsat den
+       hidtidige "tom = indenlandsk"-antagelse. Skærpelsen er bevidst holdt
+       LOKAL til denne gren — ``vat_rules.normalize_country`` og den
+       linjebaserede gren røres IKKE, så BC-regressionen forbliver
+       byte-identisk, og andre kontroller (fx #30/#27/#109) er upåvirkede.
+       Den bredere navnetabel-udvidelse er en selvstændig, ikke-godkendt
+       ændring uden for denne rundes scope (se docs/CHANGELOG.md)."""
+    findings = []
+    rates = vf.code_rate_lookup(data)
+    for txn in data["transactions"]:
+        agg = vf.voucher_code_aggregates(txn, account_based=True)
+        for code, entry in agg.items():
+            base = abs(entry["base"])
+            if base <= 0:
+                continue
+            if entry["vat"] != 0:
+                continue  # bilaget har moms bogført for koden ét sted -- intet fund
+            rate_entry = rates.get(code)
+            rate = rate_entry["tax_percentage"] if rate_entry else 0.0
+            if rate != 0:
+                continue
+
+            ref_lines = entry["base_lines"] or entry["vat_lines"]
+            domestic_or_blank = False
+            skip = False
+            for l in ref_lines:
+                raw_country = l.get("country", "")
+                normalized = vr.normalize_country(raw_country)
+                if vr.is_foreign(normalized):
+                    skip = True
+                    break
+                if raw_country and not normalized:
+                    skip = True  # ukendt landenavn -- IKKE antaget indenlandsk (se docstring, punkt 2)
+                    break
+                domestic_or_blank = True
+            if skip or not domestic_or_blank:
+                continue
+
+            ref_line = ref_lines[0]
+            findings.append(make_finding(
+                test_id=25,
+                test_name="Nulsats på indenlandsk handel",
+                impact_type="economic",
+                direction="positive",
+                severity="medium",
+                description=f"Nulsats (0%) anvendt på bilag {txn['transaction_id']} (momskode '{code}') "
+                            f"med grundlag {base:.2f}, men ingen udenlandsk modpart er angivet, og "
+                            f"bilaget har intet momsbeløb bogført for koden noget sted.",
+                fix_suggestion="Nulsats kræver dokumentation (eksport, EU-leverance eller fritagelse). "
+                               "Indenlandsk handel skal som udgangspunkt have 25% moms.",
+                estimated_amount=round(base * vr.STANDARD_RATE / 100, 2),
+                transactions=[{
+                    "transaction_id": txn["transaction_id"],
+                    "journal_id": txn["journal_id"],
+                    "date": txn["date"],
+                    "account_id": ref_line.get("account_id", ""),
+                    "description": txn["description"],
+                    "amount": base,
+                    "tax_code": code,
+                    "country": "(ingen)",
+                    "highlighted_field": "tax_percentage",
+                }],
             ))
     return findings
 

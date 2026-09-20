@@ -117,6 +117,12 @@ KNOWN_CANONICAL_COLUMNS = {
     # "Source Code" -- kontrol 107-108 (cat13_cross_dimension.py). Valgfri,
     # samme best-effort-mønster som description.
     "source_code",
+    # K4 (gap-analyse-runde 2/kunde 2, Bal-godkendt 2026-09-20): ERP'ens EGEN
+    # intercompany-markering -- kontrol 84 (cat11_fraud_mtic.py). Valgfri,
+    # samme best-effort-mønster som description/source_code. Canonical-only
+    # (som credit_note_flag/supply_direction/tax_point) -- ikke et
+    # data_contract-felt, ingen anden kontrol læser det.
+    "intercompany",
 }
 
 # Minimumssæt for overhovedet at genkende filen som "kanonisk gl_entries" i
@@ -426,6 +432,11 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "credit_note_flag": _bool(row.get("credit_note_flag")),
             "supply_direction": (row.get("supply_direction") or "").strip(),
             "tax_point": tax_point,
+            # K4 (Bal-godkendt 2026-09-20): ERP'ens egen intercompany-flag --
+            # se KNOWN_CANONICAL_COLUMNS-kommentaren ovenfor. Fraværende
+            # kolonne giver False (uændret adfærd), samme mønster som
+            # credit_note_flag.
+            "intercompany": _bool(row.get("intercompany")) if "intercompany" in row else False,
         }
 
         total_debit += debit

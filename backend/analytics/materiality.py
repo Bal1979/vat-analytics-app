@@ -110,6 +110,13 @@ CONTROL_80_MEDIUM_THRESHOLD = _f("MATERIALITY_CONTROL_80_MEDIUM", 100000.0)
 # udsnit). Resten opsummeres i beskrivelsen ("…og N flere").
 CONTROL_80_MAX_REFS = _i("MATERIALITY_CONTROL_80_MAX_REFS", 10)
 
+# Kontrol 32 (manglende landekode på udenlandsk part, K2, gap-analyse-runde 2/
+# kunde 2, Bal-godkendt 2026-09-20): fundet aggregeres PR. PART-NØGLE (samme
+# princip som kontrol 80's pr.-konto-aggregering), ikke pr. linje — se
+# cat04_cross_border_eu.test_32_missing_country_on_foreign. Samme
+# ref-begrænsning/opsummeringsmønster som kontrol 80.
+CONTROL_32_MAX_REFS = _i("MATERIALITY_CONTROL_32_MAX_REFS", 10)
+
 # Lag mellem faktura- og bogføringsdato i dage (cat05 test_46).
 INVOICE_POSTING_LAG_DAYS = _i("MATERIALITY_INVOICE_POSTING_LAG_DAYS", 30)
 

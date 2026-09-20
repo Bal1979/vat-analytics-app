@@ -3,6 +3,110 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Gap-analyse-runde 2 (kunde 2/IFS) — kalibreringsrunden K1-K4 — 2026-09-20 (Bal-godkendt)
+
+Baggrund: efter F1-F3 (nedenfor) "vågnede" 35 land-/RC-afhængige kontroller til
+liv med D-parter-joinet — men fire af dem (28/32/25/84) viste massiv
+FØRSTE-AKTIVERINGS-STØJ på kunde 2s IFS-datasæt (samme disciplin som BC-
+kalibreringsrunderne: empirisk fordeling FØR fix). Katalog **v1.5.0**
+(regelændringer i eksisterende kontroller — ingen nye/omnummererede
+kontroller, ingen versionsbump nødvendig), datakontrakt **v0.5.0** uændret
+(ny `intercompany`-linjeflag er canonical-only, samme status som
+`credit_note_flag`/`supply_direction`/`tax_point` — IKKE et data_contract-
+felt), **515 automatiserede tests** (17 nye, `tests/test_kalibrering_k1_k4_
+2026_09_20.py`), uafhængig valideringssuite **105/105**.
+
+- **K1 (kontrol 28 "Ugyldigt momsnummer-format", 120.826 → 3.922 høj):**
+  hypotesen BEKRÆFTET empirisk. `vat_rules.validate_eu_vat_format` tvang
+  ETHVERT momsnummer gennem EU-formatkataloget, uanset landepræfiks. Af
+  ca. 1,16 mio. linjer med momsnummer på kunde 2s datasæt var ~1,03 mio.
+  EU-præfikserede (heraf kun ~3.900 REELT ugyldige), ~107.000 havde et
+  alfabetisk, men ikke-EU-præfiks (CH/NO/CN/GB/US/HK/IS/CA/TW/ZA/RS/UA/…
+  — globale Tax ID'er, ikke fejlbehæftede EU-numre), og ~15.000 manglede
+  helt et alfabetisk præfiks. Fix: **landeform-bevidst** — valider kun mod
+  EU-mønstre når partens land (bestemt af momsnummerets EGET, pålidelige
+  præfiks, subsidiært det oplyste land) er ET KENDT EU-LAND; er landet
+  udenlandsk-men-ikke-EU eller ubestemmeligt, findes der intet EU-format-
+  katalog at holde det op imod — "ikke valideret" (intet fund), IKKE
+  "ugyldigt". Et EU-præfikseret nummer, der reelt fejler sit eget lands
+  regex, forbliver et fund (uændret sværhedsgrad "high").
+- **K2 (kontrol 32 "Manglende landekode", 205.788 → 530 lav):** fordeling
+  først bekræftede TO adskilte årsager. 98,7% af de linjer, hvor landekoden
+  mangler, mangler OGSÅ momskoden helt (kontantkasse/bank, løn, afskriv-
+  ninger, projekter, koncernmellemregninger m.v. — kildesystemets PARTY_TYPE
+  COMPANY/blank, strukturelt uden for momsscope). De resterende, momskodede
+  linjer ER et reelt datagrundlags-gab, men blev talt PR. LINJE, så samme
+  part blæste tallet op. Fix: (1) udelad linjer uden momskode (strukturelt
+  ikke momsrelevante), (2) aggregér resten PR. PART-NØGLE (momsnummer,
+  subsidiært konto+beskrivelse — samme mønster som kontrol 80's pr.-konto-
+  aggregering, `materiality.CONTROL_32_MAX_REFS`), ikke pr. linje.
+- **K3 (kontrol 25 "Nulsats indenlandsk", 62.471 → 3.461 medium):** fordeling
+  først afslørede at F3's form-hypotese KUN var en DELFORKLARING — 86,9% af
+  FØR-fundene var reelt UDENLANDSKE bilag (fx "ROMANIA"/"THE NETHERLANDS"/
+  "CHINA"), som `vat_rules.normalize_country`s lille landenavne-tabel ikke
+  kunne genkende og derfor (efter den hidtidige "tom = indenlandsk"-
+  antagelse) blev fejlklassificeret som indenlandske. Kun ~12% var genuint
+  indenlandske grundlagslinjer, hvor moms lå på en separat momskonto-linje i
+  samme bilag (den oprindelige F3-hypotese). Fix, ny `_test_25_account_based`
+  (dispatcher via `vat_form.is_account_based`, linjebaseret gren 100%
+  uændret): (1) bilagsniveau — kun fund når bilagets AGGREGEREDE moms for
+  koden er 0 alle steder (genbruger `vat_form.voucher_code_aggregates`), (2)
+  konservativ landebestemmelse LOKAL til denne gren — en udfyldt, men
+  ikke-normaliserbar landetekst antages IKKE indenlandsk (kun en helt tom
+  landetekst gør). Den bredere landenavne-tabel-udvidelse (ville også ramme
+  #27/#30/kontrol 33/34/35 m.fl.) er bevidst UDEN FOR denne rundes scope —
+  se "Åbne tråde" nedenfor.
+- **K4 (kontrol 84 "Missing trader", 309 → 247 kritisk; #86/#92 verificeret):**
+  fordeling først viste kun ~20% (62/309) af de kritiske fund var bekræftet
+  koncerninterne (kildesystemets egen `intercompany`-boolean, hidtil slet
+  ikke læst af `parsers/canonical_parser.py`); resten (~59%) skyldtes en
+  SEPARAT, ikke-koncernrelateret data-kvalitetsartefakt i leverandør-
+  kartoteket (flere reelt forskellige tyske leverandører deler samme
+  generiske/ufuldstændige "momsnummer") — se "Åbne tråde", uden for denne
+  rundes evidensgrundlag. Fix, KONSERVATIVT og GENERISK (intet kunde-/
+  selskabsnavn i koden): ny `cat11_fraud_mtic._is_intercompany` undtager en
+  linje når (a) kildesystemets egen `intercompany`-flag er sat (nyt
+  canonical-only linjefelt), ELLER (b) modpartens "momsnummer" har formen af
+  en intern koncern-partskode (landepræfiks + 1-3 cifre, fx "US10"/"CA10" —
+  et generisk mønster, `vat_rules.looks_like_internal_party_code`, empirisk
+  fundet i kundens EGET kartotek, "DK10/FI10-mønstret" fra gap-analysen).
+  #86 (32.048) og #92 (9.978) er UÆNDREDE — verificeret at begge hører til
+  `forensic_statistik`-modulet, som allerede er default FRA (samme
+  pakkevalg som kunde 1) — ingen logikændring uden empirisk belæg, som
+  krævet.
+
+**Empirisk før/efter (kunde 2s IFS-datasæt, alle moduler):**
+
+| Kontrol | Før | Efter |
+|---|---|---|
+| 25 (Nulsats indenlandsk) | 62.471 | 3.461 |
+| 28 (Ugyldigt momsnummer-format) | 120.826 | 3.922 |
+| 32 (Manglende landekode) | 205.788 | 530 |
+| 84 (Missing trader) | 309 | 247 |
+| 27/30/109 (kontrol-check) | 313 / 17 / 402 | 313 / 17 / 402 (UÆNDREDE) |
+
+I alt 1.639.505 → 1.258.271 fund. Regression: kontrol 1-108 (bortset fra
+25/28/32/84) byte-for-byte identiske, både på kunde 2s datasæt og på
+BC-v5-datasættet (125.986 rækker, 23.549 fund — 0 differencer, verificeret
+via en isoleret git-worktree på forrige commit). Kunderapport niveau 3
+regenereret til kunde 2s eget scratchpad (kundedata, uden for repoet).
+
+**Åbne tråde (uden for denne rundes evidensgrundlag/godkendelse):**
+
+- `vat_rules._COUNTRY_NAME_TO_CODE` (kun ~25 danske/engelske navne) er for
+  lille til kunde 2s IFS-udtræk (72 distinkte fulde engelske landenavne,
+  kun ~14 genkendt) — root cause bag K3's resterende støj OG en del af
+  K1/K2's oprindelige omfang. En generisk ISO-navnetabel-udvidelse er
+  IKKE lavet i denne runde, fordi den ville ændre #27/#30 (og evt. #33/34/
+  35/38) på en måde, der ikke er efterprøvet mod ekspertens tal endnu — en
+  selvstændig, fremtidig kalibreringsrunde.
+- Kontrol 84's resterende 247 kritiske fund domineres (~181) af et
+  leverandørkartotek-datakvalitetsproblem (flere distinkte tyske
+  leverandører deler samme generiske/afkortede "momsnummer", fx et 8-cifret
+  "DE"-nummer i stedet for 9) — IKKE koncernintern eller MTIC-lignende.
+  Kræver leverandørkartotek-efterforskning, uden for denne rundes scope;
+  faglig efterprøvning FØR nogen rapportvisning.
+
 ## Gap-analyse-runde 2 (kunde 2/IFS) — fix-runden F1-F3 — 2026-09-20 (Bal-godkendt)
 
 Baggrund: en motorkørsel på et kanonisk IFS-datasæt (180.070 bilag, 1.317.864 rå

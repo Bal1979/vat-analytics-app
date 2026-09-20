@@ -12,6 +12,7 @@ hverken land eller momsnummer findes, springer testene pænt over.
 from collections import defaultdict
 from analytics.models import make_finding
 from analytics import vat_rules as vr
+from analytics import materiality
 
 
 def run_cross_border_tests(data: dict) -> list:
@@ -231,12 +232,52 @@ def test_31_eu_sale_with_dk_vat(data, ctx):
 
 # === TEST 32: Manglende landekode på udenlandsk part ===
 
+def _party_key(line, vat, currency):
+    """Den bedst tilgængelige part-nøgle til aggregering (K2, kontrol
+    80-mønstret). Momsnummer er ALTID tomt sammen med landekoden på denne
+    kontrols kandidater (samme join fejlede for begge felter — se
+    docstring nedenfor), så nøglen falder tilbage til (konto, beskrivelse):
+    den mest stabile "hvem er dette" på en kontraktflade uden leverandør-/
+    kunde-id (GAP-10/11). Ingen kundedata hardkodes — nøglen er blot en
+    gruppering af data, motoren allerede har."""
+    if vat:
+        return ("vat", vat)
+    return ("acct_desc", line.get("account_id", ""), line.get("description", ""))
+
+
 def test_32_missing_country_on_foreign(data, ctx):
-    """Momsnr-præfiks eller valuta tyder på udland, men landekode mangler."""
+    """Momsnr-præfiks eller valuta tyder på udland, men landekode mangler.
+
+    K2 (gap-analyse-runde 2/kunde 2, Bal-godkendt 2026-09-20): 205.788
+    lav-fund PR. LINJE på kunde 2s IFS-datasæt. Empirisk fordeling:
+
+      * 98,7% af de linjer, hvor landekoden mangler, mangler OGSÅ en
+        momskode helt — dvs. linjen er strukturelt uden for momsscope
+        (kontantkasse/bank, løn, afskrivninger, projekter, koncern-
+        mellemregninger m.v. — svarende til kildesystemets PARTY_TYPE
+        COMPANY/blank). Den slags linjer har aldrig en "modpart" i
+        momsmæssig forstand og skal IKKE flages.
+      * De resterende, momskodede linjer med manglende landekode ER et
+        reelt datagrundlags-gab (kartoteket mangler landet), men blev
+        talt PR. LINJE — samme part optræder på mange posteringer og
+        blæste tallet op.
+
+    Fix: (1) udelad linjer uden momskode (strukturelt uden for scope — jf.
+    ``vf`` -formdetektionens "kode-linje er momsrelevant"-princip, samme
+    disciplin som kontrol 80's momsrelevans-scope). (2) aggregér resten PR.
+    PART-NØGLE (``_party_key``), ikke pr. linje — samme mønster som
+    kontrol 80 (cat10_vat_reconciliation.test_80_revenue_without_output_vat).
+    """
     findings = []
     default_currency = data["header"].get("currency", "DKK")
+    per_party = defaultdict(lambda: {
+        "count": 0, "vat": "", "prefix": "", "currency": "", "refs": [],
+    })
+
     for txn in data["transactions"]:
         for line in txn["lines"]:
+            if not line.get("tax_code"):
+                continue  # strukturelt uden for momsscope -- intet modpartskrav
             country = _country_of(line, ctx)
             if country:
                 continue
@@ -244,20 +285,36 @@ def test_32_missing_country_on_foreign(data, ctx):
             prefix = vr.vat_prefix(vat)
             currency = line.get("currency", "") or ""
             foreign_currency = currency and currency != default_currency
-            if (prefix and prefix not in ("DK", "")) or foreign_currency:
-                signal = f"momsnr-præfiks '{prefix}'" if prefix and prefix != "DK" else f"valuta '{currency}'"
-                findings.append(make_finding(
-                    test_id=32,
-                    test_name="Manglende landekode på udenlandsk part",
-                    impact_type="compliance",
-                    direction="neutral",
-                    severity="low",
-                    description=f"Transaktion {txn['transaction_id']} ser udenlandsk ud ({signal}), "
-                                f"men ingen landekode er registreret.",
-                    fix_suggestion="Registrér modpartens land, så EU-/eksportreglerne kan anvendes korrekt.",
-                    transactions=[_ref(txn, line, vat_number=vat, currency=currency,
-                                       highlighted_field="country")],
-                ))
+            if not ((prefix and prefix not in ("DK", "")) or foreign_currency):
+                continue
+            key = _party_key(line, vat, currency)
+            bucket = per_party[key]
+            bucket["count"] += 1
+            bucket["vat"] = bucket["vat"] or vat
+            bucket["prefix"] = bucket["prefix"] or prefix
+            bucket["currency"] = bucket["currency"] or currency
+            if len(bucket["refs"]) < materiality.CONTROL_32_MAX_REFS:
+                bucket["refs"].append(_ref(txn, line, vat_number=vat, currency=currency,
+                                            highlighted_field="country"))
+
+    for key, bucket in per_party.items():
+        signal = (f"momsnr-præfiks '{bucket['prefix']}'" if bucket["prefix"] and bucket["prefix"] != "DK"
+                  else f"valuta '{bucket['currency']}'")
+        more = bucket["count"] - len(bucket["refs"])
+        more_note = f" Viser {len(bucket['refs'])} eksempler — og {more} flere posteringer for samme part." \
+            if more > 0 else ""
+        findings.append(make_finding(
+            test_id=32,
+            test_name="Manglende landekode på udenlandsk part",
+            impact_type="compliance",
+            direction="neutral",
+            severity="low",
+            description=f"{bucket['count']} postering(er) ser udenlandske ud ({signal}), men ingen "
+                        f"landekode er registreret for parten." + more_note,
+            fix_suggestion="Registrér modpartens land i kartoteket, så EU-/eksportreglerne kan anvendes "
+                           "korrekt — én rettelse i kartoteket dækker alle posteringerne.",
+            transactions=bucket["refs"],
+        ))
     return findings
 
 

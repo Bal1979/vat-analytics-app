@@ -69,6 +69,33 @@ def _vat(line, supplier_lookup):
 
 # === TEST 84: Missing trader-indikator ===
 
+def _is_intercompany(line):
+    """Koncernintern strøm — generisk, ALDRIG kunde-/selskabsnavne-specifikt
+    (K4, gap-analyse-runde 2/kunde 2, Bal-godkendt 2026-09-20).
+
+    To uafhængige, begge generiske signaler:
+      1. ERP'ens EGEN intercompany-markering på linjen (``line["intercompany"]``
+         -- canonical-only felt, se ``parsers/canonical_parser.py``). Det mest
+         pålidelige signal, når kilden leverer det.
+      2. Modpartens "momsnummer" har formen af en intern koncern-partskode
+         (landepræfiks + 1-3 cifre, fx "US10" -- se
+         ``vat_rules.looks_like_internal_party_code``) i stedet for et ægte
+         formateret Tax ID. Sekundært signal, dækker input-veje uden
+         intercompany-kolonnen.
+
+    Empirisk baggrund: kontrol 84 gav 309 KRITISKE fund på kunde 2s
+    IFS-datasæt. ~20% (62/309) var bekræftet koncerninterne (ERP'ens egen
+    flag=true) og udløste udelukkende "manglende momsnr" (koncern-
+    mellemregninger kræver ikke et eksternt momsnummer) + højt beløb +
+    udenlandsk. En koncernintern strøm har en KENDT modpart (selskabets eget
+    datterselskab) og kan derfor strukturelt ikke være en missing trader
+    (ukendt/forsvundet handelspartner) -- konservativt undtaget, ikke bare
+    nedgraderet."""
+    if line.get("intercompany"):
+        return True
+    return vr.looks_like_internal_party_code(line.get("vat_number", ""))
+
+
 def test_84_missing_trader(data, supplier_lookup):
     """Kombinerer flere risikofaktorer: EU-leverandør, manglende/ugyldigt
     momsnummer, højt beløb og højrisikovare."""
@@ -77,6 +104,8 @@ def test_84_missing_trader(data, supplier_lookup):
         for line in txn["lines"]:
             if (line.get("debit_amount", 0) or 0) <= 0:
                 continue
+            if _is_intercompany(line):
+                continue  # koncernintern strøm -- se _is_intercompany
             country = _country(line, supplier_lookup)
             amount = abs(line["debit_amount"] + line["credit_amount"])
             vat = _vat(line, supplier_lookup)

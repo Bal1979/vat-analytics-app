@@ -144,6 +144,27 @@ def vat_prefix(vat):
     return ""
 
 
+# K4 (gap-analyse-runde 2/kunde 2, Bal-godkendt 2026-09-20): et generisk,
+# IKKE kunde-/navne-specifikt mønster for et internt koncern-partskodenummer
+# i et kunde-/leverandørkartotek -- et to-bogstavs landepræfiks efterfulgt af
+# 1-3 cifre (fx "US10"/"CA10"/"CN10" -- empirisk fundet i kunde 2s eget
+# kundekartotek, "DK10/FI10-mønstret" i gap-analysen). ET RIGTIGT momsnummer
+# (EU eller globalt Tax ID) har altid et længere, landeformats-specifikt
+# ciffersæt efter præfikset (8+ cifre) -- et 1-3-cifret "nummer" er derfor et
+# stærkt signal om en INTERN opslagskode for koncernens eget selskab i det
+# pågældende land, ikke en ægte ekstern modparts momsnummer. Bruges KUN som
+# et sekundært, generisk koncern-signal (se cat11_fraud_mtic._is_intercompany)
+# -- ALDRIG et hardkodet kunde-/selskabsnavn.
+_INTERNAL_PARTY_CODE = re.compile(r"^[A-Z]{2}\d{1,3}$")
+
+
+def looks_like_internal_party_code(vat):
+    """True hvis et (rengjort) momsnummer har formen af en intern koncern-
+    partskode (landepræfiks + 1-3 cifre) frem for et ægte formateret
+    momsnummer/Tax ID. Se modulkommentaren ved ``_INTERNAL_PARTY_CODE``."""
+    return bool(_INTERNAL_PARTY_CODE.match(clean_vat_number(vat)))
+
+
 def validate_cvr(number):
     """Validér et dansk CVR-nummer (8 cifre) med modulus-11 kontrol.
 
@@ -160,11 +181,38 @@ def validate_cvr(number):
 
 
 def validate_eu_vat_format(vat, country=None):
-    """Format-validér et EU-momsnummer.
+    """Format-validér et EU-momsnummer — LANDEFORM-BEVIDST (K1, gap-analyse-
+    runde 2/kunde 2, Bal-godkendt 2026-09-20).
 
     Tjekker at præfikset er et EU-præfiks og at kroppen matcher landets
     format-regex. Validerer IKKE mod VIES (kun syntaks). Returnerer
     (is_valid, reason).
+
+    Baggrund/empiri: motoren har hidtil tvunget ETHVERT momsnummer (også
+    globale Tax ID'er — amerikansk EIN, kinesisk USCC, schweizisk
+    UID/CHE-nummer, m.fl.) gennem EU-formatkataloget. På kunde 2s
+    IFS-datasæt, hvor kartoteket bærer ægte globale Tax ID'er med et
+    pålideligt ISO-landepræfiks (fra D-parter-joinet: fx "CH…", "CN…",
+    "US…", "GB…", "HK…", "TW…", "ZA…", "CA…"), gav det 120.826 falske
+    høj-fund (kontrol 28) — EU's momsnummerformater er IKKE designet til at
+    validere et ikke-EU Tax ID, og "forkert format" er derfor ikke en
+    retvisende konklusion for de tal. Empirisk fordeling (kunde 2): af
+    ca. 1,16 mio. linjer med momsnummer er ~1,03 mio. EU-præfikserede
+    (heraf kun ~3.900 REELT ugyldige mod deres eget lands format), ~107.000
+    har et alfabetisk, men ikke-EU præfiks (CH/NO/CN/GB/US/HK/IS/CA/TW/ZA/…),
+    og ~15.000 mangler helt et alfabetisk præfiks.
+
+    Fix: valider KUN mod EU-mønstre når partens land — bestemt af
+    momsnummerets EGET præfiks (det mest pålidelige signal, uafhængigt af en
+    evt. fejlbehæftet landenavne-kolonne), eller subsidiært det oplyste
+    ``country``-parameter, når nummeret ikke selv bærer noget præfiks — er
+    ET KENDT EU-LAND. Er landet udenlandsk-men-ikke-EU, eller slet ikke til
+    at bestemme, findes der intet EU-formatkatalog at holde det op imod —
+    kontrollen konkluderer da "ikke valideret" (intet fund), i stedet for at
+    gætte og fejlagtigt flage et lovligt globalt Tax ID. Et EU-præfikseret
+    nummer, der rent faktisk fejler sit eget lands regex, forbliver et
+    fund (uændret sværhedsgrad) — det er netop den type der IKKE må
+    forsvinde.
     """
     v = clean_vat_number(vat)
     if not v:
@@ -174,16 +222,24 @@ def validate_eu_vat_format(vat, country=None):
     body = v[2:] if prefix else v
 
     if not prefix:
-        # Intet præfiks — prøv mod det angivne lands format
+        # Intet præfiks i selve nummeret — prøv mod det oplyste lands format.
         c = normalize_country(country)
         prefix = VAT_PREFIX_FOR_COUNTRY.get(c, "")
         if not prefix:
-            return False, "manglende landepræfiks"
+            # Hverken nummeret selv eller det oplyste land peger på et EU-land
+            # — vi kan ikke validere formatet for et ukendt/ikke-EU land.
+            # "Ellers intet fund" (K1-princippet): ikke det samme som gyldigt,
+            # men IKKE et EU-formatfund.
+            return True, "intet landepræfiks og ukendt/ikke-EU land — ikke valideret mod EU-format"
         body = v
 
     regex = _EU_VAT_REGEX.get(prefix)
     if regex is None:
-        return False, f"ukendt EU-præfiks '{prefix}'"
+        # Alfabetisk præfiks, men ikke et EU-præfiks (fx CH/NO/CN/GB/US/HK/
+        # IS/CA/TW/ZA/…) — et globalt Tax ID fra et udenlandsk-men-ikke-EU
+        # land. Vi har intet katalog over andre landes momsnummerformater,
+        # så vi validerer IKKE mod EU-mønstre (landeform-bevidst, K1).
+        return True, f"ikke-EU landepræfiks '{prefix}' — ikke valideret mod EU-format"
     if not regex.match(body):
         return False, f"forkert format for {prefix}"
     return True, "ok"

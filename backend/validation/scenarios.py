@@ -312,8 +312,14 @@ SCENARIOS = [
     },
     {
         "test_id": 32, "navn": "Manglende landekode på udenlandsk part",
-        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", vat_number=_DE_VAT))),
-        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="", vat_number=_DE_VAT))),
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", vat_number=_DE_VAT,
+                                        tax_code="I25"))),
+        # K2 (2026-09-20): kontrol 32 udelader nu linjer uden momskode
+        # (strukturelt uden for momsscope, jf. den empiriske fordeling i
+        # cat04_cross_border_eu.test_32_missing_country_on_foreign) — scenariet
+        # skal derfor have en momskode for fortsat at være et gyldigt fund.
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="", vat_number=_DE_VAT,
+                                         tax_code="I25"))),
     },
     {
         "test_id": 33, "navn": "Valuta/land-uoverensstemmelse",
