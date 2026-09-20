@@ -600,12 +600,16 @@ def _test_25_account_based(data: dict) -> list:
        86,9% af de 62.471 FØR-fund var REELT udenlandske bilag, kun
        fejlklassificeret pga. den manglende navnegenkendelse. Kun en HELT
        TOM landetekst (ingen oplysning overhovedet) bruger fortsat den
-       hidtidige "tom = indenlandsk"-antagelse. Skærpelsen er bevidst holdt
-       LOKAL til denne gren — ``vat_rules.normalize_country`` og den
-       linjebaserede gren røres IKKE, så BC-regressionen forbliver
-       byte-identisk, og andre kontroller (fx #30/#27/#109) er upåvirkede.
-       Den bredere navnetabel-udvidelse er en selvstændig, ikke-godkendt
-       ændring uden for denne rundes scope (se docs/CHANGELOG.md)."""
+       hidtidige "tom = indenlandsk"-antagelse. Skærpelsen blev i K3 bevidst
+       holdt LOKAL til denne gren, så BC-regressionen forblev byte-identisk
+       og andre kontroller (fx #30/#27/#109) var upåvirkede i DEN runde.
+       Efterfølgende (landetabel-runden 2026-09-20) er
+       ``vat_rules._COUNTRY_NAME_TO_CODE`` udvidet til en fuld, generisk
+       ISO 3166-1-navnetabel — den konservative regel her ("udfyldt-men-
+       ukendt ≠ indenlandsk") BEHOLDES som defensivt sikkerhedsnet for
+       navne, selv den fulde tabel ikke kender (empirisk verificeret:
+       kontrol 25's fundtal er UÆNDRET af tabeludvidelsen, netop fordi
+       denne gren allerede ekskluderede de udenlandske bilag)."""
     findings = []
     rates = vf.code_rate_lookup(data)
     for txn in data["transactions"]:

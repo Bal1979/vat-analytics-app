@@ -3,6 +3,76 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Landetabel-runden: generisk ISO 3166-1-navnetabel — 2026-09-20 (AFVENTER Bals godkendelse — se "Låste kontroller" nedenfor)
+
+Baggrund: K1-K4's åbne tråd — `vat_rules._COUNTRY_NAME_TO_CODE` (kun ~25
+danske/engelske navne) er for lille til ERP-udtræk, der bærer fulde engelske
+landenavne. Empirisk fordeling FØRST (K-disciplinen), på kunde 2s IFS-datasæt:
+**72 distinkte landenavne, kun 16 genkendt** — 187.024 linjer havde et
+udfyldt-men-ukendt landenavn, heriblandt 11 EU-lande (EE/CZ/RO/HU/SI/SK/LV/
+LT/HR/BG/MT), som motoren var HELT blind for i alle EU-/tredjelandskontroller.
+
+**Fixet (generisk, IKKE kunde-specifikt):** tabellen udvidet til fuld ISO
+3166-1-dækning — 424 navne → 250 alpha-2-koder: officielle engelske kortnavne
+(inkl. ISO's kommaformer som "KOREA, REPUBLIC OF"/"TAIWAN, PROVINCE OF
+CHINA"), almindelige engelske varianter og danske navne. `normalize_country`
+kollapser nu whitespace og stripper et ledende "THE " ("THE NETHERLANDS" →
+NL). Alt andet uændret: 2-bogstavskoder passerer stadig uændret igennem, og
+udfyldt-men-ukendt tekst er stadig "" (aldrig et gæt). Ingen ny dependency.
+Katalog v1.5.0/kontrakt v0.5.0 uændrede (ren regeladfærd via delt helper),
+**529 automatiserede tests** (14 nye, `tests/test_landetabel_iso3166.py`),
+valideringssuite **105/105** uændret.
+
+**Empirisk før/efter (kunde 2s IFS-datasæt, alle moduler; alle øvrige
+kontroller fundtal-identiske — eksakt mmap-tælling af begge rapporter):**
+
+| Kontrol | Før | Efter | Vurdering |
+|---|---|---|---|
+| 25 (Nulsats indenlandsk) | 3.461 | 3.461 | **UÆNDRET** — K3's konservative landebestemmelse ekskluderede allerede de udenlandske bilag; tabellen er altså IKKE root cause bag 25's rest-støj (hypotesen afkræftet empirisk) |
+| 28 (Momsnummer-format) | 3.922 | 3.922 | **UÆNDRET** — K1's præfiks-først-logik er robust |
+| 32 (Manglende landekode) | 530 | 147 | −383 ren støjfjernelse (parten HAR et land — motoren kunne bare ikke læse det) |
+| 98 (IOSS-lavværdi) | 2 | 0 | −2: linjernes land viste sig at være EU — korrekt ekskluderet |
+| 29 (EU-erhvervelse m. moms) | 1.816 | 2.151 | +335 høj, samme klasse som de eksisterende (SI/EE/SK/LV/…) |
+| 70 (EU-køb uden RC-markering) | 32.973 | 50.804 | +17.831 høj (EE 5.527, SI, RO, HU, SK, CZ, LV, LT, HR, BG, MT) — se OBS nedenfor |
+| 84 (Missing trader) | 247 | 330 | +83 kritisk (AU/IN/HK/AE/…) — se OBS nedenfor |
+
+**Låste kontroller (K1-K4 krævede dem uændrede — status og evidens):**
+
+| Kontrol | Før | Efter | Evidens |
+|---|---|---|---|
+| 33 (Valuta/land) | 12.261 | 12.261 | UÆNDRET (fund-identisk, også på indhold) |
+| 109 (Fradragsprocent) | 402 | 402 | UÆNDRET (landeuafhængig) |
+| 27 (EU-handel u. momsnr) | 313 | 520 | +207 høj: EE 85, RO 52, CZ 29 m.fl. — samme fundklasse som de eksisterende 313 (DE/FR/…), blot for de tidligere ukendte EU-lande |
+| 30 (Eksport m. moms) | 17 | 40 | +23 høj: CN 12, IN 7, UA/AE/ZA/IS — samme klasse, 240 t.kr. moms |
+| 34 (DK-momsnr på udl. part) | 0 | 37 | +37 medium: ALLE er EE-part med DK-præfiks (mønster: udenlandsk enhed med dansk momsregistrering — reelt afklaringsspørgsmål) |
+| 35 (Præfiks vs. land) | 19.953 | 23.158 | +3.205 medium: domineret af (HK,CN) 1.700, (SG,CN), (TW,CN), (MX,SA) — samme klasse som kontrollens eksisterende fund. OBS: 50 er (MC,FR) — Monaco anvender lovligt franske momsnumre (kendt undtagelse, kandidat til hvidliste); 8 er (IL,EU) — "EU"-præfiks er non-Union OSS-registrering, ligeledes legitim form |
+| 38 (Import u. dok.) | 17 | 40 | +23 medium: spejler kontrol 30 (samme linjer, købssiden) |
+
+**OBS — kontrol 70/84's vækst er overvejende en PRÆ-eksisterende, ukalibreret
+støjklasse, ikke tabellens skyld:** stikprøve-karakterisering af de nye fund
+viser, at ~66% (70) hhv. 86% (84) sidder på linjer HELT UDEN momskode — den
+klasse, K2 fastslog som strukturelt uden for momsscope (bank, løn, koncern-
+mellemregning). Kontrol 70/84 har ALDRIG haft K2's momskode-værn; deres
+eksisterende fundmasse (32.973 hhv. 247) har samme sammensætning for de
+altid-genkendte lande. Tabellen skalerer altså en eksisterende adfærd
+konsistent op — den skaber ikke en ny fejlklasse. Et momskode-værn for 70/84
+er en selvstændig kalibreringskandidat ("K5"), som IKKE er implementeret her
+(kræver egen evidensrunde + Bals godkendelse).
+
+**Regression:** BC-v5-datasættet (125.986 rækker, 23.095 fund) **byte-for-byte
+identisk** før/efter (isoleret git-worktree på HEAD `d72fa48` vs. arbejdstræet;
+SHA256-sammenligning af rapporterne med kun `generated_at` strippet) — BC-vejen
+bærer landekoder, ikke navne. Bemærk: K1-K4-afsnittets "23.549 fund" for BC-v5
+kan ikke reproduceres med den dokumenterede CLI-invokation — den giver 23.095
+(= F-rundens 22.997 + kontrol 109's 98, konsistent med F-rundens egne tal);
+uoverensstemmelsen er i det TIDLIGERE changelog-tal, ikke i denne kørsel.
+
+**Godkendelsesstatus:** kontrol 27/30/34/35/38 ændrer tal, hvilket K1-K4
+eksplicit låste. Ændringerne er dokumenteret ovenfor som samme-klasse-fund
+(ingen ny støjklasse ud over den præ-eksisterende 70/84-OBS). Runden er
+committet lokalt, IKKE pushet — **produktionsbrug afventer Bals eksplicitte
+godkendelse som tilsigtet forbedring.**
+
 ## Gap-analyse-runde 2 (kunde 2/IFS) — kalibreringsrunden K1-K4 — 2026-09-20 (Bal-godkendt)
 
 Baggrund: efter F1-F3 (nedenfor) "vågnede" 35 land-/RC-afhængige kontroller til

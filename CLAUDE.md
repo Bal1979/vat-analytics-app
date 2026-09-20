@@ -25,6 +25,18 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-20)
 
+- **Landetabel-runden (2026-09-20, AFVENTER Bals godkendelse — committet
+  lokalt, ikke pushet):** `vat_rules._COUNTRY_NAME_TO_CODE` udvidet fra ~25
+  navne til fuld, generisk ISO 3166-1-navnetabel (424 navne → 250 koder,
+  engelsk/dansk, inkl. ISO-kommaformer + "THE "-strip) — K1-K4's åbne tråd.
+  529 tests (14 nye), validering 105/105, BC-v5 byte-for-byte identisk
+  (worktree-verificeret). Kunde 2-empiri: 25/28/33/109 UÆNDREDE; 32: 530→147
+  (støjfjernelse); men de LÅSTE kontroller 27/30/34/35/38 vokser
+  (+207/+23/+37/+3.205/+23, samme fundklasse — nu også for EE/CZ/RO/… og
+  CN/IN/HK/…), og 70/84 vokser markant (+17.831/+83), overvejende på
+  momskode-løse linjer (præ-eksisterende støjklasse uden K2-værn —
+  "K5"-kalibreringskandidat). Fuld evidens i `docs/CHANGELOG.md`.
+  **Ikke i produktion før Bal eksplicit godkender de ændrede låste tal.**
 - **Gap-analyse-runde 2 (kunde 2/IFS) — kalibreringsrunden K1-K4 (2026-09-20,
   Bal-godkendt):** de fire kontroller, der "vågnede" med F1-F3's D-parter-join
   men støjede voldsomt (samme "empirisk fordeling FØR fix"-disciplin som
