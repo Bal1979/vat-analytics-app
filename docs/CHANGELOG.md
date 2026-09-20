@@ -67,6 +67,44 @@ kan ikke reproduceres med den dokumenterede CLI-invokation — den giver 23.095
 (= F-rundens 22.997 + kontrol 109's 98, konsistent med F-rundens egne tal);
 uoverensstemmelsen er i det TIDLIGERE changelog-tal, ikke i denne kørsel.
 
+**Uafhængig vagtpost-verifikation (2026-09-20, efter commit `ab19aeb`) —
+svar på de fire kontrolpunkter:**
+
+1. **Kontrol 25 uændret er KORREKT adfærd, ikke en manglende kobling:**
+   K3-grenen kalder `vr.normalize_country`/`vr.is_foreign` direkte
+   (`cat03_vat_rate_validation.py`, den kontobaserede gren), og fundenes
+   referencelinjer er 3.320× eksplicit hjemlandets eget navn + 141× tom
+   landetekst — **nul ukendte landenavne**. Vejen mod ekspertens ~146 går
+   gennem momskode-populationsafgrænsning: 3.304 af de 3.461 ligger på den
+   generiske nulkode "0", som ekspertens population slet ikke medregner
+   (ekspertens 146 er alene 0U/E0S/E0G/S0-bilag; motorens fund på netop de
+   fire koder: 34). Det er en selvstændig K5-kalibreringsbeslutning — IKKE
+   landetabellen.
+2. **Kontrol 27 (+207) efterprøvet mod ekspertmaterialet:** 74 fund er en
+   EU-offentlig institution uden momsnummer, som ekspertens eget
+   bilagsmateriale selv flager — begge ekspertens konkrete bilagsnumre er
+   genfundet blandt motorens fund (dokumenteret med navne i kundesagens
+   gap-analyse-log, ikke her — kundedata). 78 er kundens eget udenlandske
+   repræsentationskontor (koncernintern, uden momsnr — afklaringspunkt,
+   næppe compliance-fund), ~44 privatpersoner (B2C-/OSS-spørgsmål), 11
+   banklinjer (momskode-løs støjklasse). **Dom: ægte fundklasse med kendte
+   støjkomponenter** — samme kalibreringsbehov som 70/84-OBS'en ovenfor.
+3. **Kontrol 30 (+23) efterprøvet:** gennemgående reelle samme-klasse-fund —
+   tilbagevendende tredjelandsmodparter med bogført dansk moms (240 t.kr. i
+   alt); ét fund matcher direkte ekspertens bilagsliste (ekspertens
+   population var salgs-only og mindre end motorens). **Dom: ægte.**
+4. **Kontrol 84 (+83 kritisk) efterprøvet mod K4-mønstrene:** kun 2/80 er
+   koncerninterne — væksten er IKKE K4's koncernklasse. 64/80 er eksterne,
+   globalt kendte leverandører uden registreret momsnummer i kartoteket
+   (kartoteks-datakvalitetsklassen fra K4's åbne tråd), 16 er banklinjer
+   (momskode-løse). Severity "kritisk" er for skarp for denne
+   sammensætning — bekræfter K5-kandidaten (momskode-værn +
+   kartoteksefterprøvning) FØR nogen rapportvisning.
+
+BC-v5-regressionen er genbekræftet byte-for-byte identisk (metoden ovenfor).
+Verifikationen affødte INGEN kodeændringer — punkt 1's hypotese (manglende
+kobling til tabellen) er afkræftet empirisk.
+
 **Godkendelsesstatus:** kontrol 27/30/34/35/38 ændrer tal, hvilket K1-K4
 eksplicit låste. Ændringerne er dokumenteret ovenfor som samme-klasse-fund
 (ingen ny støjklasse ud over den præ-eksisterende 70/84-OBS). Runden er
