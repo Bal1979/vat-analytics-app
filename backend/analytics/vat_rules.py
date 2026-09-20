@@ -279,19 +279,29 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
          "EU|SERVICE_VAT_EU", "OUTSIDE DK/EU|SERVICE_VAT_NOT_EU"). Er
          gruppen IKKE "DOMESTIC", er koden pr. definition udenlandsk handel
          -- og enhver udenlandsk salgskode er nulsats/RC på salgssiden.
-         Følger ``tax_code`` IKKE gruppe|kode-konventionen (intet "|"),
-         findes der intet Bus.-gruppe-signal at læne sig på, og funktionen
-         returnerer False (uændret, konservativ adfærd -- ingen gættet
-         RC-status uden evidens).
+      3. F2 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): følger
+         ``tax_code`` IKKE gruppe|kode-konventionen (intet "|") -- fx en
+         ERP uden BC's Bus.-gruppe-taksonomi som IFS, hvis koder er opake
+         mnemonics ("RC", "RC50") -- er der intet Bus.-gruppe-signal, men
+         koden kan stadig matche et KONFIGURERET RC-kode-mønster
+         (``materiality.RC_CODE_PREFIXES``, default kun "RC", prefiks-match
+         case-insensitivt, samme princip som NO_VAT_PRODUCT_PATTERNS).
+         Matcher intet af de konfigurerede mønstre, returneres False
+         (uændret, konservativ adfærd -- ingen gættet RC-status uden
+         evidens).
     """
     calc_type = (vat_calculation_type or "").strip().lower()
     if calc_type:
         return "reverse charge" in calc_type
-    code = tax_code or ""
-    if "|" not in code:
+    code = (tax_code or "").strip()
+    if "|" in code:
+        bus_group = code.split("|", 1)[0].strip().upper()
+        return bus_group != "DOMESTIC"
+    if not code:
         return False
-    bus_group = code.split("|", 1)[0].strip().upper()
-    return bus_group != "DOMESTIC"
+    from analytics import materiality  # lokal import: undgår cirkularitet ved modulindlæsning
+    upper = code.upper()
+    return any(upper.startswith(p) for p in materiality.RC_CODE_PREFIXES)
 
 
 # --- BC/NAV "Bus.-gruppe|Produktkode"-konvention: generelle helpers ---------

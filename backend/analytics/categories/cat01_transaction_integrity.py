@@ -7,6 +7,7 @@ Verificerer grundlæggende datakvalitet og integritet i transaktioner.
 from datetime import datetime
 from analytics.models import make_finding
 from analytics import readiness
+from analytics import vat_form as vf
 
 
 def run_transaction_integrity_tests(data: dict) -> list:
@@ -29,9 +30,82 @@ def run_transaction_integrity_tests(data: dict) -> list:
 
 def test_01_vat_recalculation(data: dict) -> list:
     """
-    Genberegn moms på hver linje og sammenlign med registreret momsbeløb.
-    Flag linjer hvor beregnet moms afviger fra registreret moms.
+    Genberegn moms og sammenlign med registreret momsbeløb.
+
+    F3 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): form-bevidst. På
+    LINJEBASERET form (BC/Excel/SAF-T, uændret adfærd): pr. linje, som
+    hidtil. På KONTOBASERET form (fx IFS, se analytics.vat_form): moms og
+    grundlag bor på FORSKELLIGE linjer i samme bilag, koblet via momskoden —
+    en pr.-linje-genberegning ville fejlagtigt bruge momskonto-linjens EGET
+    beløb som "grundlag" (strukturel støj, 69.564 falske fund på
+    kunde 2s IFS-datasæt før denne rettelse). Genberegningen sker i stedet
+    PR. BILAG+MOMSKODE på de aggregerede grundlags-/momsbeløb.
     """
+    if vf.is_account_based(data):
+        return _test_01_account_based(data)
+    return _test_01_line_based(data)
+
+
+def _test_01_account_based(data: dict) -> list:
+    """Kontobaseret gren af test_01 — se modulets docstring ovenfor.
+
+    Fortegns-bemærkning (empirisk fundet på kunde 2s IFS-datasæt): IFS' eget
+    ``vat_amount``-felt bærer SAMME fortegnskonvention som linjens netto
+    debet-kredit (negativt for en salgsside/kredit-domineret bilag, positivt
+    for en købsside) — modsat en unsigned "abs(grundlag) vs. signeret moms"-
+    sammenligning, som ville give en falsk 100%-afvigelse for HVERT
+    salgsbilag (fortegnsfejl, ikke en reel afvigelse). Både grundlag og moms
+    sammenlignes derfor konsekvent som MAGNITUDER (``abs``)."""
+    findings = []
+    rates = vf.code_rate_lookup(data)
+    for txn in data["transactions"]:
+        agg = vf.voucher_code_aggregates(txn, account_based=True)
+        for code, entry in agg.items():
+            base = abs(entry["base"])
+            actual_vat = abs(entry["vat"])
+            if actual_vat == 0 or base == 0:
+                continue
+            rate_entry = rates.get(code)
+            rate = rate_entry["tax_percentage"] if rate_entry else 0.0
+            if not rate:
+                continue
+            expected_vat = round(base * rate / 100, 2)
+            diff = round(actual_vat - expected_vat, 2)
+            if abs(diff) <= 0.50:
+                continue
+            direction = "negative" if diff > 0 else "positive"
+            ref_line = (entry["vat_lines"] or entry["base_lines"])[0]
+            findings.append(make_finding(
+                test_id=1,
+                test_name="Moms-genberegning",
+                impact_type="economic",
+                direction=direction,
+                severity="high" if abs(diff) > 100 else "medium",
+                description=f"Momsafvigelse på bilag {txn['transaction_id']}, momskode '{code}': "
+                            f"registreret {actual_vat:.2f}, beregnet {expected_vat:.2f} "
+                            f"(grundlag {base:.2f} × {rate}%, difference {abs(diff):.2f} DKK).",
+                fix_suggestion=f"Tjek momsopgørelsen for bilag {txn['transaction_id']}, momskode '{code}'. "
+                               f"Forventet momssats: {rate}% af {base:.2f} = {expected_vat:.2f}.",
+                estimated_amount=abs(diff),
+                transactions=[{
+                    "transaction_id": txn["transaction_id"],
+                    "journal_id": txn["journal_id"],
+                    "date": txn["date"],
+                    "account_id": ref_line["account_id"],
+                    "description": txn["description"],
+                    "amount": abs(base),
+                    "vat_recorded": actual_vat,
+                    "vat_expected": expected_vat,
+                    "difference": diff,
+                    "tax_code": code,
+                    "highlighted_field": "tax_amount",
+                }],
+            ))
+    return findings
+
+
+def _test_01_line_based(data: dict) -> list:
+    """Hidtidig pr.-linje-logik — UÆNDRET (BC/Excel/SAF-T-regression)."""
     findings = []
     tax_rates = {t["tax_code"]: t["tax_percentage"] for t in data["tax_table"]}
 

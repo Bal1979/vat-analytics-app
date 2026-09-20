@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 build_rules_catalog.py — udled det versionerede regelkatalog for VAT Analytics
-DIREKTE fra koden (de 108 test_NN-funktioner), så kataloget aldrig kan drifte
+DIREKTE fra koden (de 109 test_NN-funktioner), så kataloget aldrig kan drifte
 fra de faktiske kontroller.
 
 Statisk AST-analyse (kører ingen kode, intet netværk):
@@ -26,7 +26,7 @@ import os
 import re
 import sys
 
-CATALOG_VERSION = "1.4.0"
+CATALOG_VERSION = "1.5.0"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.dirname(_HERE)
@@ -51,7 +51,7 @@ CATEGORIES = [
     (10, "Indgående/Udgående Moms Afstemning", 76, 83),
     (11, "Svindeldetektion & Karrusel/MTIC", 84, 93),
     (12, "E-handel, Digitale Ydelser & Særordninger", 94, 103),
-    (13, "Krydsdimensionelle kontroller", 104, 108),
+    (13, "Krydsdimensionelle kontroller", 104, 109),
 ]
 
 _TEST_FN_RE = re.compile(r"^test_(\d+)_")
@@ -71,27 +71,50 @@ def _literal(node):
     return None
 
 
-def _extract_make_findings(func_node):
-    """Saml (test_name, impact_type, severity) fra alle make_finding-kald i funktionen."""
+def _extract_make_findings(func_node, all_funcs=None, _visited=None):
+    """Saml (test_name, impact_type, severity) fra alle make_finding-kald i
+    funktionen -- INKL. kald i lokale hjælpefunktioner den delegerer til (fx
+    en test_NN, der blot dispatcher til ``_test_NN_line_based``/
+    ``_test_NN_account_based`` afhængig af momsformen, F3-mønsteret,
+    gap-analyse-runde 2, Bal-godkendt 2026-09-20). Uden denne rekursive
+    opslåning ville en form-bevidst kontrol fejlagtigt blive stemplet
+    "inaktiv" (dens EGEN funktionskrop kalder aldrig make_finding direkte).
+
+    ``all_funcs``: {navn: FunctionDef} for ALLE funktioner i samme modul —
+    kun lokale (samme-fil) kald følges; kald til andre moduler (fx
+    ``vat_form.voucher_code_aggregates``) er ikke relevante her og
+    ignoreres, præcis som hidtil."""
     names, impacts, severities = [], set(), set()
     has_dynamic_severity = False
     found = False
+    visited = _visited if _visited is not None else set()
+    visited.add(func_node.name)
     for node in ast.walk(func_node):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
-                and node.func.id == "make_finding":
-            found = True
-            kw = {k.arg: k.value for k in node.keywords if k.arg}
-            tn = _literal(kw.get("test_name"))
-            if tn and tn not in names:
-                names.append(tn)
-            it = _literal(kw.get("impact_type"))
-            if it:
-                impacts.add(it)
-            sev = _literal(kw.get("severity"))
-            if sev:
-                severities.add(sev)
-            elif "severity" in kw:
-                has_dynamic_severity = True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if node.func.id == "make_finding":
+                found = True
+                kw = {k.arg: k.value for k in node.keywords if k.arg}
+                tn = _literal(kw.get("test_name"))
+                if tn and tn not in names:
+                    names.append(tn)
+                it = _literal(kw.get("impact_type"))
+                if it:
+                    impacts.add(it)
+                sev = _literal(kw.get("severity"))
+                if sev:
+                    severities.add(sev)
+                elif "severity" in kw:
+                    has_dynamic_severity = True
+            elif all_funcs and node.func.id in all_funcs and node.func.id not in visited:
+                sub_found, sub_names, sub_impacts, sub_sev, sub_dyn = _extract_make_findings(
+                    all_funcs[node.func.id], all_funcs, visited)
+                found = found or sub_found
+                for n in sub_names:
+                    if n not in names:
+                        names.append(n)
+                impacts |= sub_impacts
+                severities |= sub_sev
+                has_dynamic_severity = has_dynamic_severity or sub_dyn
     return found, names, impacts, severities, has_dynamic_severity
 
 
@@ -127,6 +150,7 @@ def build_catalog():
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=fname)
         module = f"analytics/categories/{fname}"
+        all_funcs = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef):
                 continue
@@ -135,7 +159,7 @@ def build_catalog():
                 continue
             tid = int(m.group(1))
             cid, cname = _category_for(tid)
-            found, names, impacts, severities, dyn_sev = _extract_make_findings(node)
+            found, names, impacts, severities, dyn_sev = _extract_make_findings(node, all_funcs)
             if not found:
                 status = "inaktiv_kraever_kildedata"
             else:
@@ -172,14 +196,14 @@ def build_catalog():
     valid_ids = {r["test_id"] for r in rules}
     unknown_notes = sorted(int(k) for k in notes if k.isdigit() and int(k) not in valid_ids)
 
-    # Konsistenstjek: præcis 108 kontroller, ingen huller i 1..108.
+    # Konsistenstjek: præcis 109 kontroller, ingen huller i 1..109.
     ids = [r["test_id"] for r in rules]
-    missing = [i for i in range(1, 109) if i not in ids]
+    missing = [i for i in range(1, 110) if i not in ids]
     dupes = sorted({i for i in ids if ids.count(i) > 1})
 
     catalog = {
         "catalog_version": CATALOG_VERSION,
-        "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 108 "
+        "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 109 "
                        "test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; "
                        "kør tools/build_rules_catalog.py.",
         "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
@@ -225,7 +249,7 @@ def build():
         print(f"  ADVARSEL dublerede test_id: {problems['dupes']}")
     if problems["unknown_notes"]:
         print(f"  ADVARSEL rule_notes peger på ukendte test_id: {problems['unknown_notes']}")
-    ok = (len(rules) == 108 and not problems["missing"]
+    ok = (len(rules) == 109 and not problems["missing"]
           and not problems["dupes"] and not problems["unknown_notes"])
     return 0 if ok else 1
 

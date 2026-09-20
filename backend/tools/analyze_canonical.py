@@ -89,11 +89,31 @@ def _resolve_modules(spec: str | None):
 
 def build_report(csv_path: str, summary_path: str | None, reconciliation_path: str | None,
                   tolerance: float, modules_spec: str | None,
-                  declarations_path: str | None = None) -> dict:
+                  declarations_path: str | None = None,
+                  vat_setup_path: str | None = None,
+                  chart_of_accounts_path: str | None = None,
+                  customers_path: str | None = None) -> dict:
     """Byg den fulde, lineage-stemplede analyserapport. Kaster ikke — tekniske
-    fejl (parse-fejl, manglende fil) rapporteres i ``rapport["fejl"]``."""
+    fejl (parse-fejl, manglende fil) rapporteres i ``rapport["fejl"]``.
+
+    ``vat_setup_path``/``chart_of_accounts_path``/``customers_path`` (F1,
+    gap-analyse-runde 2, Bal-godkendt 2026-09-20): eksplicitte stier til de
+    tre valgfrie kanoniske stamdata-sidecar-filer. UDEN dem forsøger
+    ``canonical_parser.parse_canonical`` kun sidecar-filerne VED SIDEN AF
+    ``csv_path`` (samme mappe) — en antagelse der ikke holder for en
+    IFS-mapping, hvor hver stamdata-tabel ligger i sin egen undermappe
+    (fx ``customers/customers.csv`` ved siden af ``gl_entries/gl_entries.csv``,
+    ikke i SAMME mappe). Uden disse CLI-flag ville selv en korrekt loader
+    (se ``parsers/canonical_masterdata.load_customers``) aldrig blive kaldt
+    med den rigtige fil for et sådant datasæt — samme klasse af fejl som
+    selve loader-alias-bugen, blot i CLI-laget."""
     t0 = time.monotonic()
-    canonical, parse_info = canonical_parser.parse_canonical(csv_path, summary_path=summary_path)
+    canonical, parse_info = canonical_parser.parse_canonical(
+        csv_path, summary_path=summary_path,
+        vat_setup_path=vat_setup_path,
+        chart_of_accounts_path=chart_of_accounts_path,
+        customers_path=customers_path,
+    )
     if canonical is None:
         return {
             "kanonisk_vej": True,
@@ -222,6 +242,15 @@ def main(argv=None) -> int:
     parser.add_argument("--modules", default=None,
                          help="'alle' (hele motoren, default for denne CLI), 'default' (kun momskernen, "
                               "produktionsadfærd), eller en komma-liste af modulnøgler.")
+    parser.add_argument("--vat-setup", default=None, dest="vat_setup",
+                         help="Sti til vat_setup.csv (valgfri sidecar — default: samme mappe som "
+                              "csv_path). Angiv eksplicit når stamdata-filerne IKKE ligger ved siden "
+                              "af gl_entries-CSV'en (fx en IFS-mapping med én undermappe pr. tabel).")
+    parser.add_argument("--chart-of-accounts", default=None, dest="chart_of_accounts",
+                         help="Sti til chart_of_accounts.csv (valgfri sidecar, samme princip som "
+                              "--vat-setup).")
+    parser.add_argument("--customers", default=None,
+                         help="Sti til customers.csv (valgfri sidecar, samme princip som --vat-setup).")
     parser.add_argument("--out", required=True, help="Sti til output-rapport (JSON). "
                                                         "Gem UDEN FOR repoet (kan indeholde kundedata).")
     args = parser.parse_args(argv)
@@ -233,6 +262,9 @@ def main(argv=None) -> int:
     report = build_report(
         args.csv_path, args.summary, args.reconciliation, args.tolerance, modules_spec,
         declarations_path=args.declarations,
+        vat_setup_path=args.vat_setup,
+        chart_of_accounts_path=args.chart_of_accounts,
+        customers_path=args.customers,
     )
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)

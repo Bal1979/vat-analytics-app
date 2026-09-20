@@ -3,6 +3,86 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Gap-analyse-runde 2 (kunde 2/IFS) — fix-runden F1-F3 — 2026-09-20 (Bal-godkendt)
+
+Baggrund: en motorkørsel på et kanonisk IFS-datasæt (180.070 bilag, 1.317.864 rå
+fund) afslørede tre navngivne, rettelige BC/NAV-formede antagelser i kontrol-
+laget — dataside/afstemning generaliserede perfekt (uændret). Katalog
+**v1.5.0** (108→109 kontroller), datakontrakt **v0.5.0** uændret (ingen nye
+INPUT-felter — kun nye/ændrede kontroller), **498 automatiserede tests**,
+uafhængig valideringssuite **105/105**.
+
+- **F1 (kunde-/stamdata-loader-aliaser):** `parsers/canonical_masterdata.
+  load_customers` afviste tidligere ALLE rækker i en IFS-mapping uden
+  selvstændig kunde-id-kolonne (kun `vat_registration_numbers`/
+  `counterparty_country`) — en reel loader-bug, ikke kun et manglende alias.
+  Udvidet til at bruge momsnummeret som id (en ægte forretningsnøgle, IKKE
+  den tidligere bevidst afviste `ext_vat_bus_posting_group`) og, hvis selv
+  DET mangler, en syntetisk positionel nøgle (`ROW-<n>`) — ingen gyldig række
+  tabes længere strukturelt. Derudover fandtes en SEPARAT CLI-begrænsning i
+  `tools/analyze_canonical.py`: værktøjet manglede `--vat-setup`/
+  `--chart-of-accounts`/`--customers`-flag, så selv en korrekt loader aldrig
+  blev kaldt med den rigtige fil, når hver stamdatatabel (som i IFS-
+  mappingen) ligger i sin egen undermappe i stedet for ved siden af
+  `gl_entries.csv`. Begge dele rettet. Empirisk: customers 0 → **3.173**
+  indlæst (0 tomme id'er).
+- **F2 (calc-type-/RC-kode-vokabular konfigurerbart pr. ERP):**
+  `vat_rules.is_reverse_charge_sale_code` kendte kun BC's
+  `vat_calculation_type`-tekst og "Bus.-gruppe|Produktkode"-konventionen —
+  begge fraværende i IFS' vat_setup (opake mnemoniske koder som "RC"/"RC50",
+  ingen "|"). Ny konfigurerbar `materiality.RC_CODE_PREFIXES` (default
+  `["RC"]`, override via `MATERIALITY_RC_CODE_PREFIXES`), samme
+  kalibreringsmønster som `NO_VAT_PRODUCT_PATTERNS`, med IFS' egne
+  observerede koder (RC/RC50, fra `vat_setup.csv`) som dokumenteret default.
+- **F3 (bilagsniveau-momsmodellen — den store):** ny `analytics/vat_form.py`
+  — generisk (ikke IFS-hardkodet) statistisk formdetektion pr. datasæt: en
+  ERP kan bogføre moms+grundlag på SAMME linje ("linjebaseret", BC/Excel/
+  SAF-T — uændret antagelse) eller på FORSKELLIGE linjer i samme bilag
+  ("kontobaseret", empirisk bekræftet på IFS: 753.468 momskodede linjer,
+  hvoraf momsbeløbet er koncentreret på 11 dedikerede konti mod 207 konti
+  for grundlagslinjer). Kontrol **1, 22, 24** er nu FORM-BEVIDSTE: på
+  kontobaseret form arbejder de PR. BILAG+MOMSKODE på de aggregerede
+  grundlags-/momsbeløb (`vat_form.voucher_code_aggregates`) i stedet for pr.
+  linje — linjebaseret form (BC/Excel/SAF-T) er en UÆNDRET separat kodesti
+  (regressionstestet byte-for-byte identisk på v5-datasættet, kontrol
+  1-108). Kontrol 26 blev GENNEMGÅET men ikke ændret (allerede korrekt på
+  begge former, verificeret empirisk). Undervejs fundet og rettet en
+  fortegnsbug: IFS' `vat_amount` bærer samme fortegnskonvention som linjens
+  netto debet-kredit (negativt på salgssiden) — grundlag og moms sammen-
+  lignes derfor konsekvent som magnituder, ellers ville hvert salgsbilag give
+  en falsk ~100%/-25%-afvigelse.
+- **NY kontrol 109 "Fradragsprocent-afvigelse"** (kategori 13, formuafhængig
+  — virker på begge momsformer): pr. bilag+momskode med delvis fradragsret
+  (vat_setup's `non_deductible_vat_pct` > 0): forventet moms = grundlag ×
+  sats × Deductible%. Gør ekspertens KRITISKE systemfejl-fund (X-Ray s.
+  39-42: ET50/R/EI fradragsført med 100% i stedet for 50/25/15%) til en
+  deterministisk kontrol — kun muligt efter F3's bilagskobling. Eget
+  rapporttema `fradragsret` (altid forfremmet i kunderapporten, jf.
+  `tools/report_themes.py`).
+
+**Empirisk før/efter (kunde 2s IFS-datasæt, alle moduler, F1+F2+F3 samlet):**
+
+| Kontrol | Før | Efter | Note |
+|---|---|---|---|
+| 1 (Moms-genberegning) | 69.564 | 484 | kollapser til reelle bilagsniveau-afvigelser |
+| 22 (Manglende salgsmoms) | 33.514 | 78 | domineret af kode '1' — nu korrekt gated pr. bilag |
+| 24 (Implicit sats ugyldig) | 79.723 | 854 | samme kollaps, sats vurderes pr. bilag+kode |
+| 26 (Momsbeløb uden momskode) | 7.367 | 7.367 | UÆNDRET (gennemgået, ingen form-afhængig fejlkilde) |
+| 109 (NY: Fradragsprocent-afvigelse) | — | 402 | 4/4 af ekspertens navngivne eksempler genfundet |
+
+Residual støj i kontrol 1/24/109 er delvist en kendt, allerede-accepteret
+bivirkning af GAP-12's bilagsgruppering (`(invoice_numbers, posting_dates)`
+kan lejlighedsvis sammenkoble to REELT urelaterede posteringer, der deler
+nøgle samme dag — dokumenteret risiko siden GAP-12, ikke ny i denne runde).
+
+Regression: kontrol 1-108 byte-for-byte identiske på BC-v5-datasættet
+(22.997 fund uændret); kontrol 109 tilføjer 98 NYE fund på v5 (samme
+additive mønster som forrige gap-analyse-runde — v5's eget vat_setup har
+delvis-fradragsret-koder, så kontrollen er lige så relevant på BC-data).
+Kunderapport niveau 3 regenereret for kunde 2 til kundens eget scratchpad
+(kundedata, uden for repoet). Se `GAP-ANALYSE-2-motor-vs-ekspert.md`
+(kundedata, uden for repoet) for den fulde ekspert-sammenligning.
+
 ## Kunderapportens visuelle løft — 2026-09-19 (katalog/data_contract uændret, ren præsentation)
 
 Bal-godkendt opgave (2026-09-19): "fra internt værktøj til kundeleverance"-

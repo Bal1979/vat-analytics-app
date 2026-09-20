@@ -57,7 +57,13 @@ disciplin som resten af canonical_parser.py. Ingen ændring af rådata
 
     * customers.csv          — kundestamdata. Fylder den SELVSTÆNDIGE
                                 customers[]-liste (customer_id/name/
-                                vat_number/country). KENDT, ÅBEN BEGRÆNSNING
+                                vat_number/country). F1 (gap-analyse-runde 2,
+                                Bal-godkendt 2026-09-20): accepterer nu også
+                                et momsnummer (eller en syntetisk positionel
+                                nøgle) som customer_id, når filen ikke selv
+                                leverer en id-kolonne (IFS-mappingens
+                                faktiske form) — se load_customers()'s
+                                docstring. KENDT, ÅBEN BEGRÆNSNING
                                 (dokumenteret, ikke skjult — se
                                 tools/data_contract_data.py GAP-11): den
                                 seedede BC/NAV-mapping leverer i dag INGEN
@@ -261,7 +267,33 @@ def load_customers(path: str) -> tuple:
 
     KENDT BEGRÆNSNING (se modulets docstring): listen kan i dag ikke joines
     til transactions[].lines[]/txn på den kanoniske vej — gl_entries bærer
-    ingen customer_id-kolonne i den seedede BC/NAV-mapping."""
+    ingen customer_id-kolonne i den seedede BC/NAV-mapping.
+
+    F1 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): IFS-mappingen
+    (``kunde 2s IFS-datasæts customers.csv``, empirisk verificeret) leverer INGEN
+    selvstændig kunde-id-kolonne overhovedet — kun ``vat_registration_numbers``
+    (et ægte momsregistreringsnummer, IKKE en BC-postgruppe-kode som
+    ``ext_vat_bus_posting_group`` — se advarslen om DET i docstringen ovenfor,
+    som fortsat gælder) og ``counterparty_country``. Uden et alias blev alle
+    3.173 rækker afvist (``cust_id`` tom), hvilket i sig selv IKKE er en
+    fejlfri "ingen kundestamdata"-tilstand, men en loader-bug: en kunderække
+    med et rigtigt momsnummer men intet id-felt er stadig en gyldig
+    kunde-stamdatapost. To udvidelser, i prioriteret rækkefølge:
+      1. ``vat_number``/``vat_registration_numbers`` bruges nu OGSÅ som id,
+         når ingen dedikeret id-kolonne findes — en naturlig forretningsnøgle
+         for en kundepost (og samtidig den værdi, der udfylder feltet
+         ``vat_number`` selv — IFS' kolonne ER et ægte momsnummer, i
+         modsætning til den bevidst afviste ``ext_vat_bus_posting_group``).
+      2. Er selv momsnummeret tomt (127 af 3.173 rækker i det observerede
+         datasæt), falder id'et tilbage til en positionel syntetisk nøgle
+         (``ROW-<n>``, 1-indekseret) — samme "tab aldrig en gyldig række uden
+         evidens for at den er ugyldig"-disciplin som
+         ``canonical_parser._group_key`` bruger for et tomt bilagsnummer.
+    Resultat: alle 3.173 rækker indlæses strukturelt (acceptkriterium,
+    Bal-godkendt 2026-09-20). Den kendte begrænsning ovenfor (ingen
+    linje-join) er UÆNDRET af denne rettelse — den kræver en
+    customer_id-kolonne på gl_entries, som den seedede mapping stadig ikke
+    leverer."""
     if not path or not os.path.exists(path):
         return [], []
     try:
@@ -270,23 +302,25 @@ def load_customers(path: str) -> tuple:
         return [], [f"customers.csv kunne ikke læses: {e}"]
 
     customers = []
-    for row in rows:
+    for idx, row in enumerate(rows):
+        vat_number = (row.get("vat_number") or row.get("vat_registration_numbers") or "").strip()
         cust_id = (row.get("customer_id") or row.get("ext_customer_id") or "").strip()
         if not cust_id:
-            continue
+            # F1: momsnummeret som fallback-nøgle, ellers en syntetisk
+            # positionel nøgle — se docstringen ovenfor.
+            cust_id = vat_number or f"ROW-{idx + 1}"
         name = (row.get("name") or row.get("ext_customer_name") or "").strip()
         country = (row.get("country") or row.get("counterparty_country") or "").strip()
         customers.append({
             "customer_id": cust_id,
             "name": name,
-            "vat_number": (row.get("vat_number") or "").strip(),
+            "vat_number": vat_number,
             "country": country,
         })
     warnings = []
     if not customers:
         warnings.append("customers.csv fundet, men indeholdt ingen gyldige rækker "
-                        "(mangler 'customer_id'/'ext_customer_id'-kolonnen, eller "
-                        "den er tom overalt?).")
+                        "(filen var tom).")
     return customers, warnings
 
 

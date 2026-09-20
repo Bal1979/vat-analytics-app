@@ -36,6 +36,15 @@ Tema -> kontrol-mapping (Bal-godkendt, ikke konfigurerbar pr. kørsel — en
                                  momsberegningsfejl, samme karakter som 46/14)
     timing                    -> 82, 5 (periode-/rubrikafstemning,
                                  dato-/periodekonsistens)
+    fradragsret               -> 109 (gap-analyse-runde 2, Bal-godkendt
+                                 2026-09-20: Fradragsprocent-afvigelse —
+                                 ekspertens KRITISKE systemfejl-fund gjort
+                                 deterministisk efter F3's bilagsniveau-
+                                 momsmodel. Eget tema, ikke lagt ind under
+                                 'dataanomalier' — dette er en direkte
+                                 økonomisk konsekvens (for meget fratrukket
+                                 moms), ikke en observation. ALTID forfremmet,
+                                 jf. ALWAYS_PROMOTED_THEMES.)
 
 Rækkefølgen i ``THEMES`` er visnings-rækkefølgen i rapporten.
 """
@@ -78,12 +87,19 @@ THEMES = {
         "kontroller": (82, 5),
         "default_horisont": "0-3",
     },
+    "fradragsret": {
+        "navn": "Fradragsret",
+        "kontroller": (109,),
+        "default_horisont": "0-3",
+    },
 }
 
 # Temaer, der ALTID forfremmes ("medtag": true) i den auto-seedede kuration,
 # uanset severity/beløb — jf. designoplægget ("alle høj-fund-grupper
-# forfremmet + timing-temaet").
-ALWAYS_PROMOTED_THEMES = {"timing"}
+# forfremmet + timing-temaet"). Fradragsret tilføjet 2026-09-20 (gap-analyse-
+# runde 2): kontrol 109 er ekspertens kritiske systemfejl-fund — skal altid
+# være synlig for kunden, uanset beløbsstørrelse i en given kørsel.
+ALWAYS_PROMOTED_THEMES = {"timing", "fradragsret"}
 
 THEME_ORDER = list(THEMES.keys())
 
@@ -242,6 +258,28 @@ def draft_timing(findings: list) -> dict:
     }
 
 
+def draft_fradragsret(findings: list) -> dict:
+    codes = _top_code_from_descriptions(findings)
+    stats = _stats(findings)
+    if codes:
+        spg = (f"Er fradragsbegrænsningen for momskode {codes[0]} korrekt implementeret "
+               "i jeres bogføring?")
+    else:
+        spg = ("Er fradragsbegrænsningen for jeres delvist fradragsberettigede momskoder "
+               "korrekt implementeret i bogføringen?")
+    return {
+        "spoergsmaal": spg,
+        "hvorfor": (f"{stats['antal']} bilag for i alt {stats['beloeb']:,.0f} DKK har bogført "
+                    "mere moms som fradragsberettiget, end jeres eget momssetups "
+                    "fradragsprocent tillader (fx delvis fradragsret på repræsentation/"
+                    "hotelophold/telefoni). Dette er en direkte økonomisk konsekvens — ikke "
+                    "kun en opsætningsdetalje."),
+        "anbefaling": ("Gennemgå bogføringsrutinen for de fremhævede momskoder, og sikr at "
+                        "kun den fradragsberettigede andel bogføres som indgående moms — "
+                        "resten som en ikke-fradragsberettiget omkostning."),
+    }
+
+
 _DRAFT_BUILDERS = {
     "kodeopsaetning": draft_kodeopsaetning,
     "momsbehandling_pr_konto": draft_momsbehandling_pr_konto,
@@ -249,6 +287,7 @@ _DRAFT_BUILDERS = {
     "udlandshandel": draft_udlandshandel,
     "proces": draft_proces,
     "timing": draft_timing,
+    "fradragsret": draft_fradragsret,
 }
 
 

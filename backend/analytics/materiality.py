@@ -177,6 +177,33 @@ CONTROL_108_MIN_LINES = _i("MATERIALITY_CONTROL_108_MIN_LINES", 30)
 # tæller som "spredt" (procesobservation, ikke en fejlpåstand).
 CONTROL_108_MIN_SOURCE_CODES = _i("MATERIALITY_CONTROL_108_MIN_SOURCE_CODES", 3)
 
+# F2 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): calc-type-/RC-kode-
+# vokabular konfigurerbart pr. ERP (analytics/vat_rules.is_reverse_charge_
+# sale_code). BC/NAV signalerer reverse charge enten via et
+# vat_calculation_type-tekstfelt ("Reverse Charge VAT") eller via "Bus.-
+# gruppe|Produktkode"-konventionen (håndteret separat, ingen ændring).
+# IFS' VAT Code-opsætning (kunde 2s IFS-datasæts vat_setup.csv, empirisk
+# verificeret 2026-09-20) har INGEN af delene — koderne er opake mnemonics
+# uden "|"-separator, og vat_calculation_type-kolonnen findes slet ikke i
+# den leverede vat_setup.csv. Observerede IFS-koder: "RC" (Tax percentage
+# 25, fuldt fradragsberettiget — indenlandsk omvendt betalingspligt) og
+# "RC50" (samme sats, 50% ikke-fradragsberettiget — defineret i opsætningen,
+# ikke observeret i transaktionsdata). Prefiks-match, case-insensitivt,
+# samme kalibreringsfilosofi som NO_VAT_PRODUCT_PATTERNS ovenfor — override
+# for en klient med en anden kode-konvention (fx Oracle/SAP).
+RC_CODE_PREFIXES = [p.upper() for p in _strlist("MATERIALITY_RC_CODE_PREFIXES", ["RC"])]
+
+# Kontrol 109 (Fradragsprocent-afvigelse, gap-analyse-runde 2, Bal-godkendt
+# 2026-09-20, cat13_cross_dimension.py): tolerance i DKK mellem bogført og
+# forventet (grundlag × sats × Deductible%) moms pr. bilag+momskode, før det
+# tæller som et fund — undertrykker afrundingsstøj, samme princip som
+# CONTROL_22_MIN_BASE.
+CONTROL_109_TOLERANCE = _f("MATERIALITY_CONTROL_109_TOLERANCE", 1.0)
+
+# Kontrol 109: difference (DKK) hvorover fundet er HØJ i stedet for MEDIUM —
+# samme kalibrering som kontrol 1's høj-grænse.
+CONTROL_109_HIGH_THRESHOLD = _f("MATERIALITY_CONTROL_109_HIGH_THRESHOLD", 100.0)
+
 # Kunderapportens kuraterings-seed (byggetrin ~10, Bal-godkendt 2026-09-18,
 # tools/report_curation.py): et tema-gruppe uden kritiske/høje fund
 # forfremmes ("medtag": true i den auto-genererede kuration) hvis dens

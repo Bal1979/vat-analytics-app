@@ -61,15 +61,15 @@ def test_missing_data_summary_lists_blocking_field():
 def test_summary_totals_add_up():
     res = rd.assess(mk_data(mk_txn(mk_line(country="DK", tax_code="S25"))), DEFAULT, CATEGORIES)
     s = res["opsummering"]
-    assert s["i_alt"] == 108
-    assert s["koert"] + s["sprunget_over_data"] + s["modul_fra"] + s["kraever_eksterne_data"] == 108
+    assert s["i_alt"] == 109
+    assert s["koert"] + s["sprunget_over_data"] + s["modul_fra"] + s["kraever_eksterne_data"] == 109
 
 
 def test_report_carries_datagrundlag():
     data = mk_data(mk_txn(mk_line(country="DK", tax_code="S25")))
     rep = run_all_tests(data)
     assert "datagrundlag" in rep
-    assert rep["datagrundlag"]["opsummering"]["i_alt"] == 108
+    assert rep["datagrundlag"]["opsummering"]["i_alt"] == 109
 
 
 # --- Del B: "ikke målbar"-gating (medium-fund-analysen, Bal-godkendt 2026-09-17) ---

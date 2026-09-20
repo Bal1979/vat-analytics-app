@@ -1,18 +1,18 @@
 # VAT Analytics — Sporbarhedsrapport
 
-> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.4.0** · 2026-09-18
+> Auto-genereret af `tools/build_traceability.py` · katalogversion **1.5.0** · 2026-09-20
 
 ## Dækning
 
-- Kontroller i alt: **108** (aktive: **104**, inaktive: **4**)
-- Præcis kilde udfyldt: **0 / 108** (resten viser kategoriens retsområde indtil den fagansvarlige pinner paragraffen)
-- Dækkende valideringstest udfyldt: **104 / 108** (valideringssuiten dækker alle 104 aktive kontroller; de 4 uden test er de inaktive)
+- Kontroller i alt: **109** (aktive: **105**, inaktive: **4**)
+- Præcis kilde udfyldt: **0 / 109** (resten viser kategoriens retsområde indtil den fagansvarlige pinner paragraffen)
+- Dækkende valideringstest udfyldt: **105 / 109** (valideringssuiten dækker alle 105 aktive kontroller; de 4 uden test er de inaktive)
 
 ## Analyse-moduler (momsrelevans-slankning)
 
 | Modul | Default | Kontroller | Beskrivelse |
 |-------|---------|------------|-------------|
-| Momskerne | TIL | 65 | Kontroller med direkte momsfaglig konsekvens: sats, fradragsret, angivelse, reverse charge, place-of-supply og momsafstemning. Fundamentet i en momsgennemgang. |
+| Momskerne | TIL | 66 | Kontroller med direkte momsfaglig konsekvens: sats, fradragsret, angivelse, reverse charge, place-of-supply og momsafstemning. Fundamentet i en momsgennemgang. |
 | Forensic & statistik | FRA | 26 | Statistisk anomalidetektion, beløbs-outliers, timing-anomalier og karrusel/MTIC-indikatorer. Hører til et JE-/besvigelsesmandat — ikke en momsgennemgang. |
 | Stamdata- & datakvalitet | FRA | 4 | Parts-/stamdatavalidering uden direkte fradrags-konsekvens (fx dubletnavne, formatfejl). Datakvalitet, ikke momsfund. |
 | Dublet-recovery (bredt) | FRA | 3 | Bredere dublet-/recovery-scanninger (nær-dubletter, beløbsmatch på tværs). Den stærke eksakt-dublet med moms-dobbeltfradrag ligger i momskernen. |
@@ -130,6 +130,7 @@
 | VATA-106 | Varekøb fra 3.-land — bekræft importørregistrering | aktiv | Momskerne | TIL | Krydsdimensionelle kontroller: valuta/kode, EU-/3.-landskøb uden RC-beregning, import, bilagstype (momsloven, Skattestyrelsens kontrolmetoder) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-107 | Atypisk moms på bilagstype | aktiv | Momskerne | TIL | Krydsdimensionelle kontroller: valuta/kode, EU-/3.-landskøb uden RC-beregning, import, bilagstype (momsloven, Skattestyrelsens kontrolmetoder) | tests/test_validation_suite.py + validation/scenarios.py |
 | VATA-108 | Salg/køb spredt over mange bilagstyper | aktiv | Momskerne | TIL | Krydsdimensionelle kontroller: valuta/kode, EU-/3.-landskøb uden RC-beregning, import, bilagstype (momsloven, Skattestyrelsens kontrolmetoder) | tests/test_validation_suite.py + validation/scenarios.py |
+| VATA-109 | Fradragsprocent-afvigelse | aktiv | Momskerne | TIL | Krydsdimensionelle kontroller: valuta/kode, EU-/3.-landskøb uden RC-beregning, import, bilagstype (momsloven, Skattestyrelsens kontrolmetoder) | tests/test_validation_suite.py + validation/scenarios.py |
 
 ## Inaktive kontroller (beslutning og afhængighed)
 

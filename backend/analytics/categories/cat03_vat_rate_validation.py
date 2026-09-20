@@ -34,6 +34,17 @@ spredte kommentarer:
     kunde reelt registrerer 0% på en RC-kode, er det en separat,
     ikke-observeret situation uden for denne rettelses evidensgrundlag.
 
+BILAGSNIVEAU-MOMSMODELLEN — F3 (gap-analyse-runde 2, Bal-godkendt
+2026-09-20): kontrol 22/24 er nu FORM-BEVIDSTE (se analytics.vat_form) —
+på kontobaseret momsform (grundlag og moms på FORSKELLIGE linjer i samme
+bilag, fx IFS) vurderes de PR. BILAG+MOMSKODE i stedet for pr. linje.
+Linjebaseret form (BC/Excel/SAF-T) er 100% uændret (regressionstestet).
+Kontrol 26 (Momsbeløb uden momskode) er GENNEMGÅET, men IKKE ændret: den
+er allerede korrekt på begge former (en linje med et bogført momsbeløb bør
+altid bære sin egen kode, uanset om grundlaget ligger på samme eller en
+anden linje) — empirisk bekræftet på kunde 2s IFS-datasæt (7.367 fund, koncentreret
+på manuelle/årsafslutnings-bilag, matcher ekspertens "blank"-analyses skala).
+
 Kontrol 24 (2026-09-18, Bal-godkendt gap-analyse-fix D): sats-hulls-gennemgangen
 i sidste runde konkluderede "ingen ændring nødvendig", fordi RC-eksportlinjer
 har ``tax_amount == 0`` og springes over. Det er korrekt for RC/retning —
@@ -53,6 +64,7 @@ from collections import defaultdict
 from analytics.models import make_finding
 from analytics import materiality
 from analytics import vat_rules as vr
+from analytics import vat_form as vf
 
 
 def run_vat_rate_tests(data: dict) -> list:
@@ -261,7 +273,69 @@ def test_22_missing_output_vat(data: dict) -> list:
 
     Fix B (2026-09-18): et materialitets-gulv (materiality.CONTROL_22_MIN_BASE)
     undertrykker rene afrundingslinjer (fx 0,01 kr.), der aldrig var reelle
-    "manglende salgsmoms"-fund."""
+    "manglende salgsmoms"-fund.
+
+    F3 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): form-bevidst. På
+    KONTOBASERET form (fx IFS) er "kredit-linje med kode men uden EGET
+    momsbeløb" den STRUKTURELLE norm, ikke et fund (momsen bogføres på en
+    separat momskonto-linje i samme bilag) — en pr.-linje-tolkning gav
+    33.514 falske fund på kunde 2s IFS-datasæt (domineret af én enkelt indenlandsk
+    kode). Kontrollen vurderes i stedet PR. BILAG+MOMSKODE: kun når INGEN
+    linje i bilaget bogfører moms for koden, er det et reelt fund."""
+    if vf.is_account_based(data):
+        return _test_22_account_based(data)
+    return _test_22_line_based(data)
+
+
+def _test_22_account_based(data: dict) -> list:
+    """Kontobaseret gren af test_22 — se funktionens docstring ovenfor."""
+    findings = []
+    rates = vf.code_rate_lookup(data)
+    for txn in data["transactions"]:
+        agg = vf.voucher_code_aggregates(txn, account_based=True)
+        for code, entry in agg.items():
+            base = entry["base"]
+            # Salgsside: kredit-dominant grundlag (own = debet-kredit < 0).
+            credit_base = -base
+            if credit_base < materiality.CONTROL_22_MIN_BASE:
+                continue
+            rate_entry = rates.get(code)
+            vat_calc_type = (rate_entry.get("vat_calculation_type", "") if rate_entry else "")
+            if vr.is_reverse_charge_sale_code(code, vat_calc_type):
+                continue  # RC-kode på salgssiden -- 0-moms er korrekt eksport, ikke et fund
+            rate = rate_entry["tax_percentage"] if rate_entry else 0.0
+            actual_vat = entry["vat"]
+            if rate >= vr.STANDARD_RATE - vr.RATE_TOLERANCE and actual_vat == 0:
+                expected = round(credit_base * vr.STANDARD_RATE / 100, 2)
+                ref_line = (entry["base_lines"] or entry["vat_lines"])[0]
+                findings.append(make_finding(
+                    test_id=22,
+                    test_name="Manglende salgsmoms",
+                    impact_type="economic",
+                    direction="positive",
+                    severity="high",
+                    description=f"Salg på {credit_base:.2f} (bilag {txn['transaction_id']}) med momskode "
+                                f"'{code}' ({rate}%) har intet momsbeløb bogført NOGET STEDS i bilaget.",
+                    fix_suggestion=f"Beregn og afregn salgsmoms. Forventet: {expected:.2f} DKK.",
+                    estimated_amount=expected,
+                    transactions=[{
+                        "transaction_id": txn["transaction_id"],
+                        "journal_id": txn["journal_id"],
+                        "date": txn["date"],
+                        "account_id": ref_line["account_id"],
+                        "description": txn["description"],
+                        "amount": credit_base,
+                        "tax_code": code,
+                        "tax_amount": actual_vat,
+                        "vat_expected": expected,
+                        "highlighted_field": "tax_amount",
+                    }],
+                ))
+    return findings
+
+
+def _test_22_line_based(data: dict) -> list:
+    """Hidtidig pr.-linje-logik — UÆNDRET (BC/Excel/SAF-T-regression)."""
     findings = []
     for txn in data["transactions"]:
         for line in txn["lines"]:
@@ -341,7 +415,82 @@ def test_24_implied_rate(data: dict) -> list:
     den hardkodede liste — vi kan ikke verificere en sats uden en opsætning
     at holde den op imod (kontrol 19 flager selve "ukendt kode"-situationen
     separat). Uden vat_setup: uændret adfærd (0%/25% er de eneste gyldige
-    satser)."""
+    satser).
+
+    F3 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): form-bevidst. På
+    KONTOBASERET form (fx IFS) er en momskonto-linjes EGET beløb momsen
+    selv -- IKKE et grundlag -- så en pr.-linje "implicit sats" (moms/
+    linjens-eget-beløb) er strukturelt meningsløs (typisk ~100%). Dette gav
+    79.723 falske fund på kunde 2s IFS-datasæt. Den implicitte sats beregnes i
+    stedet PR. BILAG+MOMSKODE på de aggregerede grundlags-/momsbeløb."""
+    if vf.is_account_based(data):
+        return _test_24_account_based(data)
+    return _test_24_line_based(data)
+
+
+def _test_24_account_based(data: dict) -> list:
+    """Kontobaseret gren af test_24 — se funktionens docstring ovenfor.
+
+    Fortegns-bemærkning (samme som test_01's account-based gren): IFS'
+    ``vat_amount`` bærer samme fortegn som grundlagets netto debet-kredit
+    (negativt på salgssiden) -- moms og grundlag sammenlignes derfor som
+    MAGNITUDER (``abs``), ellers ville hvert salgsbilag give en falsk
+    implicit sats på -25% i stedet for 25%."""
+    header = data.get("header") or {}
+    setup_loaded = bool(header.get("vat_setup_loaded"))
+    setup_by_code = vf.code_rate_lookup(data) if setup_loaded else {}
+
+    findings = []
+    for txn in data["transactions"]:
+        agg = vf.voucher_code_aggregates(txn, account_based=True)
+        for code, entry in agg.items():
+            vat = abs(entry["vat"])
+            base = abs(entry["base"])
+            if vat <= 0 or base <= 0:
+                continue
+            implied = vr.implied_rate(base, vat)
+            if implied is None:
+                continue
+
+            setup_entry = setup_by_code.get(code)
+            if setup_entry is not None and setup_entry.get("setup_matched"):
+                valid_rates = {setup_entry["tax_percentage"]}
+                expected_desc = f"opsætningens sats for momskoden ({setup_entry['tax_percentage']}%)"
+            else:
+                valid_rates = vr.VALID_DK_RATES
+                expected_desc = "en gyldig dansk sats (0% eller 25%)"
+
+            if any(abs(implied - r) <= vr.RATE_TOLERANCE for r in valid_rates):
+                continue
+            ref_line = (entry["vat_lines"] or entry["base_lines"])[0]
+            findings.append(make_finding(
+                test_id=24,
+                test_name="Implicit sats ugyldig",
+                impact_type="economic",
+                direction="negative" if implied > vr.STANDARD_RATE else "positive",
+                severity="medium",
+                description=f"Implicit momssats {implied}% (moms {vat:.2f} af grundlag {base:.2f}) "
+                            f"på bilag {txn['transaction_id']}, momskode '{code}', matcher ikke {expected_desc}.",
+                fix_suggestion="Tjek om momsgrundlag og momsbeløb hører sammen på bilaget. "
+                               "Den faktiske sats bør svare til momskodens registrerede sats.",
+                estimated_amount=abs(round(vat - base * vr.STANDARD_RATE / 100, 2)),
+                transactions=[{
+                    "transaction_id": txn["transaction_id"],
+                    "journal_id": txn["journal_id"],
+                    "date": txn["date"],
+                    "account_id": ref_line["account_id"],
+                    "description": txn["description"],
+                    "amount": base,
+                    "tax_code": code,
+                    "implied_rate": implied,
+                    "highlighted_field": "tax_amount",
+                }],
+            ))
+    return findings
+
+
+def _test_24_line_based(data: dict) -> list:
+    """Hidtidig pr.-linje-logik — UÆNDRET (BC/Excel/SAF-T-regression)."""
     header = data.get("header") or {}
     setup_loaded = bool(header.get("vat_setup_loaded"))
     setup_by_code = {t["tax_code"]: t for t in data.get("tax_table", [])} if setup_loaded else {}

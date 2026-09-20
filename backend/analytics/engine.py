@@ -1,6 +1,6 @@
 """
 SAF-T Analytics Engine
-Kører alle 108 momsanalysetests og returnerer struktureret rapport
+Kører alle 109 momsanalysetests og returnerer struktureret rapport
 med findings klassificeret efter impact-type, retning og sværhedsgrad.
 """
 
@@ -46,7 +46,7 @@ CATEGORIES = [
     {"id": 10, "name": "Indgående/Udgående Moms Afstemning", "test_range": (76, 83)},
     {"id": 11, "name": "Svindeldetektion & Karrusel/MTIC", "test_range": (84, 93)},
     {"id": 12, "name": "E-handel, Digitale Ydelser & Særordninger", "test_range": (94, 103)},
-    {"id": 13, "name": "Krydsdimensionelle kontroller", "test_range": (104, 108)},
+    {"id": 13, "name": "Krydsdimensionelle kontroller", "test_range": (104, 109)},
 ]
 
 

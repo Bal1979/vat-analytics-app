@@ -574,7 +574,7 @@ TRANSACTION_FIELDS = [
     {
         "navn": "lines", "type": "list[line]", "obligatorisk": True, "format": "mindst ét element i praksis",
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
-        "kraeves_af": "Alle 108 kontroller itererer transactions[].lines[].",
+        "kraeves_af": "Alle 109 kontroller itererer transactions[].lines[].",
         "noter": "Excel-vejen pakker altid PRÆCIS én linje pr. flad kildereække "
                  "(fladt udtræk har ingen bilagsstruktur); SAF-T-vejen bærer "
                  "native multi-linje-bilag. Se LINE_FIELDS.",
@@ -634,7 +634,7 @@ LINE_FIELDS = [
     {
         "navn": "debit_amount", "type": "number", "obligatorisk": True, "format": "DKK, >= 0",
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
-        "kraeves_af": "Stort set alle 108 kontroller (beløbsgrundlag).",
+        "kraeves_af": "Stort set alle 109 kontroller (beløbsgrundlag).",
         "noter": "KENDT GAB (uden for scope her): data_adapter bruger "
                  "'txn.get(\"debit_amount\", 0.0) or 0.0' — en reel, men falsk "
                  "0-værdi i kilden bliver umulig at skelne fra 'ingen kolonne'. "

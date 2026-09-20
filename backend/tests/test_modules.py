@@ -22,7 +22,7 @@ _CATALOG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 # --- Mapping ---------------------------------------------------------------
 
 def test_all_103_controls_mapped_to_known_module():
-    assert set(modules.CONTROL_MODULE) == set(range(1, 109))
+    assert set(modules.CONTROL_MODULE) == set(range(1, 110))
     assert all(v in modules.MODULES for v in modules.CONTROL_MODULE.values())
 
 

@@ -254,7 +254,7 @@ def assess(data: dict, active_modules: set, categories: list,
     few_tx = prof["transaktioner"] < _MIN_TX_FOR_STATISTIK
 
     controls = []
-    for tid in range(1, 109):
+    for tid in range(1, 110):
         cat_id, cat_name = _category_of(tid, categories)
         modul = modules.module_of(tid)
         modul_aktiv = modul in active_modules

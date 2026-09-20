@@ -1,8 +1,8 @@
 # VAT Analytics — Valideringsrapport
 
-> Auto-genereret af `python -m validation.run_validation` · 2026-09-18
+> Auto-genereret af `python -m validation.run_validation` · 2026-09-20
 
-✅ **BESTÅET** — 104/104 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
+✅ **BESTÅET** — 105/105 scenarier bestået (plantet defekt fanges + ren baseline er tavs).
 
 | test_id | Kontrol | Fanger defekt | Ren er tavs | Resultat |
 |---------|---------|---------------|-------------|----------|
@@ -110,6 +110,7 @@
 | 106 | Varekøb fra 3.-land — bekræft importørregistrering | ja | ja | ✅ |
 | 107 | Atypisk moms på bilagstype | ja | ja | ✅ |
 | 108 | Salg/køb spredt over mange bilagstyper | ja | ja | ✅ |
+| 109 | Fradragsprocent-afvigelse | ja | ja | ✅ |
 
-Dækning: **104** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
+Dækning: **105** scenarier (repræsentativt startsæt; udvides til alle 98 aktive kontroller).
 

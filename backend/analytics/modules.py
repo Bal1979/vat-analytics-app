@@ -1,9 +1,9 @@
 """
-Analyse-moduler: momsrelevans-slankning af de 108 kontroller.
+Analyse-moduler: momsrelevans-slankning af de 109 kontroller.
 
 Baggrund
 --------
-Værktøjet rummer 108 kontroller, men langt fra alle er momsanalyser. Efter
+Værktøjet rummer 109 kontroller, men langt fra alle er momsanalyser. Efter
 gennemgangen med Fabian (berigelsesnotatet, del A) skelner vi mellem:
 
 - **Momskernen** (default TIL): de kontroller, der har en direkte momsfaglig
@@ -93,14 +93,15 @@ _OVERRIDES = {
     **{tid: "dublet_recovery" for tid in (13, 15, 18)},
     # E-handel & særordninger (default fra, klientbetinget)
     **{tid: "ehandel_saerordninger" for tid in range(94, 104)},  # kat 12 (hele)
-    # Kontrol 104-108 (gap-analysen, Bal-godkendt 2026-09-18, kat 13) er
-    # UANGIVNE her og forbliver derfor i momskernen (default TIL) — de har
-    # alle direkte momsfaglig konsekvens (valuta/kode-krydskontrol, RC,
-    # import, bilagstype), samme mandat som resten af momskernen.
+    # Kontrol 104-109 (gap-analysen + gap-analyse-runde 2, Bal-godkendt
+    # 2026-09-18/2026-09-20, kat 13) er UANGIVNE her og forbliver derfor i
+    # momskernen (default TIL) — de har alle direkte momsfaglig konsekvens
+    # (valuta/kode-krydskontrol, RC, import, bilagstype, fradragsprocent),
+    # samme mandat som resten af momskernen.
 }
 
-# Fuldt opslag for alle 108 kontroller.
-CONTROL_MODULE = {tid: _OVERRIDES.get(tid, "moms_kerne") for tid in range(1, 109)}
+# Fuldt opslag for alle 109 kontroller.
+CONTROL_MODULE = {tid: _OVERRIDES.get(tid, "moms_kerne") for tid in range(1, 110)}
 
 
 # --- Opslag ----------------------------------------------------------------
@@ -153,7 +154,7 @@ def module_summary(active_modules: set) -> list:
     """Struktureret oversigt til rapport/UI: hvert modul med aktiv-flag,
     antal kontroller og default-tilstand."""
     counts = {}
-    for tid in range(1, 109):
+    for tid in range(1, 110):
         counts[module_of(tid)] = counts.get(module_of(tid), 0) + 1
     out = []
     for key, meta in MODULES.items():

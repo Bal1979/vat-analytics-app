@@ -1,8 +1,8 @@
 {
-  "catalog_version": "1.4.0",
-  "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 108 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
+  "catalog_version": "1.5.0",
+  "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 109 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
   "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
-  "antal_kontroller": 108,
+  "antal_kontroller": 109,
   "kategorier": [
     {
       "id": 1,
@@ -105,7 +105,7 @@
       "navn": "Krydsdimensionelle kontroller",
       "test_range": [
         104,
-        108
+        109
       ]
     }
   ],
@@ -115,7 +115,7 @@
       "navn": "Momskerne",
       "beskrivelse": "Kontroller med direkte momsfaglig konsekvens: sats, fradragsret, angivelse, reverse charge, place-of-supply og momsafstemning. Fundamentet i en momsgennemgang.",
       "default_aktiv": true,
-      "antal_kontroller": 65
+      "antal_kontroller": 66
     },
     {
       "noegle": "forensic_statistik",
@@ -2617,6 +2617,29 @@
       "default_aktiv": true,
       "modul": "analytics/categories/cat13_cross_dimension.py",
       "funktion": "test_108_source_code_spread",
+      "kilde": "",
+      "test": "tests/test_validation_suite.py + validation/scenarios.py",
+      "afhaenger_af": "",
+      "scope_beslutning": ""
+    },
+    {
+      "id": "VATA-109",
+      "test_id": 109,
+      "navn": "Fradragsprocent-afvigelse",
+      "kategori_id": 13,
+      "kategori": "Krydsdimensionelle kontroller",
+      "impact_type": [
+        "economic"
+      ],
+      "severity": [
+        "dynamisk"
+      ],
+      "status": "aktiv",
+      "analyse_modul": "moms_kerne",
+      "analyse_modul_navn": "Momskerne",
+      "default_aktiv": true,
+      "modul": "analytics/categories/cat13_cross_dimension.py",
+      "funktion": "test_109_deduction_rate_deviation",
       "kilde": "",
       "test": "tests/test_validation_suite.py + validation/scenarios.py",
       "afhaenger_af": "",

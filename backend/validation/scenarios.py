@@ -743,7 +743,8 @@ SCENARIOS = [
                                  description="Salg af brugt udstyr")),
     },
 
-    # === cat13: Krydsdimensionelle kontroller (104-108, gap-analysen, Bal-godkendt 2026-09-18) ===
+    # === cat13: Krydsdimensionelle kontroller (104-108, gap-analysen, Bal-godkendt 2026-09-18;
+    # 109 tilføjet gap-analyse-runde 2, Bal-godkendt 2026-09-20) ===
     {
         "test_id": 104, "navn": "Udenlandsk valuta med indenlandsk standardmoms",
         "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, tax_code="DOMESTIC|STANDARD_VAT",
@@ -797,5 +798,28 @@ SCENARIOS = [
             mk_txn(mk_line(debit_amount=100.0, source_code=f"TYPE{i % 5}"), transaction_id=f"K-{i}")
             for i in range(30)
         ]),
+    },
+    {
+        # Kontrol 109 (Fradragsprocent-afvigelse, gap-analyse-runde 2,
+        # Bal-godkendt 2026-09-20): ET50-lignende delvis-fradragsret-kode
+        # (25% sats, 50% ikke-fradragsberettiget -> Deductible% 50%).
+        # Ren baseline: bogført moms = grundlag × 25% × 50% (125,00 af
+        # 1.000,00). Defekt: fuld 25% bogført som fradragsberettiget
+        # (250,00) -- ekspertens kritiske systemfejl-mønster.
+        "test_id": 109, "navn": "Fradragsprocent-afvigelse",
+        "clean": mk_data(
+            mk_txn(mk_line(debit_amount=1000.0, tax_code="ET50", tax_percentage=25.0,
+                           tax_base=1000.0, tax_amount=125.0)),
+            header={"vat_setup_loaded": True},
+            tax_table=[{"tax_code": "ET50", "tax_percentage": 25.0,
+                       "non_deductible_vat_pct": 50.0, "setup_matched": True}],
+        ),
+        "defect": mk_data(
+            mk_txn(mk_line(debit_amount=1000.0, tax_code="ET50", tax_percentage=25.0,
+                           tax_base=1000.0, tax_amount=250.0)),
+            header={"vat_setup_loaded": True},
+            tax_table=[{"tax_code": "ET50", "tax_percentage": 25.0,
+                       "non_deductible_vat_pct": 50.0, "setup_matched": True}],
+        ),
     },
 ]

@@ -17,6 +17,7 @@ def test_theme_of_maps_known_controls():
     assert rt.theme_of(14) == "proces"
     assert rt.theme_of(82) == "timing"
     assert rt.theme_of(5) == "timing"
+    assert rt.theme_of(109) == "fradragsret"
 
 
 def test_theme_of_unmapped_control_returns_none():
@@ -28,9 +29,13 @@ def test_timing_is_always_promoted():
     assert "timing" in rt.ALWAYS_PROMOTED_THEMES
 
 
-def test_theme_order_covers_all_six_themes():
+def test_fradragsret_is_always_promoted():
+    assert "fradragsret" in rt.ALWAYS_PROMOTED_THEMES
+
+
+def test_theme_order_covers_all_seven_themes():
     assert set(rt.THEME_ORDER) == set(rt.THEMES)
-    assert len(rt.THEME_ORDER) == 6
+    assert len(rt.THEME_ORDER) == 7
 
 
 def _finding(test_id, account_id=None, tax_code=None, amount=0.0, description=""):

@@ -1,5 +1,5 @@
 """
-Kategori 13: Krydsdimensionelle kontroller (Tests 104-108)
+Kategori 13: Krydsdimensionelle kontroller (Tests 104-109)
 
 Nye deterministiske kontroller fra gap-analysen (BALAI-motoren vs.
 ekspertleverancen, Bal-godkendt 2026-09-18). Fælles for dem alle:
@@ -26,6 +26,11 @@ feltet "ikke målbar"-gates de via analytics/readiness.py, præcis som motorens
 INGEN af kontrollerne her hardkoder kunde-/leverandørnavne eller -numre —
 alle grænser er strukturelle (Bus.-gruppe, produktkode-mønster, valuta,
 calc type, bilagstype), jf. opgavens eksplicitte krav.
+
+Kontrol 109 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): Fradragsprocent-
+afvigelse — ekspertens KRITISKE systemfejl-fund gjort deterministisk efter
+F3's bilagsniveau-momsmodel (se analytics.vat_form). Formuafhængig (virker
+på både linje- og kontobaseret form).
 """
 
 from collections import defaultdict
@@ -33,6 +38,7 @@ from collections import defaultdict
 from analytics.models import make_finding
 from analytics import materiality
 from analytics import vat_rules as vr
+from analytics import vat_form as vf
 
 
 def run_cross_dimension_tests(data: dict) -> list:
@@ -42,6 +48,7 @@ def run_cross_dimension_tests(data: dict) -> list:
     findings.extend(test_106_import_indicator(data))
     findings.extend(test_107_atypical_vat_by_source_code(data))
     findings.extend(test_108_source_code_spread(data))
+    findings.extend(test_109_deduction_rate_deviation(data))
     return findings
 
 
@@ -301,4 +308,105 @@ def test_108_source_code_spread(data: dict) -> list:
                            "normale debitor-/kreditorsystem bør samles/ryddes op.",
             transactions=[],
         ))
+    return findings
+
+
+# === TEST 109: Fradragsprocent-afvigelse ===
+#
+# Gap-analyse-runde 2 (Bal-godkendt 2026-09-20): ekspertens KRITISKE
+# systemfejl-fund (X-Ray s. 39-42, momskoder med delvis fradragsret som
+# ET50/R/EI) — moms bogført med FULDT fradrag i stedet for den reducerede
+# Deductible%, som kundens egen vat_setup faktisk registrerer. Kun mulig
+# som en DETERMINISTISK kontrol efter F3's bilagsniveau-koblingen (se
+# analytics.vat_form): på kontobaseret form (fx IFS) ligger grundlag og
+# moms på forskellige linjer i samme bilag, så en pr.-linje-sammenligning
+# aldrig ville kunne se afvigelsen.
+
+def test_109_deduction_rate_deviation(data: dict) -> list:
+    """Pr. bilag+momskode med delvis fradragsret (vat_setup's
+    ``non_deductible_vat_pct`` > 0): forventet BOGFØRT (fradragsberettiget)
+    moms = grundlag × sats × Deductible% (Deductible% = 100% -
+    non_deductible_vat_pct). En afvigelse ud over materialitets-tolerancen
+    er et fund — typisk fordi den FULDE moms er bogført som fradragsberettiget
+    indgående moms i stedet for kun den fradragsberettigede andel.
+
+    Kræver kundens vat_setup indlæst (``header.vat_setup_loaded``) OG at
+    non_deductible_vat_pct-signalet rent faktisk er sat for koden (balai_
+    extensions, kontrakt v0.4.0) — uden det er der intet Deductible% at måle
+    imod, og kontrollen springer pænt over (samme mønster som kontrol
+    19/24's vat_setup-afhængige gren, ``cat03_vat_rate_validation.py``).
+
+    Formuafhængig (F3): virker på BÅDE linjebaseret (BC) og kontobaseret
+    (IFS) form via ``vat_form.voucher_code_aggregates`` — på linjebaseret
+    form falder bilag+kode-aggregatet naturligt sammen med linjens egne tal
+    (grundlag og moms bor på samme linje), så kontrollen er ligeså
+    meningsfuld på et BC-udtræk med en delvis-fradragsret-opsætning."""
+    header = data.get("header") or {}
+    if not header.get("vat_setup_loaded"):
+        return []
+
+    setup_by_code = vf.code_rate_lookup(data)
+    account_based = vf.is_account_based(data)
+
+    findings = []
+    for txn in data["transactions"]:
+        agg = vf.voucher_code_aggregates(txn, account_based)
+        for code, entry in agg.items():
+            setup = setup_by_code.get(code)
+            if not setup or not setup.get("setup_matched"):
+                continue
+            nd_pct = setup.get("non_deductible_vat_pct")
+            if not nd_pct:  # None eller 0 -- fuld fradragsret, intet at måle
+                continue
+            rate = setup.get("tax_percentage") or 0
+            # Fortegns-bemærkning (samme som cat01/cat03's account-based
+            # grene): moms og grundlag sammenlignes som MAGNITUDER, fordi
+            # IFS' vat_amount bærer samme fortegn som grundlagets netto
+            # debet-kredit (negativt på salgssiden).
+            base = abs(entry["base"])
+            actual_vat = abs(entry["vat"])
+            if not rate or base == 0 or actual_vat == 0:
+                continue
+            deductible_pct = max(0.0, 100.0 - nd_pct)
+            expected_vat = round(base * rate / 100 * deductible_pct / 100, 2)
+            diff = round(actual_vat - expected_vat, 2)
+            if abs(diff) <= materiality.CONTROL_109_TOLERANCE:
+                continue
+            direction = "positive" if diff > 0 else "negative"  # positive = for meget fratrukket
+            ref_line = (entry["vat_lines"] or entry["base_lines"])[0]
+            findings.append(make_finding(
+                test_id=109,
+                test_name="Fradragsprocent-afvigelse",
+                impact_type="economic",
+                direction=direction,
+                severity="high" if abs(diff) > materiality.CONTROL_109_HIGH_THRESHOLD else "medium",
+                description=(
+                    f"Bilag {txn['transaction_id']}, momskode '{code}' (Deductible% "
+                    f"{deductible_pct:g}%): bogført moms {actual_vat:.2f}, forventet "
+                    f"{expected_vat:.2f} (grundlag {base:.2f} × {rate:g}% × "
+                    f"{deductible_pct:g}%) — difference {abs(diff):.2f} DKK."
+                ),
+                fix_suggestion=(
+                    f"Tjek fradragsbegrænsningen for momskode '{code}'. Kun "
+                    f"{deductible_pct:g}% af momsen er fradragsberettiget (§42-lignende "
+                    f"begrænsning) — de resterende {nd_pct:g}% skal bogføres som en "
+                    f"ikke-fradragsberettiget omkostning, ikke som fratrukket indgående moms."
+                ),
+                estimated_amount=abs(diff),
+                transactions=[{
+                    "transaction_id": txn["transaction_id"],
+                    "journal_id": txn.get("journal_id", ""),
+                    "date": txn.get("date", ""),
+                    "account_id": ref_line.get("account_id", ""),
+                    "description": txn.get("description", ""),
+                    "amount": base,
+                    "tax_code": code,
+                    "vat_recorded": actual_vat,
+                    "vat_expected": expected_vat,
+                    "deductible_pct": deductible_pct,
+                    "non_deductible_pct": nd_pct,
+                    "difference": diff,
+                    "highlighted_field": "tax_amount",
+                }],
+            ))
     return findings
