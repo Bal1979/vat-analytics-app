@@ -3,6 +3,125 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kalibrering: højrisikovare-nøgleord matchede leverandørnavne (kontrol 84/87/88) — 2026-09-20
+
+Baggrund: kunde 2's åbne tråd fra kontrol 84-efterforskningen ("højrisikovare-
+match på leverandørnavne") — Bal-godkendt, lille afgrænset kalibrering.
+Katalog v1.5.1 uændret (regeladfærd, ingen nye/omnummererede kontroller),
+datakontrakt v0.5.0 uændret, **550 automatiserede tests** (10 nye,
+`tests/test_hoejrisikovare_ordgraenser_2026_09_20.py`, syntetiske
+selskabsnavne — INGEN kundedata), valideringssuite **105/105** uændret.
+
+**Feltkortlægning (empirisk-først, FØR nogen kodeændring):** højrisikovare-
+matchet (`vat_rules.MTIC_HIGH_RISK_KEYWORDS`, brugt af kontrol 84/87/88) kører
+udelukkende mod `f"{txn.description} {line.description}"` — ALDRIG mod et
+separat "leverandørnavn"-felt. På kunde 2s IFS-kanoniske data findes der
+strukturelt IKKE noget sådant felt (`supplier_name`/`customer_name` er altid
+""; leverandør-/kundestamdata-CSV'erne (`vendors.csv`/`customers.csv`) bærer
+kun `vat_registration_numbers`/`counterparty_country`, intet navn). Årsagen
+til "navne-match" er i stedet, at IFS's frie posteringstekst for udenlandske
+leverandørbetalinger (netop kontrol 84's population: udenlandsk, ofte uden
+momsnr.) OFTE ER modpartens navn (samtlige 24 nuværende kontrol 84-fund har
+en ren firmanavns-posteringstekst — advokatkontorer, konsulentselskaber,
+sikkerhedsleverandører m.fl., ingen navne gengivet her jf. datapolitikken).
+Der er intet felt at "undgå" — problemet er substring-matching mod et
+fritekstfelt, der i praksis dobbelt-bruges.
+
+**Fordelingen (kunde 2s gl_entries.csv, linje-niveau, 1.735 rå keyword-hits —
+ingen kundenavne/-tekster gengivet, kun mønsterbeskrivelser):**
+
+| Nøgleord | Hits | Sammensætning |
+|---|---|---|
+| guld | 1.150 (66%) | ~100% et dansk stednavn, der selv indgår i tre forsyningsselskabers navne (vand/varme) — 0 reel guldhandel fundet |
+| mobil | 441 (25%) | en udbredt betalingsapp, flere elektronik-/it-selskabers navne, to store tele-/energiselskabers egne navne ("Mobil" som selvstændigt ord i selskabsnavnet), "mobilt bredbånd" (service) — 0 reel mobiltelefon-vare fundet ud over 3 linjer om "moms på mobiltelefoner" (regnskabspost, ikke en transaktion) |
+| telefon | 126 (7%) | en telefonbogstjeneste, "vagttelefon" (personalegode-compound), et teleselskabs egne regningsbetalinger |
+| chip | 12 (1%) | en lagernedskrivningspost for elektronikkomponenter (afskrivning, ikke en transaktion), et valutavekslingsselskabs eget navn |
+| platin | 6 (<1%) | 100% et overfladebehandlingsselskabs navn (branchebegrebet på engelsk indeholder "platin" som substring) |
+| sølv/ædelmetal/cpu/gpu/grafikkort/processor/konsol/smartphone | 0 | ingen hits på dette datasæt |
+
+**Konklusion:** af de 1.735 rå linje-hits var **0 (nul) en genuin vare-tekst om
+høgrisikovarer** — samtlige var enten (a) en substring inde i et sammensat
+ord/navn uden mellemrum (stednavn, betalingsapp, branchebegreb, regnskabs-
+post) eller (b) et selskabsnavn hvor nøgleordet står som et selvstændigt ord
+(to selskabers egne navne). På kontrol 84's 24 fund specifikt: nøjagtigt ÉT
+fund (det eneste "critical") var et navne-match — 0 var ægte vare-tekst.
+
+**Fix (`backend/analytics/vat_rules.py`):**
+
+1. Ny `text_matches_any_word(text, keywords)` — ordgrænse-regex (`\b…\b`),
+   fjerner al compound-word-/navne-støj hvor nøgleordet er en substring i et
+   længere ord/navn UDEN mellemrum omkring roden (løser guld/platin/chip-
+   støjen direkte).
+2. `MTIC_HIGH_RISK_KEYWORDS`: den korte, tvetydige rod **"mobil" er fjernet**
+   (0 reelle hits, 100% navne-/servicenavne-støj — ordgrænser alene løser
+   IKKE dette, fordi ægte danske bøjningsformer som "mobiltelefonER" heller
+   ikke ville matche en ordgrænse på "mobil"). Ny
+   `MTIC_HIGH_RISK_COMPOUND_TERMS = {"mobiltelefon"}` dækker den ægte
+   varetekst via almindelig substring (allerede éntydig — matcher ingen af
+   de fundne navne/services) og fanger danske bøjningsformer
+   ("mobiltelefonER/-EN").
+3. Ny kombinator `mtic_high_risk_match(text)` = ordgrænse-match på
+   MTIC_HIGH_RISK_KEYWORDS ELLER substring-match på
+   MTIC_HIGH_RISK_COMPOUND_TERMS. Brugt af kontrol 84/87/88
+   (`cat11_fraud_mtic.py`) i stedet for den tidligere `text_matches_any`.
+   Bevidst IKKE indført for de øvrige nøgleordssæt i filen (CASH_KEYWORDS,
+   DOMESTIC_/CONSTRUCTION_REVERSE_CHARGE_KEYWORDS, DIGITAL_SERVICE_KEYWORDS
+   m.fl.) — uden for denne kalibrerings empiriske grundlag. Ingen
+   materialitets-knap i `materiality.py`: der er intet naturligt kalibrerbart
+   tal her (binær ordgrænse-korrektion, ikke en tærskel/engagement-parameter).
+
+**Empirisk efter-måling (kunde 2, samme `analyze_canonical.py`-kørsel,
+`--modules alle`, samme sidecar-filer som kalibreringsrunden):**
+
+| Kontrol | Før | Efter | Note |
+|---|---|---|---|
+| 84 (Missing trader) | 24 (1 kritisk + 23 høj) | **23 (0 kritisk + 23 høj)** | Fundet forsvandt HELT, ikke kun et severity-skift — se afvigelsen nedenfor |
+| 87 (Højrisikovare) | 339 lav | **28 lav** | -311 (92%), alle fjernede var navne-/compound-støj |
+| 88 (Nul-margin på højrisikovare) | 218 medium | **11 medium** | -207 (95%) |
+| 27 / 30 / 109 / 70 (vagtposter) | 520 / 40 / 402 / 9.438 | 520 / 40 / 402 / 9.438 | **UÆNDREDE**, som krævet |
+
+**Afvigelse fra en oprindelig antagelse (rapporteret eksplicit, jf. instruks
+om ikke at antage):** opgaven antog "kun severity flytter sig" for kontrol
+84. Empirisk viser det sig at være mere præcist: den ene transaktion havde
+EKSAKT 3 risikofaktorer (udenlandsk leverandør, højt beløb, højrisikovare) —
+fjernes højrisikovare-faktoren (korrekt, da den var et navne-match), rammer
+transaktionen ikke længere kontrollens 3-faktor-tærskel, og fundet
+forsvinder helt (24 → 23) i stedet for at gå fra "critical" til "high".
+Dette er den korrekte, tilsigtede konsekvens (et fund der udelukkende var
+kritisk pga. en navne-forveksling, skal ikke tælles med overhovedet) og ikke
+en fejl i fixet.
+
+**Residual-fund efter fix (87/88, ikke løst — dokumenteret, ingen
+kunde-specifik hack):** et teleselskabs egne regningsbetalinger (20+7 fund)
+og et valutavekslingsselskabs eget navn (3 fund) matcher fortsat, fordi
+nøgleordet her står som et LØSREVET, selvstændigt ord med mellemrum omkring
+— ordgrænser løser kun sammensatte ord/navne uden mellemrum, ikke ægte
+firmanavne der bærer et løsrevet nøgleord. Samme klasse som de to
+tele-/energiselskabers egne navne, som "mobil"-fjernelsen allerede løste. En
+generisk løsning for denne resterende klasse (fx et navne-
+ekskluderingsregister) er uden for denne rundes empiriske grundlag og
+kræver egen evidensrunde.
+
+**BC-v5-regression:** kørt via examples-workflow (`vat-extract`s
+`python -m dataextract.transform "General Ledger Entries 2025 (1).xlsx"
+--sheet "General Ledger Entries"` → kanonisk CSV, 125.986 rækker) +
+`analyze_canonical.py --modules alle` i en isoleret git-worktree (FØR =
+commit `2339329`) mod arbejdstræet (EFTER). **Synligt output byte-for-byte
+identisk**: 23.549 fund begge veje (kritisk=0 høj=143 medium=14.994
+lav=8.412), kontrol 84/87/88 uændret 0 fund begge veje (alle tre er
+'ikke_maalbar'-gated på BC-vejen — `country`-feltet findes ikke i
+datagrundlaget, samme kendte begrænsning som hidtil). Eneste difference:
+det interne, ikke-rapporterede tælleTal `ikke_maalbare_fund_fjernet`
+(23.561 → 23.550, -11) — færre RÅ (senere alligevel fuldt bortfiltrerede)
+kandidat-fund på de tre allerede 'ikke målbare' kontroller, uden nogen
+synlig effekt. **OBS (rapporteret eksplicit, ikke antaget):** den friskt
+genererede kanoniske CSV giver 23.549 fund (mapping_version 1.3.0), ikke det
+tidligere dokumenterede baseline-tal 23.095 — dette er en pre-eksisterende
+uoverensstemmelse fra `vat-extract`s mapping-udvikling siden sidste
+regression (bekræftet UAFHÆNGIGT af denne kalibrering: FØR- og EFTER-kørslen
+brugte samme friske CSV og gav samme 23.549, så uoverensstemmelsen findes
+allerede på commit `2339329`, før mine ændringer).
+
 ## Kontrol 84-efterforskningen + K5-b: momskode-værn, kollektivnummer-undtagelse og severity pr. fund — 2026-09-20
 
 Baggrund: K4's åbne tråd (kontrol 84's residual domineret af et leverandør-

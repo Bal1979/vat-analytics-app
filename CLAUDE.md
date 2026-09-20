@@ -25,6 +25,36 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-20)
 
+- **Kalibrering: højrisikovare-nøgleord matchede leverandørnavne (2026-09-20,
+  committet lokalt — ikke pushet):** kunde 2's åbne tråd fra kontrol
+  84-efterforskningen lukket. Feltkortlægning bekræftede at
+  `MTIC_HIGH_RISK_KEYWORDS` (kontrol 84/87/88) kun matcher mod
+  `txn.description`/`line.description` — der findes strukturelt IKKE noget
+  separat leverandørnavne-felt på kunde 2s kanoniske data (`supplier_name`
+  altid ""); problemet er at IFS's frie posteringstekst for udenlandske
+  leverandørbetalinger OFTE ER modpartens navn. Empirisk på kunde 2s data:
+  1.735 rå keyword-hits, **0 var en genuin vare-tekst** — alle var enten en
+  substring i et sammensat ord/navn (et stednavn i et forsyningsselskabs
+  navn→guld, en betalingsapp/flere selskabsnavne→mobil, et engelsk
+  branchebegreb→platin) eller et selskabsnavn med nøgleordet som løsrevet
+  ord (to tele-/energiselskabers egne navne). Ingen kundenavne/-tekster
+  gengivet her, jf. datapolitikken — se `docs/CHANGELOG.md` for de fulde
+  mønsterbeskrivelser. Fix: ny `vat_rules.text_matches_any_word`
+  (ordgrænse-regex) + fjernet den tvetydige rod "mobil" til fordel for det
+  éntydige, bøjningssikre `MTIC_HIGH_RISK_COMPOUND_TERMS =
+  {"mobiltelefon"}`, samlet i `mtic_high_risk_match()`. Katalog
+  v1.5.1/kontrakt v0.5.0 uændrede, **550 tests** (10 nye, syntetiske
+  selskabsnavne), 105/105 validering. Kunde 2: kontrol 84 24→23 (fundet med
+  navnematchet forsvandt HELT — ikke kun et severity-skift, da det ramte
+  3-faktor-tærsklen eksakt, en eksplicit rapporteret afvigelse fra den
+  oprindelige antagelse), kontrol 87 339→28, kontrol 88 218→11; vagtposter
+  27/30/109/70 uændrede. BC-v5 (frisk canonical CSV via vat-extracts
+  `dataextract.transform`, worktree-verificeret mod commit `2339329`):
+  synligt output byte-for-byte identisk (23.549 fund begge veje; 84/87/88
+  fortsat 'ikke målbar'-gated på BC-vejen, uændret). Kendt, dokumenteret
+  residual (ikke løst, ingen kunde-specifik hack): et selskabsnavn med
+  nøgleordet som løsrevet selvstændigt ord (fx et valutavekslingsselskabs
+  eget navn) matcher fortsat. Se `docs/CHANGELOG.md`.
 - **Kontrol 84-efterforskningen + K5-b (2026-09-20, committet lokalt — ikke
   pushet):** K4's åbne kartoteks-tråd lukket som motor-spørgsmål. Tre
   generiske ændringer: momskode-værn for kontrol 70+84 (K2-princippet),
@@ -325,7 +355,7 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **515 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
+- **550 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
   øverste statuspunkter for de seneste opdateringer (2026-09-20).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
@@ -338,7 +368,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 515 tests
+python -m pytest -q                            # 550 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 105/105 uafhængig validering

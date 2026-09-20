@@ -561,9 +561,30 @@ CONSTRUCTION_REVERSE_CHARGE_KEYWORDS = {
 }
 
 # Typiske MTIC/karrusel-højrisikovarer.
+#
+# Kalibrering 2026-09-20 (kunde-empiri, Bal-godkendt — se
+# `text_matches_any_word`s docstring og `mtic_high_risk_match` nedenfor,
+# ALDRIG kundenavne/-tekster i denne fil, kun mønsterbeskrivelser): den
+# korte, tvetydige rod "mobil" er FJERNET herfra. Matchet på rigtige
+# kundedata ramte udelukkende leverandør-/selskabsnavne og en udbredt
+# betalingsservice, hvor "mobil" indgår som en substring i et længere,
+# sammensat navn/brand (fx en betalingsapp, en elektronikforhandler, et
+# teleselskabs eget navn) — 0 reelle vare-tekster om mobiltelefoner. Det
+# éntydige, sammensatte ord "mobiltelefon" (som ikke kolliderer med den
+# slags navne/brands) dækker den reelle varetekst i stedet, se
+# MTIC_HIGH_RISK_COMPOUND_TERMS.
 MTIC_HIGH_RISK_KEYWORDS = {
-    "mobil", "telefon", "smartphone", "cpu", "processor", "grafikkort",
+    "telefon", "smartphone", "cpu", "processor", "grafikkort",
     "gpu", "konsol", "ædelmetal", "guld", "sølv", "platin", "chip",
+}
+
+# Sammensatte varetermer, der IKKE går gennem ordgrænse-matchet ovenfor:
+# de er allerede specifikke nok til at matches som ren substring uden at
+# kollidere med selskabs-/betalingsservicenavne (se docstring ovenfor), og
+# skal fortsat ramme danske bøjningsformer ("mobiltelefonER/-EN") som en
+# ordgrænse i den modsatte ende ville blokere.
+MTIC_HIGH_RISK_COMPOUND_TERMS = {
+    "mobiltelefon",
 }
 
 # Tekst-signaler for kontantbetaling.
@@ -583,6 +604,72 @@ def text_matches_any(text, keywords):
         return False
     low = str(text).lower()
     return any(kw in low for kw in keywords)
+
+
+_WORD_BOUNDARY_PATTERN_CACHE = {}
+
+
+def text_matches_any_word(text, keywords):
+    """Som `text_matches_any`, men kræver at nøgleordet optræder som et HELT
+    ord (regex-ordgrænser \\b), ikke som substring i et længere ord/navn.
+
+    Kalibrering "højrisikovare-nøgleord/leverandørnavne" (kunde-empiri,
+    2026-09-20, Bal-godkendt -- ALDRIG kundenavne/-tekster i denne fil, kun
+    mønsterbeskrivelser, se `docs/CHANGELOG.md` for de kvantificerede tal):
+    den brede substring-matching i `text_matches_any` rammer for bredt på
+    fritekstfelter, der i praksis (bl.a. en ERP-kildes posteringstekst for
+    leverandørbetalinger, hvor teksten OFTE ER modpartens navn -- der findes
+    ingen separat "leverandørnavn"-kolonne at undgå) matcher rent tilfældigt
+    på et selskabsnavn/brand eller et andet ord med samme rod. Observerede
+    mønstre: et nøgleord som substring i et stednavn, der selv indgår i et
+    forsyningsselskabs navn; i det engelske branchebegreb for en
+    overfladebehandlingsproces; i en regnskabspost om lagernedskrivning af
+    elektronikkomponenter. Ordgrænser fjerner al denne compound-word-støj,
+    fordi nøgleordet i disse tilfælde ALTID er en del af et længere
+    sammensat ord/navn uden mellemrum omkring roden. (Den korte rod "mobil"
+    havde SAMME problem, men er løst ved helt at udgå af nøgleordssættet --
+    se MTIC_HIGH_RISK_KEYWORDS/MTIC_HIGH_RISK_COMPOUND_TERMS's kommentarer
+    og `mtic_high_risk_match` nedenfor, fordi den ægte varetekst
+    "mobiltelefon" bøjes på dansk ("mobiltelefonER") og derfor har brug for
+    en anden matching-strategi end ren ordgrænse.)
+
+    Bruges i dag KUN til `MTIC_HIGH_RISK_KEYWORDS` (kontrol 84/87/88) --
+    bevidst IKKE indført for de øvrige nøgleordssæt i denne fil (CASH_
+    KEYWORDS, DOMESTIC_/CONSTRUCTION_REVERSE_CHARGE_KEYWORDS, DIGITAL_
+    SERVICE_KEYWORDS m.fl.), da denne kalibrerings empiriske grundlag er
+    afgrænset til højrisikovare-matchingen -- se kalibreringsnotatet i
+    `docs/CHANGELOG.md`.
+
+    Kendt, dokumenteret residual (IKKE løst af ordgrænser, rapporteret
+    eksplicit i kalibreringsnotatet i stedet for antaget væk): et selskabsnavn
+    hvor nøgleordet optræder som et selvstændigt ord med mellemrum omkring
+    (fx et valutavekslingsselskabs eget navn) matcher fortsat -- ordgrænser
+    løser kun sammensatte ord/navne uden mellemrum, ikke ægte firmanavne der
+    indeholder et løsrevet nøgleord. Ingen kunde-specifik hack indført for
+    det tilfælde."""
+    if not text:
+        return False
+    key = frozenset(k.lower() for k in keywords)
+    pattern = _WORD_BOUNDARY_PATTERN_CACHE.get(key)
+    if pattern is None:
+        pattern = re.compile(
+            r"\b(?:" + "|".join(re.escape(k) for k in sorted(key)) + r")\b",
+            re.IGNORECASE,
+        )
+        _WORD_BOUNDARY_PATTERN_CACHE[key] = pattern
+    return pattern.search(str(text)) is not None
+
+
+def mtic_high_risk_match(text):
+    """Samlet højrisikovare-match til kontrol 84/87/88 (kalibrering
+    2026-09-20, Bal-godkendt): ordgrænse-match på `MTIC_HIGH_RISK_KEYWORDS`
+    (undgår compound-word-/navne-støj, se `text_matches_any_word`s docstring)
+    ELLER substring-match på `MTIC_HIGH_RISK_COMPOUND_TERMS` -- allerede
+    éntydige sammensatte varetermer ("mobiltelefon"), der bevidst IKKE går
+    gennem ordgrænse-kravet, fordi danske bøjningsformer
+    ("mobiltelefonER/-EN") ellers ville blive udelukket."""
+    return (text_matches_any_word(text, MTIC_HIGH_RISK_KEYWORDS)
+            or text_matches_any(text, MTIC_HIGH_RISK_COMPOUND_TERMS))
 
 
 # === BC/NAV VAT POSTING SETUP-SEMANTIK ===

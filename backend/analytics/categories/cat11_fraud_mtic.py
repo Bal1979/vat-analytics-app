@@ -153,7 +153,23 @@ def test_84_missing_trader(data, supplier_lookup):
        2 fund); ellers "high" (residualpopulationen er empirisk
        leverandørkartotek-datakvalitet: reelle, navngivne leverandører
        uden registreret momsnummer — et afklaringsspørgsmål, ikke en
-       kritisk svindelalarm)."""
+       kritisk svindelalarm).
+    4. **Højrisikovare-nøgleord kun som helt ord** (kalibrering 2026-09-20,
+       Bal-godkendt, se `vat_rules.text_matches_any_word`'s docstring for
+       den fulde empiri): "højrisikovare"-faktoren brugte tidligere
+       substring-match og ramte derfor også leverandørnavne, fordi
+       posteringsteksten på denne type linjer (udenlandsk leverandør uden
+       momsnr.) OFTE ER modpartens navn. Konkret fjernede dette en kundes
+       eneste "critical"-fund (en transaktion mod en udenlandsk leverandør,
+       hvor "mobil" var substring af selskabsnavnet, ikke en vare -- se
+       `docs/CHANGELOG.md`, ingen kundenavne i denne fil). Uden
+       højrisikovare-flaget har transaktionen kun 2 af de øvrige
+       risikofaktorer og rammer IKKE længere 3-faktor-tærsklen — fundet
+       forsvinder helt (24 → 23), IKKE kun et severity-skift. Dette er en
+       bevidst, korrekt konsekvens (et fund der udelukkende var kritisk pga.
+       en navne-forveksling, skal ikke tælles med overhovedet), men afviger
+       fra en oprindelig antagelse om at kun severity ville flytte sig — se
+       `docs/CHANGELOG.md` for den fulde før/efter-rapportering."""
     findings = []
     shared_descs = _shared_vat_desc_counts(
         data, supplier_lookup, cap=materiality.CONTROL_84_SHARED_VAT_MIN_DESCS)
@@ -180,8 +196,7 @@ def test_84_missing_trader(data, supplier_lookup):
                     flags.append("ugyldigt momsnr")
             if amount >= 50000:
                 flags.append("højt beløb")
-            if vr.text_matches_any(f"{txn['description']} {line.get('description','')}",
-                                   vr.MTIC_HIGH_RISK_KEYWORDS):
+            if vr.mtic_high_risk_match(f"{txn['description']} {line.get('description','')}"):
                 flags.append("højrisikovare")
 
             if len(flags) >= 3:
@@ -264,7 +279,7 @@ def test_87_high_risk_goods(data):
         for line in txn["lines"]:
             amount = abs(line["debit_amount"] + line["credit_amount"])
             text = f"{txn['description']} {line.get('description','')}"
-            if amount >= 25000 and vr.text_matches_any(text, vr.MTIC_HIGH_RISK_KEYWORDS):
+            if amount >= 25000 and vr.mtic_high_risk_match(text):
                 findings.append(make_finding(
                     test_id=87, test_name="Højrisikovare",
                     impact_type="compliance", direction="neutral", severity="low",
@@ -288,7 +303,7 @@ def test_88_zero_margin(data):
     for txn in data["transactions"]:
         for line in txn["lines"]:
             text = f"{txn['description']} {line.get('description','')}"
-            if not vr.text_matches_any(text, vr.MTIC_HIGH_RISK_KEYWORDS):
+            if not vr.mtic_high_risk_match(text):
                 continue
             amount = abs(line["debit_amount"] + line["credit_amount"])
             if amount < 10000:
