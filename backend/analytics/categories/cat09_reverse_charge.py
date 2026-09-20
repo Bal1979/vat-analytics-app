@@ -68,12 +68,26 @@ def _ref(txn, line, **extra):
 # === TEST 70: Manglende reverse charge på EU-ydelser ===
 
 def test_70_eu_service_no_rc(data, supplier_lookup):
-    """EU-køb uden moms og uden RC-markering — erhvervelsesmoms mangler muligvis."""
+    """EU-køb uden moms og uden RC-markering — erhvervelsesmoms mangler muligvis.
+
+    Momskode-værn (K5-b, kontrol 84-efterforskningen, 2026-09-20 — samme
+    princip som K2/kontrol 32): linjer HELT uden momskode springes over.
+    Empirisk på kunde 2s IFS-datasæt lå 41.366/50.804 fund (81%) på
+    momskode-løse linjer, og ALLE de store konti bag dem var afregnings-/
+    balance-natur (IC-tilgodehavender, valutakursdifferencer, AR/AP-
+    afregning, omsætningsrabatter) — betalinger og afregninger, ikke køb.
+    BC-v5: 0 fund før som efter (byte-identisk). KENDT residualrisiko
+    (dokumenteret, bevidst accepteret): et EU-køb bogført helt uden
+    momskode kan ikke længere flages af denne kontrol — den klasse var
+    empirisk tom på begge datasæt, og momskodede-men-umarkerede EU-køb
+    (kontrollens kernepopulation) er uberørt."""
     findings = []
     for txn in data["transactions"]:
         for line in txn["lines"]:
             if (line.get("debit_amount", 0) or 0) <= 0:
                 continue
+            if not line.get("tax_code"):
+                continue  # momskode-værn (K5-b) -- se docstring
             country = _country(line, supplier_lookup)
             if not vr.is_eu_country(country) or country == "DK":
                 continue

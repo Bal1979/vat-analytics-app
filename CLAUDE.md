@@ -25,6 +25,21 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-20)
 
+- **Kontrol 84-efterforskningen + K5-b (2026-09-20, committet lokalt — ikke
+  pushet):** K4's åbne kartoteks-tråd lukket som motor-spørgsmål. Tre
+  generiske ændringer: momskode-værn for kontrol 70+84 (K2-princippet),
+  kollektivnummer-undtagelse for kontrol 84 (delt EU-ugyldigt nummer med ≥
+  `CONTROL_84_SHARED_VAT_MIN_DESCS` distinkte beskrivelsestekster =
+  kartotekets samle-kontokonvention, bekræftet i kundens eget kartotek: 24
+  Tax ID'er delt af ≥3 navne), severity pr. fund (kritisk kun med
+  højrisikovare-faktoren). Katalog **v1.5.1** (84 nu "dynamisk"), **540
+  tests**, validering 105/105 (70/84-scenarier omdesignet). Kunde 2:
+  kontrol 70 50.804→9.438, kontrol 84 330→24 (1 kritisk + 23 høj);
+  vagtposter 27/30/109 + alle øvrige 107 kontroller fund-identiske
+  (mmap-tælling). BC-v5 byte-identisk (worktree-verificeret; kontrol 84 er
+  'ikke målbar'-gated på BC-vejen). Åbne tråde: kontrol 70's E-kode-
+  residual (RC-natur uafklaret), højrisikovare-match på leverandørnavne.
+  Se `docs/CHANGELOG.md`.
 - **Landetabel-runden (2026-09-20, AFVENTER Bals godkendelse — committet
   lokalt, ikke pushet):** `vat_rules._COUNTRY_NAME_TO_CODE` udvidet fra ~25
   navne til fuld, generisk ISO 3166-1-navnetabel (424 navne → 250 koder,

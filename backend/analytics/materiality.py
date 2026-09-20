@@ -117,6 +117,17 @@ CONTROL_80_MAX_REFS = _i("MATERIALITY_CONTROL_80_MAX_REFS", 10)
 # ref-begrænsning/opsummeringsmønster som kontrol 80.
 CONTROL_32_MAX_REFS = _i("MATERIALITY_CONTROL_32_MAX_REFS", 10)
 
+# Kontrol 84 (missing trader, kontrol 84-efterforskningen/K5-b, 2026-09-20):
+# "kollektivnummer"-undtagelsen. Et udfyldt momsnummer, der fejler EU-format-
+# valideringen, tæller IKKE som "ugyldigt momsnr"-risikofaktor, når præcis
+# samme værdi optræder med mindst dette antal DISTINKTE (normaliserede)
+# beskrivelsestekster i datasættet — så er værdien empirisk en samle-/
+# kollektivkonto-konvention i leverandørkartoteket (mange reelt forskellige,
+# tydeligt navngivne modparter deler ét generisk/afkortet nummer), ikke én
+# skjult handelspartner. Strukturelt signal — INGEN kundenavne/-numre i koden.
+# Formatfejlen selv dækkes fortsat af kontrol 28 (datakvalitet).
+CONTROL_84_SHARED_VAT_MIN_DESCS = _i("MATERIALITY_CONTROL_84_SHARED_VAT_MIN_DESCS", 3)
+
 # Lag mellem faktura- og bogføringsdato i dage (cat05 test_46).
 INVOICE_POSTING_LAG_DAYS = _i("MATERIALITY_INVOICE_POSTING_LAG_DAYS", 30)
 

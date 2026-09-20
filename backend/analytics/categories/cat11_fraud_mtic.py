@@ -12,6 +12,7 @@ der ikke findes i en flad regnskabseksport. De springer pænt over.
 from datetime import datetime
 from collections import defaultdict
 from analytics.models import make_finding
+from analytics import materiality
 from analytics import vat_rules as vr
 
 
@@ -96,14 +97,72 @@ def _is_intercompany(line):
     return vr.looks_like_internal_party_code(line.get("vat_number", ""))
 
 
+def _norm_desc(text):
+    """Normaliseret beskrivelsestekst til kollektivnummer-optællingen:
+    whitespace kollapset, casefoldet. Ingen semantisk tolkning."""
+    return " ".join((text or "").split()).casefold()
+
+
+def _shared_vat_desc_counts(data, supplier_lookup, cap):
+    """Antal DISTINKTE normaliserede beskrivelsestekster pr. momsnummer-værdi
+    i hele datasættet (kollektivnummer-signalet, se ``test_84_missing_trader``).
+    Optællingen er bounded: pr. nummer gemmes højst ``cap`` distinkte tekster
+    (vi skal kun vide, om antallet NÅR tærsklen, ikke det præcise antal)."""
+    seen = {}
+    for txn in data["transactions"]:
+        t_desc = txn.get("description") or ""
+        for line in txn["lines"]:
+            vat = _vat(line, supplier_lookup)
+            if not vat:
+                continue
+            bucket = seen.setdefault(vat, set())
+            if len(bucket) < cap:
+                bucket.add(_norm_desc(t_desc or line.get("description") or ""))
+    return {v: len(s) for v, s in seen.items()}
+
+
 def test_84_missing_trader(data, supplier_lookup):
     """Kombinerer flere risikofaktorer: EU-leverandør, manglende/ugyldigt
-    momsnummer, højt beløb og højrisikovare."""
+    momsnummer, højt beløb og højrisikovare.
+
+    Kalibrering "kontrol 84-efterforskningen"/K5-b (kunde 2/IFS-empiri,
+    2026-09-20 — generisk, INTET kundenavn/-nummer i koden):
+
+    1. **Momskode-værn** (K5-b, samme princip som K2/kontrol 32): en linje
+       HELT uden momskode er strukturelt uden for momsscope (bank-/
+       afregnings-/valutakurs-/koncernmellemregningslinjer) — der er ikke
+       angivet noget momsfradrag på linjen, så der findes ingen missing
+       trader-eksponering at flage. Empirisk: 235/330 kritiske fund på
+       kunde 2s IFS-datasæt lå på momskode-løse linjer (IC-tilgodehavender,
+       valutakursdifferencer, AR/AP-afregning); BC-v5's 2 fund (ved direkte kald --
+       i fuld pipeline er kontrollen 'ikke målbar'-gated på BC-vejen,
+       country mangler) har begge momskode og er uberørte.
+    2. **Kollektivnummer-undtagelsen**: et udfyldt nummer, der fejler
+       EU-formatvalideringen, tæller ikke som "ugyldigt momsnr"-faktor, når
+       samme værdi optræder med >= ``materiality.CONTROL_84_SHARED_VAT_MIN_
+       DESCS`` distinkte beskrivelsestekster i datasættet — så er værdien en
+       samle-/kollektivkonto-konvention i leverandørkartoteket (mange reelt
+       forskellige, navngivne modparter deler ét generisk/afkortet nummer,
+       fx "DE" eller et 8-cifret DE-nummer), ikke én skjult handelspartner.
+       En ægte missing trader har ét navn (1-2 tekstvarianter) og rammes
+       ikke af undtagelsen. Formatfejlen dækkes fortsat af kontrol 28.
+       Empirisk: 8 delte, ugyldige numre bar 184/330 af fundene; 0 fund
+       havde et ugyldigt nummer med < 3 beskrivelsestekster.
+    3. **Severity pr. fund**: "critical" kun når højrisikovare-faktoren
+       indgår (den klassiske MTIC-profil, fx mobiltelefoner — BC-v5's
+       2 fund); ellers "high" (residualpopulationen er empirisk
+       leverandørkartotek-datakvalitet: reelle, navngivne leverandører
+       uden registreret momsnummer — et afklaringsspørgsmål, ikke en
+       kritisk svindelalarm)."""
     findings = []
+    shared_descs = _shared_vat_desc_counts(
+        data, supplier_lookup, cap=materiality.CONTROL_84_SHARED_VAT_MIN_DESCS)
     for txn in data["transactions"]:
         for line in txn["lines"]:
             if (line.get("debit_amount", 0) or 0) <= 0:
                 continue
+            if not line.get("tax_code"):
+                continue  # momskode-værn (K5-b) -- se docstring pkt. 1
             if _is_intercompany(line):
                 continue  # koncernintern strøm -- se _is_intercompany
             country = _country(line, supplier_lookup)
@@ -116,7 +175,8 @@ def test_84_missing_trader(data, supplier_lookup):
                 flags.append("manglende momsnr")
             elif vr.is_eu_country(country):
                 valid, _ = vr.validate_eu_vat_format(vat, country)
-                if not valid:
+                if not valid and shared_descs.get(vat, 0) < materiality.CONTROL_84_SHARED_VAT_MIN_DESCS:
+                    # Delte numre er kollektivnummer-artefakter -- se docstring pkt. 2
                     flags.append("ugyldigt momsnr")
             if amount >= 50000:
                 flags.append("højt beløb")
@@ -125,9 +185,10 @@ def test_84_missing_trader(data, supplier_lookup):
                 flags.append("højrisikovare")
 
             if len(flags) >= 3:
+                severity = "critical" if "højrisikovare" in flags else "high"
                 findings.append(make_finding(
                     test_id=84, test_name="Missing trader-indikator",
-                    impact_type="economic", direction="negative", severity="critical",
+                    impact_type="economic", direction="negative", severity=severity,
                     description=f"Transaktion {txn['transaction_id']} har flere svindel-risikofaktorer: "
                                 f"{', '.join(flags)}.",
                     fix_suggestion="Kombinationen ligner en missing trader (MTIC). Verificér leverandøren "

@@ -271,8 +271,12 @@ SCENARIOS = [
     # === cat09: Reverse charge & selvangivelse (70-75) ===
     {
         "test_id": 70, "navn": "EU-køb uden reverse charge-markering",
+        # K5-b (2026-09-20): momskode-løse linjer er uden for kontrollens scope
+        # (momskode-værnet) — den plantede defekt er nu et EU-køb bogført med en
+        # momskode, der hverken er RC-markeret eller bærer moms (kontrollens
+        # kernepopulation), ikke en linje helt uden kode.
         "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="RC25", tax_amount=0.0))),
-        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="", tax_amount=0.0))),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DE", tax_code="X0", tax_amount=0.0))),
     },
     {
         "test_id": 71, "navn": "Reverse charge på indenlandsk handel",
@@ -561,9 +565,13 @@ SCENARIOS = [
     # === cat11: Svindel & karrusel/MTIC (84, 86-89, 91-93; 85/90 inaktive) ===
     {
         "test_id": 84, "navn": "Missing trader-indikator",
-        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", vat_number="DK12345674"),
+        # K5-b (2026-09-20): begge scenarier bærer nu en momskode, så de tester
+        # kontrollens risikofaktor-logik og ikke momskode-værnet.
+        "clean": mk_data(mk_txn(mk_line(debit_amount=1000.0, country="DK", tax_code="I25",
+                                        vat_number="DK12345674"),
                                 description="Postering")),
-        "defect": mk_data(mk_txn(mk_line(debit_amount=60000.0, country="DE", vat_number=""),
+        "defect": mk_data(mk_txn(mk_line(debit_amount=60000.0, country="DE", tax_code="I25",
+                                         vat_number=""),
                                  description="Køb af mobiltelefoner")),
     },
     {

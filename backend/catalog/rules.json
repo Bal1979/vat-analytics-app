@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.5.0",
+  "catalog_version": "1.5.1",
   "beskrivelse": "Regelkatalog for VAT Analytics — auto-genereret fra de 109 test_NN-funktioner i analytics/categories/. Rediger ikke i hånden; kør tools/build_rules_catalog.py.",
   "genereret_fra": "analytics/categories/cat*.py (statisk AST)",
   "antal_kontroller": 109,
@@ -2067,7 +2067,7 @@
         "economic"
       ],
       "severity": [
-        "critical"
+        "dynamisk"
       ],
       "status": "aktiv",
       "analyse_modul": "forensic_statistik",

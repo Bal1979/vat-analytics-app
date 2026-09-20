@@ -3,6 +3,105 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kontrol 84-efterforskningen + K5-b: momskode-værn, kollektivnummer-undtagelse og severity pr. fund — 2026-09-20
+
+Baggrund: K4's åbne tråd (kontrol 84's residual domineret af et leverandør-
+kartotek-datakvalitetsmønster) + landetabel-rundens 70/84-OBS (præ-eksisterende
+momskode-løs støjklasse) + K5-b-anbefalingen fra vagtpost-verifikationen.
+Samme disciplin som K1-K4: empirisk fordeling FØRST, på kunde 2s IFS-datasæt.
+Katalog **v1.5.1** (regeladfærd + kontrol 84's severity nu "dynamisk" i
+kataloget — ingen nye/omnummererede kontroller), datakontrakt v0.5.0 uændret,
+**540 automatiserede tests** (11 nye, `tests/test_kontrol84_efterforskning_
+2026_09_20.py`), valideringssuite **105/105** (planted defect for kontrol 70
+og 84 omdesignet: bærer nu momskode, så scenarierne tester risikofaktor-
+logikken og ikke momskode-værnet).
+
+**Empirisk fordeling (kontrol 84's 330 kritiske fund på HEAD):**
+
+- **235 (71%) lå på linjer HELT uden momskode** — kontiene bag dem er
+  IC-tilgodehavender, valutakursdifferencer, AR/AP-afregning og
+  omsætningskonti (betalinger/afregninger — intet momsfradrag angivet,
+  dermed ingen missing trader-eksponering). Samme billede for kontrol 70:
+  41.366/50.804 fund (81%) momskode-løse, samme kontoklasser.
+- **184 (56%; 71 af dem MED momskode) sad på kun 8 delte, EU-format-ugyldige
+  momsnummer-værdier** — hver med ≥ 3 (op til 28) DISTINKTE, tydeligt
+  forskellige modpartsnavne i beskrivelsesteksten. Mønstrene er strukturelle
+  kartotek-artefakter: landekode alene ("DE"/"BE"/…), pladsholdertekster,
+  afkortede numre (8 cifre hvor landet kræver 9) og Excel-notation-
+  korruption ("1,0001E+14"). **Kartoteks-efterprøvning bekræfter
+  konventionen på masterdata-niveau:** 24 Tax ID'er i kundens eget
+  leverandørkartotek deles af ≥ 3 forskellige leverandørnavne (op til 37) —
+  en samle-/kollektivkonto-konvention, ikke skjulte handelspartnere.
+  **Kontrolgruppe:** 0 fund havde et ugyldigt nummer med < 3
+  beskrivelsestekster — en ægte missing trader (ét navn) rammes ikke.
+- **23 momskodede fund med TOMT nummer**: reelle, navngivne eksterne
+  leverandører (advokater, brancheorganisationer, udenlandske
+  serviceleverandører), hvor kartoteket mangler et registreret momsnummer —
+  kartotek-datakvalitet/afklaringsspørgsmål, ikke MTIC-mønstre.
+- **4 fund med GYLDIGT nummer**: højrisikovare-nøgleordet matchede
+  leverandørens NAVN (ikke en vare) — kendt begrænsning, dokumenteret som
+  selvstændig observation nedenfor.
+
+**De tre ændringer (alle generiske/strukturelle — INGEN kundenavne eller
+momsnummerværdier i koden):**
+
+1. **Momskode-værn (K5-b) for kontrol 70 + 84** (`cat09_reverse_charge.
+   test_70_eu_service_no_rc`, `cat11_fraud_mtic.test_84_missing_trader`):
+   linjer helt uden momskode springes over — samme princip og
+   implementeringsmønster som K2/kontrol 32. KENDT residualrisiko for
+   kontrol 70 (bevidst accepteret, dokumenteret i docstring): et EU-køb
+   bogført HELT uden momskode kan ikke længere flages — klassen var
+   empirisk tom på begge datasæt.
+2. **Kollektivnummer-undtagelsen (kontrol 84)**: et udfyldt nummer, der
+   fejler EU-formatvalideringen, tæller ikke som "ugyldigt momsnr"-
+   risikofaktor, når samme værdi optræder med ≥
+   `materiality.CONTROL_84_SHARED_VAT_MIN_DESCS` (default 3, env-
+   overstyrbar) distinkte, normaliserede beskrivelsestekster i datasættet
+   (`_shared_vat_desc_counts`, bounded optælling). Formatfejlen dækkes
+   fortsat af kontrol 28 (3.922 fund, uændret).
+3. **Severity pr. fund (kontrol 84)**: "critical" kun når højrisikovare-
+   faktoren indgår (den klassiske MTIC-profil); ellers "high". Kataloget
+   viser nu "dynamisk" (samme mønster som kontrol 1/80/82/109).
+
+**Empirisk før/efter (kunde 2s IFS-datasæt, alle moduler — eksakt
+mmap-tælling af begge rapporter):**
+
+| Kontrol | Før | Efter |
+|---|---|---|
+| 70 (EU-køb uden RC-markering) | 50.804 høj | 9.438 høj (alle momskodede: E1G/E0G/E0S/E1S m.fl.) |
+| 84 (Missing trader) | 330 kritisk | 24 (1 kritisk + 23 høj) |
+| 27/30/109 (vagtposter) | 520 / 40 / 402 | 520 / 40 / 402 (UÆNDREDE) |
+
+I alt 1.279.630 → 1.237.958 fund. **Alle øvrige 107 kontroller
+fund-identiske** (25: 3.461, 28: 3.922, 32: 147, 33: 12.261, 34: 37, 35:
+23.158, 38: 40 m.fl. — uændrede). Kontrol 84's residual (24) er den ægte
+kerne: 1 kritisk (højrisikovare-profil) + 23 høj (navngivne leverandører
+uden registreret momsnummer — kundespørgsmål, jf. opfølgningsloggen K2-6).
+
+**Regression:** BC-v5-datasættet (125.986 rækker, 23.095 fund) **byte-for-
+byte identisk** før/efter (isoleret git-worktree på HEAD `a97ecda` vs.
+arbejdstræet; SHA256 med `generated_at`/`catalog_version` strippet — eneste
+øvrige difference er `koeretid_sekunder`). OBS: på BC-vejen er kontrol 84
+'ikke målbar'-gated (country-feltet findes ikke i datagrundlaget), så
+BC-fundene påvirkes hverken af værnet eller severity-ændringen; verificeret
+ved direkte kald, at BC's 2 potentielle fund (mobiltelefon-køb, momskodede,
+højrisikovare-profil) ville forblive "critical".
+
+**Åbne tråde (uden for denne rundes evidensgrundlag):**
+
+- Kontrol 70's residual (9.438) sidder på momskoderne E1G/E0G/E0S/E1S
+  (EU-varer/-ydelser) — om disse koder ER kundens RC-/erhvervelsesmoms-
+  koder kan ikke afgøres deterministisk her (kundens vat_setup.csv har
+  ingen `vat_calculation_type`-kolonne). Egen kalibreringsrunde mod
+  ekspertens tal, evt. via `RC_CODE_PREFIXES`/vat_calculation_type.
+- Højrisikovare-nøgleordene matcher også leverandør-NAVNE (fx et navn
+  indeholdende "mobile") — gav 4 af de 330 fund. Kandidat til en senere
+  præcisering af `MTIC_HIGH_RISK_KEYWORDS`-matchningen.
+- K4's åbne tråd om leverandørkartoteket er hermed AFSLUTTET som
+  motor-spørgsmål: mønsteret er bekræftet som kartoteks-datakvalitet og
+  håndteres nu generisk. Kartoteks-OPRYDNINGEN er fortsat kundens —
+  spørgsmålet ligger i opfølgningsloggen (K2-6).
+
 ## Landetabel-runden: generisk ISO 3166-1-navnetabel — 2026-09-20 (AFVENTER Bals godkendelse — se "Låste kontroller" nedenfor)
 
 Baggrund: K1-K4's åbne tråd — `vat_rules._COUNTRY_NAME_TO_CODE` (kun ~25

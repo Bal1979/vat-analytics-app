@@ -171,8 +171,11 @@ def test_k3_account_based_known_foreign_country_is_not_flagged():
 # === K4: kontrol 84 -- konservativ koncernintern-undtagelse ==================
 
 def _fraud_line(**kw):
+    # tax_code sat efter K5-b's momskode-værn (kontrol 84-efterforskningen,
+    # 2026-09-20), så disse tests fortsat rammer koncern-undtagelseslogikken
+    # og ikke standser i værnet.
     defaults = dict(debit_amount=60000.0, country="DE", vat_number="",
-                     description="Køb af mobiltelefoner")
+                     tax_code="I25", description="Køb af mobiltelefoner")
     defaults.update(kw)
     return mk_line(**defaults)
 
