@@ -23,8 +23,28 @@ Resultatfilosofi (vigtig): **RØD = handling krævet** — ingen falske alarmer
 (jf. VIES: 37 røde → 4 reelle). Konservativ mod falske negativer. Prioriteret
 handlingsliste, ikke en mur af flag.
 
-## Status (pr. 2026-09-20)
+## Status (pr. 2026-09-22)
 
+- **Semantik-PoC: harness skiftet til LM Studio (2026-09-22, Bal-godkendt,
+  committet lokalt — ikke pushet):** `examples/poc_semantik/run_poc.py`
+  (byggetrin 3) omlagt fra Ollamas `/api/chat` til OpenAI-kompatibelt
+  `/v1/chat/completions` (ny `--base-url`, default LM Studio
+  `http://localhost:1234/v1`; virker også mod Ollamas `/v1`-facade).
+  Modelid-default `qwen3.8-27b` (bindestreg). `think`-styring flyttet til
+  et `/no_think`-præfiks i beskeden (Qwen3-konventionen); `num_ctx` er nu
+  no-op med advarsel (LM Studio sætter kontekst server-side). JSON-tvang
+  afprøvet EMPIRISK mod den kørende LM Studio: `response_format:
+  {"type":"json_object"}` afvises (HTTP 400), `{"type":"json_schema"}`
+  accepteres men lægger svaret i `reasoning_content` i stedet for
+  `content` — derfor promptinstruktion + eksisterende batchvalidering
+  (samme disciplin som Ollama), med en content/reasoning_content-faldback
+  som sikkerhedsnet. Røgtest mod LM Studio (syntetiske posteringstekster,
+  ALDRIG kundedata): 2 grupper, schema_valid, 2/2 korrekte, ~60 sekunder.
+  Ren harness-ændring — `backend/analytics/` urørt. **44/44 PoC-tests**
+  (9 nye, request-bygning uden netværk), **591/591 backend-tests**,
+  **105/105 validering**, alle uændrede/urørte. Historiske Ollama-tal i
+  `examples/poc_semantik/README.md` bevaret uændret (de kørsler skete
+  faktisk på Ollama). Se `docs/CHANGELOG.md`.
 - **K6-kalibrering: modpartens land — momsnummer-præfiks før landefelt
   (2026-09-20, committet lokalt — ikke pushet):** RC-detektion-via-
   beregningstype-rundens (chip 2's tråd A) åbne "K6"-tråd lukket — kontrol

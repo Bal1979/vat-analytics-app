@@ -3,6 +3,77 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Semantik-PoC: harness skiftet til LM Studio (2026-09-22, Bal-godkendt)
+
+Baggrund: Bal er skiftet fra Ollama til **LM Studio** som lokal LLM-harness.
+`examples/poc_semantik/run_poc.py` (byggetrin 3 i PoC'en, se
+`docs/CHANGELOG.md`s 2026-09-18-punkt for selve PoC'en) kaldte Ollamas eget
+`/api/chat` hårdkodet — omlagt til et OpenAI-kompatibelt
+`/v1/chat/completions`-kald. Ren harness-ændring: **ingen** motor-/
+kontrolkatalogkode rørt (`backend/analytics/` er urørt), ingen nye
+dependencies (fortsat `urllib`).
+
+### Ændringer i `run_poc.py`
+
+- Ny `--base-url` (default `http://localhost:1234/v1`, LM Studio) i stedet
+  for det hårdkodede `OLLAMA_URL`. Samme kaldskode virker mod Ollamas nyere
+  `/v1`-facade (`--base-url http://localhost:11434/v1`).
+- Modelid-default `qwen3.8-27b` (LM Studios bindestregsnotation — Ollamas
+  var `qwen3.8:27b` med kolon; begge understøttes via `--model`).
+- `think: false` (Ollama-body-felt) erstattet af et `/no_think`-præfiks i
+  selve brugerbeskeden (Qwen3-konventionen — OpenAI-chatformatet har intet
+  body-niveau-tænke-felt).
+- `num_ctx`/`options` (Ollama-specifikt) fjernet fra requesten; `--num-ctx`
+  er bevaret som CLI-flag for bagudkompatibilitet, men er nu en **no-op med
+  advarsel** — LM Studio sætter kontekstlængden server-side ved model-load.
+- Ny `build_request_body()`/`extract_message_text()`, udskilt fra det
+  tidligere `call_ollama` (nu `call_llm`) for at gøre request-bygningen
+  testbar uden netværk.
+
+### JSON-tvang — dommen er EMPIRISK, ikke antaget
+
+Afprøvet direkte mod den kørende LM Studio (`qwen3.8-27b` indlæst,
+`http://localhost:1234/v1/models` bekræftede modellen):
+
+| response_format | Resultat |
+|---|---|
+| `{"type": "json_object"}` | **HTTP 400**: `'response_format.type' must be 'json_schema' or 'text'` — LM Studios OpenAI-facade understøtter ikke OpenAIs ældre json_object-tvang. |
+| `{"type": "json_schema", "json_schema": {...}, "strict": true}` | **HTTP 200**, men hele svaret landede i `message["reasoning_content"]` i stedet for `message["content"]` — uafhængigt af om `/no_think` var sat. Ubrugeligt uden ekstra parsing-kompleksitet for en marginal gevinst. |
+| Intet `response_format` (kun promptinstruktion, som hos Ollama) | `content` indeholder gyldig JSON (evt. med foranstillet whitespace, som `json.loads` tolererer). |
+
+**Valg:** promptinstruktion (SYSTEM_RULES pkt. 3) + den eksisterende
+batchvalidering (`schema_valid`-tjekket i `main()`) — samme disciplin som
+hos Ollama, hvor JSON-tvang heller aldrig var en API-garanti. Tilføjet
+`extract_message_text()` som falder tilbage til `reasoning_content`, hvis
+`content` er tomt — en billig robusthedsgevinst mod den observerede
+LM Studio-kvirk, ikke en afhængighed af den.
+
+### Røgtest mod LM Studio (2026-09-22, syntetiske posteringstekster — ALDRIG kundedata)
+
+Kørt via den rigtige `run_poc.py --max-batches 1` (ikke et isoleret
+curl-kald) mod tre opdigtede linjer (kaffe/OK, personalefest/F05, tysk
+konsulentydelse uden omvendt betalingspligt/F15) og et to-fund
+mini-katalog, begge kun i scratchpad:
+
+- 2 grupper, 1 batch, **schema_valid=true**, 2/2 klassifikationer korrekte
+  (F05 og F15 begge ramt, ingen hallucination).
+- **~60 sekunder** for batchen (dominans af den faste katalog+regel-prompt,
+  samme mønster som den historiske Ollama-røgtest i README'en — batch-tid
+  skalerer dårligt med små batches).
+- Ingen fuld semantik-kørsel udført (kun krævet røgtest, jf. opgaven).
+
+### Tests + regression
+
+35 eksisterende PoC-harness-tests uændrede + **9 nye** i nyt
+`tests/test_run_poc.py` (request-bygning: OpenAI-chatform, `/no_think`-
+præfiks, fravær af Ollama-felter/`response_format`, content/
+reasoning_content-faldback) — alle uden netværk. **44/44 PoC-tests grønne**,
+**591/591 backend-tests grønne** (uændret — ingen motorkode rørt),
+**105/105 uafhængig validering** (uændret). Se `examples/poc_semantik/
+README.md`s nye "Harness-note"-afsnit; de historiske Ollama-tal/-
+observationer i README'en er bevaret uændret (de kørsler skete faktisk på
+Ollama). Committet lokalt — ikke pushet.
+
 ## K6-kalibrering: modpartens land — momsnummer-præfiks før landefelt (kontrol 70-75) — 2026-09-20
 
 Baggrund: RC-detektion-via-beregningstype-runden (chip 2's tråd A, samme dag)

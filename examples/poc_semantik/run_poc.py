@@ -3,20 +3,31 @@
 
 Vælger en stratificeret population af facit-linjer, deduplikerer dem til
 unikke grupper (dedup.py), og sender grupperne i batches til en LOKAL
-Ollama-model sammen med fundkataloget. Modellen returnerer pr. gruppe
-{fund_id | "OK", begrundelse_kort}, som spredes til alle gruppens
-medlemslinjer.
+LLM-harness (OpenAI-kompatibelt /v1/chat/completions-endpoint) sammen med
+fundkataloget. Modellen returnerer pr. gruppe {fund_id | "OK",
+begrundelse_kort}, som spredes til alle gruppens medlemslinjer.
 
-Ingen kundedata forlader maskinen (lokal Ollama). Rå svar og
+Harness-note (2026-09-22): oprindeligt kørt mod lokal Ollama (se
+docs/CHANGELOG.md/README.md for de historiske Ollama-kørsler — de resultater
+står ved magt). Bal er siden skiftet til LM Studio som lokal LLM-harness;
+denne fil taler nu OpenAI-kompatibelt chatformat i stedet for Ollamas eget
+/api/chat. Samme kaldskode virker også mod Ollamas nyere /v1-facade
+(--base-url http://localhost:11434/v1) — se --base-url-hjælpeteksten.
+
+Ingen kundedata forlader maskinen (lokal harness). Rå svar og
 mellemresultater skrives til --out-dir, som skal pege UDENFOR repoet.
 
-Brug (fuld kørsel):
+Brug (fuld kørsel, LM Studio):
   python3 run_poc.py --facit <scratch>/facit.json --katalog <scratch>/katalog.json \\
-      --out-dir <scratch>/run_qwen27b --model qwen3.8:27b
+      --out-dir <scratch>/run_qwen27b --model qwen3.8-27b
 
 Brug (røgtest — kun første batch):
-  python3 run_poc.py --facit ... --katalog ... --out-dir <scratch>/smoke_14b \\
-      --model qwen3:14b --max-batches 1
+  python3 run_poc.py --facit ... --katalog ... --out-dir <scratch>/smoke_27b \\
+      --model qwen3.8-27b --max-batches 1
+
+Brug (mod Ollamas OpenAI-facade i stedet for LM Studio):
+  python3 run_poc.py --facit ... --katalog ... --out-dir <scratch>/run_ollama \\
+      --base-url http://localhost:11434/v1 --model qwen3.8:27b
 """
 from __future__ import annotations
 
@@ -29,7 +40,7 @@ from pathlib import Path
 
 from dedup import group_lines, reduction_stats
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+DEFAULT_BASE_URL = "http://localhost:1234/v1"  # LM Studio default
 
 SYSTEM_RULES = """Du er momsfaglig reviewer. Du får et FUNDKATALOG (fund-id, navn, regel,
 identifikationsmetode) og en batch af POSTERINGSGRUPPER (hver gruppe repræsenterer én
@@ -87,24 +98,69 @@ POSTERINGSGRUPPER:
 {grupper_txt}"""
 
 
-def call_ollama(model: str, prompt: str, num_ctx: int, timeout: int = 1800) -> tuple[str, float]:
-    body = {
+def build_request_body(model: str, prompt: str) -> dict:
+    """Bygger OpenAI-kompatibel chat/completions-payload.
+
+    Ingen Ollama-specifikke felter (`format`, `options.num_ctx`, `think`) — se
+    call_llm()'s docstring for den empiriske begrundelse. "Thinking"-styring sker via
+    et /no_think-præfiks i selve brugerbeskeden (Qwen3-konventionen), ikke et
+    body-niveau-felt — OpenAI-chatformatet har intet sådant felt.
+    """
+    return {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": f"/no_think\n{prompt}"}],
+        "temperature": 0,
         "stream": False,
-        "format": "json",
-        "options": {"temperature": 0, "num_ctx": num_ctx},
     }
-    # Undertrykker "thinking"-output for modeller der understøtter det (fx qwen3-familien) —
-    # hurtigere og undgår at tænke-tekst forurener det tvungne JSON-svar.
-    body["think"] = False
+
+
+def extract_message_text(message: dict) -> str:
+    """Udtrækker svarteksten fra en chat/completions-besked.
+
+    Faldback til 'reasoning_content', hvis 'content' er tomt: empirisk observeret mod
+    den kørende LM Studio (qwen3.8-27b, 2026-09-22) at nogle svar — særligt med
+    response_format={"type": "json_schema"} — lander HELT i 'reasoning_content' i
+    stedet for 'content'. Vi bruger IKKE response_format (se call_llm()), men
+    faldbacken er en billig robusthedsgevinst mod samme observerede model-kvirk.
+    """
+    content = (message.get("content") or "").strip()
+    if content:
+        return content
+    return (message.get("reasoning_content") or "").strip()
+
+
+def call_llm(model: str, prompt: str, base_url: str, timeout: int = 1800) -> tuple[str, float]:
+    """Kalder et OpenAI-kompatibelt /v1/chat/completions-endpoint.
+
+    Default er LM Studio (http://localhost:1234/v1) — Bal er skiftet fra Ollama til
+    LM Studio som lokal LLM-harness 2026-09-22. Samme kaldskode virker også mod
+    Ollamas nyere OpenAI-facade (--base-url http://localhost:11434/v1).
+
+    JSON-tvang — EMPIRISK afprøvet mod den kørende LM Studio (qwen3.8-27b,
+    2026-09-22), IKKE antaget:
+      - response_format={"type": "json_object"} → HTTP 400: "'response_format.type'
+        must be 'json_schema' or 'text'". LM Studios OpenAI-facade understøtter ikke
+        OpenAIs ældre json_object-tvang.
+      - response_format={"type": "json_schema", ...} → HTTP 200, MEN hele svaret
+        landede i message['reasoning_content'] i stedet for 'content' (uafhængigt af
+        om /no_think var sat) — ubrugeligt uden ekstra parsing/kompleksitet for en
+        marginal gevinst.
+      - Uden response_format (prompt-instruktion, SYSTEM_RULES pkt. 3) → 'content'
+        indeholder gyldig JSON (evt. med foranstillet whitespace, som json.loads
+        tolererer). Dette er den valgte vej — samme disciplin som hos Ollama: promptet
+        TVINGER skemaet, og main()'s eksisterende batchvalidering (schema_valid) er
+        sikkerhedsnettet, ikke en API-garanti.
+    """
+    body = build_request_body(model, prompt)
+    url = f"{base_url.rstrip('/')}/chat/completions"
     req = urllib.request.Request(
-        OLLAMA_URL, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
     )
     t0 = time.time()
     with urllib.request.urlopen(req, timeout=timeout) as r:
         resp = json.load(r)
-    return resp["message"]["content"], time.time() - t0
+    message = resp["choices"][0]["message"]
+    return extract_message_text(message), time.time() - t0
 
 
 def select_population(facit: dict, sample_ok: int, seed: int) -> tuple[list[dict], dict]:
@@ -138,13 +194,34 @@ def main():
     ap.add_argument("--facit", required=True, type=Path)
     ap.add_argument("--katalog", required=True, type=Path)
     ap.add_argument("--out-dir", required=True, type=Path, help="UDENFOR repo — indeholder kundedata")
-    ap.add_argument("--model", default="qwen3.8:27b")
+    ap.add_argument(
+        "--base-url", default=DEFAULT_BASE_URL,
+        help="OpenAI-kompatibel base-URL uden '/chat/completions'. Default: LM Studio "
+             f"({DEFAULT_BASE_URL}). Virker også mod Ollamas nyere OpenAI-facade "
+             "(http://localhost:11434/v1) — samme kaldskode, blot anden URL/modelid "
+             "(Ollamas modelid bruger ':', fx qwen3.8:27b; LM Studios bruger '-').",
+    )
+    ap.add_argument("--model", default="qwen3.8-27b", help="LM Studios modelid (bindestreg). Se --base-url for Ollama-formatet (kolon).")
     ap.add_argument("--batch-size", type=int, default=25)
-    ap.add_argument("--num-ctx", type=int, default=16384)
+    ap.add_argument(
+        "--num-ctx", type=int, default=None,
+        help="IGNORERES — Ollama-specifikt felt uden modstykke i OpenAI-chatformatet. "
+             "LM Studio sætter kontekstlængden server-side ved model-load (se LM Studios "
+             "model-indstillinger). Bevaret kun for bagudkompatibilitet med gamle "
+             "kommandoer; en angivet værdi udløser en advarsel og bruges ikke.",
+    )
     ap.add_argument("--sample-ok", type=int, default=300)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--max-batches", type=int, default=None, help="Begræns til N batches (røgtest)")
     args = ap.parse_args()
+
+    if args.num_ctx is not None:
+        print(
+            f"ADVARSEL: --num-ctx {args.num_ctx} ignoreres (no-op) — LM Studio har ingen "
+            "per-request kontekst-parameter i OpenAI-chatformatet. Sæt kontekstlængden i "
+            "LM Studios model-indstillinger, hvis den nuværende server-side værdi ikke er "
+            "tilstrækkelig til batch-størrelsen/kataloget."
+        )
 
     facit = json.loads(args.facit.read_text())
     katalog = json.loads(args.katalog.read_text())
@@ -174,7 +251,7 @@ def main():
         prompt = build_prompt(katalog, batch)
         print(f"== Batch {bi}/{len(batches)} ({len(batch)} grupper, model={args.model}) ...", flush=True)
         try:
-            raw, dur = call_ollama(args.model, prompt, args.num_ctx)
+            raw, dur = call_llm(args.model, prompt, args.base_url)
         except Exception as e:
             batch_meta.append({"batch": bi, "schema_valid": False, "error": str(e)})
             print(f"   FEJL: {e}", flush=True)

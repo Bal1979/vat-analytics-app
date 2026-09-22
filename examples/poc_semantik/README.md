@@ -9,6 +9,28 @@ LLM-forslag → automatisk scoring på arbejdspapirets §13.4-metrikker) — men
 her er enheden en POSTERINGSLINJE og facit ER ekspertens egen
 fund-klassifikation pr. linje, ikke en kolonne-mapping.
 
+## Harness-note (2026-09-22)
+
+Byggetrin 1-6 nedenfor (facit-statistik, deduplikering, røgtest, anbefaling)
+blev alle kørt mod **lokal Ollama** — de tal og observationer står ved magt
+og gengives uændret. Bal er siden skiftet til **LM Studio** som lokal
+LLM-harness; `run_poc.py` taler nu OpenAI-kompatibelt
+`/v1/chat/completions` (default `http://localhost:1234/v1`, modelid
+`qwen3.8-27b` — bindestreg, mod Ollamas kolon) i stedet for Ollamas eget
+`/api/chat`. Samme kaldskode virker også mod Ollamas nyere `/v1`-facade
+(`--base-url http://localhost:11434/v1 --model qwen3.8:27b`). JSON-tvang
+blev afprøvet empirisk mod den kørende LM Studio: `response_format:
+{"type": "json_object"}` afvises (HTTP 400), `{"type": "json_schema"}`
+accepteres men lægger svaret i `reasoning_content` i stedet for `content` —
+værktøjet bruger derfor promptinstruktion + den eksisterende
+batchvalidering (samme disciplin som hos Ollama), med en billig
+content/reasoning_content-faldback som sikkerhedsnet. `num_ctx` er nu en
+no-op (advarsel ved brug) — LM Studio sætter kontekstlængden server-side
+ved model-load. En ny, kort røgtest mod LM Studio (syntetiske
+posteringstekster) bekræftede gyldigt JSON i batchformatet — se
+`docs/CHANGELOG.md` for tid/resultat. Den fulde 327-gruppe-kørsel er
+fortsat ikke gennemført på LM Studio-harnesset.
+
 ## Datahygiejne — VIGTIGT
 
 - **Kundefilen (`AI Transaktionsgennemgang.xlsx`) committes ALDRIG.** Den
@@ -21,7 +43,8 @@ fund-klassifikation pr. linje, ikke en kolonne-mapping.
 - Katalog-JSON'en indeholder ingen kundedata (kun ekspertens generelle
   fund-definitioner), men skrives også til scratchpad for at holde metoden
   og kundens konkrete gennemgang adskilt.
-- Kørslen sker mod en LOKAL Ollama-model — ingen data forlader maskinen.
+- Kørslen sker mod en LOKAL LLM-harness (historisk Ollama, nu LM Studio —
+  se Harness-note ovenfor) — ingen data forlader maskinen.
 - Testene i `tests/` bruger udelukkende syntetiske/opdigtede fixtures.
 
 ## Datagrundlag
@@ -84,8 +107,11 @@ Risikoniveau: OK 2.770, Middel 151, Lav 72, Høj 13, Rubrikfejl 4.
 4. **`run_poc.py`** — vælger en STRATIFICERET population (alle ~240
    fund-linjer + en seedet stikprøve på 300 OK-linjer — den fulde
    population på 3.010 linjer er en senere kørsel), deduplikerer,
-   batcher (default 25 grupper/batch) og kalder en lokal Ollama-model
-   (temperatur 0, tvungen JSON, `think: false`, `num_ctx=16384`).
+   batcher (default 25 grupper/batch) og kalder en lokal LLM-harness
+   (historisk: Ollama, temperatur 0, tvungen JSON via `format: "json"`,
+   `think: false`, `num_ctx=16384`; nu: LM Studio via OpenAI-kompatibelt
+   `/v1/chat/completions`, temperatur 0, `/no_think`-præfiks i beskeden,
+   JSON via promptinstruktion — se Harness-note ovenfor).
 5. **`score_poc.py`** — sammenligner predictions mod facit: recall pr.
    fund-id, OK-nøjagtighed, falske positiver (rapporteret separat — IKKE
    automatisk dømt forkerte, kan være reelle nye fund), forkert
@@ -156,10 +182,14 @@ batchstørrelse. Kommando:
 ```bash
 cd examples/poc_semantik && source ../../backend/venv/bin/activate
 python3 run_poc.py --facit <scratch>/facit.json --katalog <scratch>/katalog.json \
-    --out-dir <scratch>/run_27b_full --model qwen3.8:27b --batch-size 25
+    --out-dir <scratch>/run_27b_full --model qwen3.8-27b --batch-size 25
 python3 score_poc.py --facit <scratch>/facit.json --katalog <scratch>/katalog.json \
     --run-dir <scratch>/run_27b_full
 ```
+
+(LM Studio-modelid, bindestreg — se Harness-note. `--base-url` udelades,
+default er LM Studio; brug `--base-url http://localhost:11434/v1 --model
+qwen3.8:27b` for at genskabe den historiske Ollama-kørsel.)
 
 ## Kør selv
 
@@ -171,13 +201,13 @@ source ../../backend/venv/bin/activate    # openpyxl + pytest findes her
 python3 build_facit.py --xlsx <sti>/AI\ Transaktionsgennemgang.xlsx --out <scratch>/facit.json
 python3 build_katalog.py --xlsx <sti>/AI\ Transaktionsgennemgang.xlsx --out <scratch>/katalog.json
 
-# Røgtest — én batch
+# Røgtest — én batch (LM Studio, default --base-url)
 python3 run_poc.py --facit <scratch>/facit.json --katalog <scratch>/katalog.json \
-    --out-dir <scratch>/smoke_27b --model qwen3.8:27b --max-batches 1
+    --out-dir <scratch>/smoke_27b --model qwen3.8-27b --max-batches 1
 
 # Fuld kørsel
 python3 run_poc.py --facit <scratch>/facit.json --katalog <scratch>/katalog.json \
-    --out-dir <scratch>/run_27b --model qwen3.8:27b --batch-size 25
+    --out-dir <scratch>/run_27b --model qwen3.8-27b --batch-size 25
 
 # Scoring
 python3 score_poc.py --facit <scratch>/facit.json --katalog <scratch>/katalog.json \
