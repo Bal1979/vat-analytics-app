@@ -130,6 +130,10 @@ _PURCHASE_RUBRIC_LABELS = {
     "dkrc": "Udgående moms (omvendt betalingspligt, indenlandsk)",
     "rc_services": "RC-ydelser fra udlandet (eget felt i angivelsen)",
     "input": "Alm. moms (udgående ved salg / indgående ved køb)",
+    # Fix-runde 2026-09-22 (Bal-godkendt, FEJL 1): afgiftskoder (fx elafgift)
+    # -- egen "energy_taxes"-rubrik i angivelsen, som v1 bevidst ikke
+    # afstemmer (se cat10_vat_reconciliation.py).
+    "energy_tax": "Afgift (fx elafgift — egen rubrik, afstemmes ikke i v1)",
 }
 
 # Niveau -> hvilke sektionsnøgler der vises, i den faste visningsrækkefølge.
@@ -346,11 +350,16 @@ def _calc_type_label(raw: str) -> str:
     return _CALC_TYPE_LABELS.get(key, raw or "Ukendt/ikke oplyst")
 
 
-def _rubric_label_for_code(tax_code: str, vat_calculation_type: str) -> str:
-    rubric = _cat10.classify_purchase_rubric(tax_code, vat_calculation_type)
+def _rubric_label_for_code(tax_code: str, vat_calculation_type: str,
+                            tax_percentage=None) -> str:
+    rubric = _cat10.classify_purchase_rubric(tax_code, vat_calculation_type, tax_percentage)
     return _PURCHASE_RUBRIC_LABELS.get(rubric, "Ukendt")
 
 
+# "energy_tax" (fix-runde 2026-09-22) medtages BEVIDST ikke i
+# _RUBRIC_FLOW_ORDER — diagrammet illustrerer kun de rubrikker kontrol 82
+# rent faktisk AFSTEMMER (se _PURCHASE_RUBRIC_LABELS ovenfor for at koden
+# stadig får en meningsfuld label i den detaljerede tabel nedenfor).
 _RUBRIC_FLOW_ORDER = ("dkrc", "rc_services", "input")
 _RUBRIC_FLOW_COLORS = {"dkrc": "#2d5aa0", "rc_services": "#17a2b8", "input": "#1B365D"}
 _RUBRIC_DIAGRAM_LABELS = {"dkrc": "Udg. moms (RC)", "rc_services": "RC-ydelser, udland", "input": "Alm. moms"}
@@ -366,7 +375,8 @@ def _engine_diagram_html(tax_rows: list) -> str:
     rubric_counts: dict = {}
     accounts: set = set()
     for row in tax_rows:
-        rubric = _cat10.classify_purchase_rubric(row.get("tax_code", ""), row.get("vat_calculation_type", ""))
+        rubric = _cat10.classify_purchase_rubric(row.get("tax_code", ""), row.get("vat_calculation_type", ""),
+                                                   row.get("tax_percentage"))
         rubric_counts[rubric] = rubric_counts.get(rubric, 0) + 1
         for key in ("sales_vat_account", "purchase_vat_account", "reverse_charge_vat_account"):
             acc = row.get(key)
@@ -483,7 +493,7 @@ def build_engine_section(report: dict, konto_navne: dict) -> str:
             acc_html = "–"
         rate = fmt_pct(row.get("tax_percentage"), decimals=2) if matched else "–"
         calc_label = _calc_type_label(calc_type) if matched else "Ukendt/mangler i jeres opsætning"
-        rubric_label = _rubric_label_for_code(code, calc_type)
+        rubric_label = _rubric_label_for_code(code, calc_type, row.get("tax_percentage"))
         parts.append(
             f"<tr><td>{_esc(code)}</td><td>{rate}</td><td>{_esc(calc_label)}</td>"
             f"<td>{acc_html}</td><td>{_esc(rubric_label)}</td></tr>"

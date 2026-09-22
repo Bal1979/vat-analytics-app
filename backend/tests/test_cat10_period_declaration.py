@@ -13,6 +13,7 @@ mønster-genkendelsen er konfigurerbar via materiality.py (ikke hårdkodet).
 import os
 
 from analytics import materiality
+from analytics import vat_rules as vr
 from analytics.categories import cat10_vat_reconciliation as cat10
 from validation.builders import mk_data, mk_line, mk_txn
 
@@ -150,8 +151,16 @@ def test_calc_type_normal_vat_is_deterministically_input():
     assert cat10._purchase_rubric("DOMESTIC|REDUCED_PRIVATE_DKRC", "Normal VAT") == "input"
 
 
-def test_calc_type_full_vat_is_deterministically_input():
-    assert cat10._purchase_rubric("DOMESTIC|ELECTRICITY_TAX", "Full VAT") == "input"
+def test_calc_type_full_vat_energy_tax_code_is_energy_tax_not_input():
+    """Fix-runde 2026-09-22 (Bal-godkendt, FEJL 1 — empirisk påvist mod
+    Nordic RCC's TastSelv-angivelse): en afgiftskode som "DOMESTIC|
+    ELECTRICITY_TAX" (calc_type "Full VAT") blev tidligere fejlagtigt
+    klassificeret 'input' (almindelig købsmoms) og talte dermed med i den
+    beregnede input_vat-rubrik. Den hører til angivelsens EGEN
+    "energy_taxes"-rubrik (afgift, ikke moms), som v1 bevidst ikke
+    afstemmer -- se _compute_period_rubrics/is_energy_tax_code."""
+    assert cat10._purchase_rubric("DOMESTIC|ELECTRICITY_TAX", "Full VAT") == "energy_tax"
+    assert cat10._purchase_rubric("DOMESTIC|ELECTRICITY_TAX", "Full VAT", 0.0) == "energy_tax"
 
 
 def test_calc_type_reverse_charge_domestic_bus_group_is_dkrc_without_name_pattern():
@@ -242,3 +251,169 @@ def test_rubric_sums_signed_before_abs_nets_credit_notes():
     ])
     computed = cat10._compute_period_rubrics(data)
     assert computed["2024-03"]["output_vat"] == 150.0
+
+
+# --- FEJL 1 (fix-runde 2026-09-22, Bal-godkendt): elafgift/energiafgift ----
+# Empirisk påvist mod Nordic RCC's TastSelv-angivelse: afgiftskoder (fx
+# elafgift) blev talt med i input_vat-rubrikken, men hører til angivelsens
+# EGEN "energy_taxes"-rubrik, som v1 bevidst ikke afstemmer. SYNTETISKE
+# koder/tal (INGEN kundedata).
+
+def test_is_energy_tax_code_matches_generic_name_pattern():
+    """Kode-navnemønstret (materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS,
+    default "_TAX") er GENERISK -- BC/NAVs suffikskonvention for afgifter,
+    ikke en kundespecifik værdi. Matcher enhver "..._TAX"-kode, ikke kun
+    elafgift."""
+    assert vr.is_energy_tax_code("DOMESTIC|ELECTRICITY_TAX") is True
+    assert vr.is_energy_tax_code("DOMESTIC|CO2_TAX") is True
+    assert vr.is_energy_tax_code("DOMESTIC|SOME_OTHER_TAX", "Normal VAT", 25.0) is True
+
+
+def test_is_energy_tax_code_structural_fallback_requires_both_signals():
+    """Sekundært signal: tax_percentage PRÆCIS 0 OG calc_type "Full VAT" --
+    begge skal være til stede. Et kodenavn UDEN "_TAX"-mønstret, men med
+    denne kombination, genkendes stadig (strukturelt signal, ikke kun
+    navnemønster). tax_percentage=0 ALENE (fx en almindelig nulsats-/
+    fritagelseskode) er IKKE nok -- undgår falske positiver."""
+    assert vr.is_energy_tax_code("DOMESTIC|SOME_DUTY", "Full VAT", 0.0) is True
+    assert vr.is_energy_tax_code("DOMESTIC|NO_VAT", "Normal VAT", 0.0) is False
+    assert vr.is_energy_tax_code("DOMESTIC|SOME_DUTY", "Full VAT", 25.0) is False
+    assert vr.is_energy_tax_code("DOMESTIC|SOME_DUTY", "Full VAT", None) is False
+
+
+def test_is_energy_tax_code_no_signal_is_false():
+    assert vr.is_energy_tax_code("") is False
+    assert vr.is_energy_tax_code("DOMESTIC|STANDARD_VAT", "Normal VAT", 25.0) is False
+
+
+def test_energy_tax_line_excluded_entirely_from_input_vat_rubric():
+    """En elafgifts-/energiafgiftslinje bidrager IKKE til input_vat -- hverken
+    som almindelig købsmoms, DKRC eller RC-ydelser -- den er strukturelt
+    udenfor de tre afstemte rubrikker (v1 afstemmer ikke "energy_taxes")."""
+    data = mk_data([
+        mk_txn(mk_line(debit_amount=1000.0, tax_amount=250.0,
+                       tax_code="DOMESTIC|STANDARD_VAT", supply_direction="purchase"),
+               transaction_id="T1", period="03", period_year="2024"),
+        mk_txn(mk_line(debit_amount=500.0, tax_amount=100.0,
+                       tax_code="DOMESTIC|ELECTRICITY_TAX",
+                       vat_calculation_type="Full VAT", supply_direction="purchase"),
+               transaction_id="T2", period="03", period_year="2024"),
+    ])
+    computed = cat10._compute_period_rubrics(data)
+    # Kun den almindelige købsmomslinje (250.00) -- elafgiften (100.00) er
+    # UDELADT, ikke medregnet.
+    assert computed["2024-03"]["input_vat"] == 250.0
+
+
+def test_default_energy_tax_pattern_documented_example():
+    """materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS's default ("_TAX")
+    rammer PRÆCIS det dokumenterede eksempel (RCC-empiri: "DOMESTIC|
+    ELECTRICITY_TAX")."""
+    assert vr.text_matches_any("DOMESTIC|ELECTRICITY_TAX",
+                                materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS)
+
+
+def test_energy_tax_pattern_is_configurable_via_env(monkeypatch):
+    monkeypatch.setenv("MATERIALITY_VAT_DECLARATION_ENERGY_TAX_PATTERNS", "MINERAL_OIL_TAX")
+    import importlib
+    from analytics import materiality as mat
+    importlib.reload(mat)
+    try:
+        assert "mineral_oil_tax" in mat.VAT_DECLARATION_ENERGY_TAX_PATTERNS
+        assert "_tax" not in mat.VAT_DECLARATION_ENERGY_TAX_PATTERNS
+    finally:
+        monkeypatch.delenv("MATERIALITY_VAT_DECLARATION_ENERGY_TAX_PATTERNS", raising=False)
+        importlib.reload(mat)
+
+
+# --- FEJL 2 (fix-runde 2026-09-22, Bal-godkendt): fradragsprocent på -------
+# fradragssiden. Samme kildefelt/formel som kontrol 109
+# (non_deductible_vat_pct), genbrugt via vat_form.code_rate_lookup -- ikke en
+# parallel opsætningslæsning. SYNTETISKE koder/tal (INGEN kundedata).
+
+def _setup(tax_code, non_deductible_pct, tax_percentage=25.0):
+    return {"header": {"vat_setup_loaded": True},
+            "tax_table": [{"tax_code": tax_code, "tax_percentage": tax_percentage,
+                           "non_deductible_vat_pct": non_deductible_pct, "setup_matched": True}]}
+
+
+def test_partial_deduction_reduces_input_vat_for_ordinary_purchase_code():
+    """En almindelig købskode med 40% ikke-fradragsberettiget (RCC-mønster,
+    syntetisk kode/tal): bogført moms 1.000,00, men kun 60% (600,00) er
+    fradragsberettiget -- input_vat-rubrikken skal afspejle DET
+    fradragsberettigede beløb, ikke det fulde bogførte."""
+    extra = _setup("DOMESTIC|REDUCED_PRIVATE_DKRC_LIKE", 40.0)
+    data = mk_data(mk_txn(mk_line(debit_amount=4000.0, tax_amount=1000.0,
+                                  tax_code="DOMESTIC|REDUCED_PRIVATE_DKRC_LIKE",
+                                  supply_direction="purchase"),
+                          period="03", period_year="2024"), **extra)
+    computed = cat10._compute_period_rubrics(data)
+    assert computed["2024-03"]["input_vat"] == 600.0
+
+
+def test_partial_deduction_applies_to_dkrc_fradragsside_but_not_output_vat():
+    """DKRC med delvis fradragsret (RCC-facit-mønster: 40% ikke-fradrags-
+    berettiget): output_vat (liability-siden) forbliver DET FULDE beløb --
+    kun DKRCs bidrag til input_vat (fradragssiden) reduceres. To-sidet
+    omvendt betalingspligt-mekanik: fuld udgående forpligtelse, begrænset
+    indgående fradrag."""
+    extra = _setup("DOMESTIC|REDUCED_PRIVATE_DKRC", 40.0)
+    data = mk_data(mk_txn(mk_line(debit_amount=4000.0, tax_amount=1000.0,
+                                  tax_code="DOMESTIC|REDUCED_PRIVATE_DKRC",
+                                  supply_direction="purchase"),
+                          period="03", period_year="2024"), **extra)
+    computed = cat10._compute_period_rubrics(data)
+    assert computed["2024-03"]["output_vat"] == 1000.0  # FULDT beløb, uændret
+    assert computed["2024-03"]["input_vat"] == 600.0      # KUN 60% fradrag
+
+
+def test_partial_deduction_applies_to_rc_services_fradragsside_but_not_own_rubric():
+    """RC-ydelser fra udlandet med delvis fradragsret: egen rc_services-
+    rubrik forbliver DET FULDE beløb, kun bidraget til input_vat
+    reduceres."""
+    extra = _setup("EU|SERVICE_VAT_EU", 25.0)
+    data = mk_data(mk_txn(mk_line(debit_amount=2000.0, tax_amount=800.0,
+                                  tax_code="EU|SERVICE_VAT_EU",
+                                  supply_direction="purchase"),
+                          period="03", period_year="2024"), **extra)
+    computed = cat10._compute_period_rubrics(data)
+    assert computed["2024-03"]["rc_services"] == 800.0  # FULDT beløb, uændret
+    assert computed["2024-03"]["input_vat"] == 600.0      # 75% af 800 = 600
+
+
+def test_full_deduction_code_is_unaffected_by_partial_deduction_fix():
+    """non_deductible_vat_pct None/0 (fuld fradragsret, uændret opsætning) ->
+    UÆNDRET adfærd, 100% af den bogførte moms tælles med."""
+    extra = _setup("DOMESTIC|STANDARD_VAT", 0.0)
+    data = mk_data(mk_txn(mk_line(debit_amount=4000.0, tax_amount=1000.0,
+                                  tax_code="DOMESTIC|STANDARD_VAT",
+                                  supply_direction="purchase"),
+                          period="03", period_year="2024"), **extra)
+    computed = cat10._compute_period_rubrics(data)
+    assert computed["2024-03"]["input_vat"] == 1000.0
+
+
+def test_partial_deduction_without_vat_setup_loaded_is_unaffected():
+    """Uden vat_setup indlæst (intet tax_table-opslag) -- uændret adfærd,
+    100% fradrag, PRÆCIS som før denne fix-runde."""
+    data = mk_data(mk_txn(mk_line(debit_amount=4000.0, tax_amount=1000.0,
+                                  tax_code="DOMESTIC|REDUCED_PRIVATE_DKRC",
+                                  supply_direction="purchase"),
+                          period="03", period_year="2024"))
+    computed = cat10._compute_period_rubrics(data)
+    assert computed["2024-03"]["input_vat"] == 1000.0
+
+
+def test_deductible_fraction_helper_matches_control_109_formula():
+    """_deductible_fraction genbruger PRÆCIS kontrol 109's formel
+    (max(0, 100 - nd_pct) / 100) -- samme kildefelt, ingen parallel logik."""
+    setup_by_code = {"X": {"tax_percentage": 25.0, "non_deductible_vat_pct": 40.0,
+                            "setup_matched": True}}
+    assert cat10._deductible_fraction("X", setup_by_code) == 0.6
+    assert cat10._deductible_fraction("UKENDT_KODE", setup_by_code) == 1.0
+    setup_by_code_unmatched = {"X": {"setup_matched": False}}
+    assert cat10._deductible_fraction("X", setup_by_code_unmatched) == 1.0
+    setup_by_code_full = {"X": {"non_deductible_vat_pct": 0.0, "setup_matched": True}}
+    assert cat10._deductible_fraction("X", setup_by_code_full) == 1.0
+    setup_by_code_none = {"X": {"non_deductible_vat_pct": None, "setup_matched": True}}
+    assert cat10._deductible_fraction("X", setup_by_code_none) == 1.0

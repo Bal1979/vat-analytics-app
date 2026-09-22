@@ -856,6 +856,37 @@ def is_rc_calc_type(vat_calculation_type):
     return calc_type in materiality.RC_CALC_TYPE_VALUES
 
 
+def is_energy_tax_code(tax_code, vat_calculation_type="", tax_percentage=None):
+    """True hvis en KØBSLINJES momskode identificerer en afgifts-/
+    punktafgiftskode (fx elafgift) frem for ægte moms (kontrol 82 fix-runde,
+    Bal-godkendt 2026-09-22, FEJL 1 — empirisk påvist mod Nordic RCC's
+    TastSelv-angivelse: "DOMESTIC|ELECTRICITY_TAX"-linjer talte fejlagtigt
+    med i den beregnede input_vat-rubrik; hører til angivelsens EGEN
+    "energy_taxes"-rubrik, som v1 bevidst ikke afstemmer, og skal derfor
+    UDELADES).
+
+    To uafhængige signaler, ét er nok (INGEN kundespecifikke værdier):
+
+      1. Kode-navnemønstret (materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS,
+         default kun "_TAX" -- BC/NAVs egen suffikskonvention for
+         afgiftskoder, adskilt fra ægte momskoders "_VAT"-suffiks).
+      2. Strukturelt fallback: ``tax_percentage`` er PRÆCIS 0 OG
+         ``vat_calculation_type`` siger "Full VAT" (BC/NAVs betegnelse for
+         "beregnes fuldt ud, ingen procentsats af grundlaget" -- modsat
+         "Normal VAT"/"Reverse Charge VAT", som begge er procentbaserede).
+         Begge dele skal være til stede -- tax_percentage=0 ALENE rammer også
+         legitime nulsats-/fritagelseskoder ("Normal VAT" med sats 0), som
+         IKKE er afgifter.
+
+    Intet signal (tom kode, ukendt calc_type, ukendt/manglende sats) ->
+    False -- ingen gætning."""
+    from analytics import materiality  # lokal import: undgår cirkularitet ved modulindlæsning
+    if text_matches_any(tax_code or "", materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS):
+        return True
+    calc_type = (vat_calculation_type or "").strip().lower()
+    return calc_type == "full vat" and tax_percentage is not None and tax_percentage == 0
+
+
 def is_no_vat_product(tax_code):
     """True hvis produktkoden matcher et af de konfigurerede 'ægte nulsats/
     fritaget'-mønstre (materiality.NO_VAT_PRODUCT_PATTERNS, default kun

@@ -152,6 +152,25 @@ VAT_DECLARATION_SERVICE_VAT_PATTERNS = [
     p.lower() for p in _strlist("MATERIALITY_VAT_DECLARATION_SERVICE_VAT_PATTERNS", ["SERVICE_VAT"])
 ]
 
+# Fix-runde 2026-09-22 (Bal-godkendt, FEJL 1 — empirisk påvist mod Nordic
+# RCC's TastSelv-angivelse og ekspertens 3-vejs-afstemning): kode-navnemønster
+# der identificerer en AFGIFTSKODE (fx elafgift, "DOMESTIC|ELECTRICITY_TAX")
+# frem for en ægte momskode, i BC/NAVs "Bus.-gruppe|Produktkode"-konvention.
+# BC/NAV navngiver afgiftskoder med suffikset "_TAX" (modsat momskoders
+# "_VAT"-suffiks) — et GENERISK navngivningsmønster, ikke en kundespecifik
+# værdi/liste af afgiftstyper. Sådanne linjer hører til momsangivelsens EGEN
+# "energy_taxes"-rubrik (afgifter, ikke moms), som v1 bevidst ikke afstemmer
+# (se cat10_vat_reconciliation.py) — de skal derfor UDELADES af den
+# beregnede input_vat-rubrik, ikke tælles med som fradragsberettiget
+# købsmoms. Delstrengs-match, case-insensitivt (vat_rules.text_matches_any),
+# samme kalibreringsfilosofi som DKRC-/SERVICE_VAT-mønstrene ovenfor —
+# override via env for en anden ERP-konvention. Se
+# ``vat_rules.is_energy_tax_code`` for det sekundære, strukturelle
+# fallback-signal (tax_percentage=0 + vat_calculation_type "Full VAT").
+VAT_DECLARATION_ENERGY_TAX_PATTERNS = [
+    p.lower() for p in _strlist("MATERIALITY_VAT_DECLARATION_ENERGY_TAX_PATTERNS", ["_TAX"])
+]
+
 # Tolerance (DKK) for periode-/rubrikafstemningen i kontrol 82 — under denne
 # betragtes en beregnet rubrik og den angivne værdi som matchende (afrundings-
 # differencer, ikke et reelt fund).

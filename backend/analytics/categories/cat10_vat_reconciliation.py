@@ -11,6 +11,7 @@ KONTO, ikke pr. postering — se test_80_revenue_without_output_vat.
 from collections import defaultdict
 from analytics.models import make_finding
 from analytics import vat_rules as vr
+from analytics import vat_form as vf
 from analytics import materiality
 
 
@@ -370,6 +371,35 @@ def test_81_zero_rated_share(data):
 # den dokumenterede begrænsning (kalibreret til den observerede BC/NAV-
 # taksonomi; en anden klients koder kræver en engagement-specifik override).
 #
+# FIX-RUNDE 2026-09-22 (Bal-godkendt, empirisk påvist mod Nordic RCC's
+# TastSelv-angivelse OG ekspertens 3-vejs-afstemning — "kunden har ret,
+# motoren tog fejl"):
+#
+# FEJL 1 (ELAFGIFT): afgiftskoder (fx "DOMESTIC|ELECTRICITY_TAX") blev
+# klassificeret som almindelig købsmoms og talte dermed fejlagtigt med i
+# input_vat-rubrikken. På angivelsen hører de i en EGEN "energy_taxes"-
+# rubrik (afgifter, ikke moms), som v1 bevidst ikke afstemmer -- se
+# ``vat_rules.is_energy_tax_code`` for det generiske genkendelsessignal
+# (kode-navnemønster og/eller tax_percentage=0 + "Full VAT"-opsætning,
+# INGEN kundespecifikke værdier). Sådanne linjer UDELADES nu helt fra
+# input_vat-rubrikken -- en ny ``_purchase_rubric``-returværdi "energy_tax"
+# håndteres eksplicit i ``_compute_period_rubrics`` (ignoreres, tælles
+# hverken med i input_vat eller nogen anden rubrik).
+#
+# FEJL 2 (FRADRAGSPROCENT PÅ FRADRAGSSIDEN): for koder med delvist fradrag
+# (vat_setup's ``non_deductible_vat_pct`` > 0 -- samme kildefelt kontrol 109
+# allerede konsumerer, ``vat_form.code_rate_lookup``, genbrugt her UÆNDRET
+# -- ingen parallel opsætningslæsning) regnede _compute_period_rubrics
+# HELE den bogførte vat_amount som fradragsberettiget input. Korrekt:
+# vat_amount × (1 − non_deductible_pct/100), PRÆCIS samme formel som
+# kontrol 109's ``deductible_pct``. Gælder GENERISK for alle tre
+# fradragsside-bidrag til input_vat-rubrikken (almindelig købsmoms, DKRC,
+# RC-ydelser) -- IKKE deres eventuelle optræden som UDGÅENDE
+# liability-rubrik (output_vat's dkrc-bidrag, rc_services' egen rubrik
+# forbliver FULDE beløb; kun selve fradraget reduceres, jf. dansk
+# momsrets to-sidede omvendt betalingspligt-mekanik). Se
+# ``_compute_period_rubrics`` for den fulde beregning.
+#
 # HÆRDNING (byggetrin 9, Del A, Bal-godkendt 2026-09-17): er
 # balai_extensions-feltet ``vat_calculation_type`` til stede (kun på den
 # kanoniske vej, når vat_setup.csv er indlæst), bruger _purchase_rubric det
@@ -391,10 +421,20 @@ _RUBRIC_LABELS = {
 }
 
 
-def _purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
-    """Klassificér en KØBSLINJES momskode til rubrik: 'dkrc' (indenlandsk
-    omvendt betalingspligt -> tælles med i udgående moms), 'rc_services'
-    (RC-ydelser udland -> egen rubrik) eller 'input' (almindelig købsmoms).
+def _purchase_rubric(tax_code: str, vat_calculation_type: str = "",
+                      tax_percentage=None) -> str:
+    """Klassificér en KØBSLINJES momskode til rubrik: 'energy_tax' (afgift,
+    fx elafgift -- UDELADES af alle afstemte rubrikker, se FEJL 1 ovenfor),
+    'dkrc' (indenlandsk omvendt betalingspligt -> tælles med i udgående
+    moms), 'rc_services' (RC-ydelser udland -> egen rubrik) eller 'input'
+    (almindelig købsmoms).
+
+    ``tax_percentage`` (byggetrin fix-runde 2026-09-22): kun brugt til
+    ``vat_rules.is_energy_tax_code``s strukturelle fallback-signal (se
+    FEJL 1 ovenfor) -- afgiftstjekket køres FØRST, FØR
+    ``vat_calculation_type``-grenen nedenfor, fordi en afgiftskode som
+    "DOMESTIC|ELECTRICITY_TAX" har calc_type "Full VAT" (hverken tom eller
+    reverse charge) og ellers ville ramme 'input' i den næste gren.
 
     ``vat_calculation_type`` (balai_extensions, kontrakt v0.4.0, tax_table[]/
     lines[].vat_calculation_type -- kun til stede på den kanoniske vej NÅR
@@ -428,6 +468,8 @@ def _purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
     den REN navnemønster-klassifikation (uændret hidtidig adfærd) -- se
     modulets Del B-dokumentation ovenfor for den dokumenterede begrænsning
     i mønster-genkendelsen."""
+    if vr.is_energy_tax_code(tax_code, vat_calculation_type, tax_percentage):
+        return "energy_tax"
     calc_type = (vat_calculation_type or "").strip().lower()
     if calc_type:
         if not vr.is_rc_calc_type(calc_type):
@@ -445,14 +487,16 @@ def _purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
     return "input"
 
 
-def classify_purchase_rubric(tax_code: str, vat_calculation_type: str = "") -> str:
+def classify_purchase_rubric(tax_code: str, vat_calculation_type: str = "",
+                              tax_percentage=None) -> str:
     """Offentlig alias for ``_purchase_rubric`` (byggetrin ~10, Bal-godkendt
-    2026-09-18): ``tools/generate_report.py``s 'Momsmotoren'-sektion skal
-    vise KUNDEN, hvilken angivelsesrubrik en given momskode klassificeres
-    til — samme rubrik-logik som kontrol 82, ikke en gendannet kopi af den
+    2026-09-18; ``tax_percentage``-parameter tilføjet fix-runde 2026-09-22,
+    FEJL 1): ``tools/generate_report.py``s 'Momsmotoren'-sektion skal vise
+    KUNDEN, hvilken angivelsesrubrik en given momskode klassificeres til —
+    samme rubrik-logik som kontrol 82, ikke en gendannet kopi af den
     (kilde-af-sandhed-disciplinen). Ren gennemstilling; se ``_purchase_rubric``
     for hele beslutningstræet."""
-    return _purchase_rubric(tax_code, vat_calculation_type)
+    return _purchase_rubric(tax_code, vat_calculation_type, tax_percentage)
 
 
 def _line_direction(line: dict):
@@ -486,6 +530,26 @@ def _line_direction(line: dict):
     return None
 
 
+def _deductible_fraction(tax_code: str, setup_by_code: dict) -> float:
+    """Andel af en KØBSLINJES moms der er fradragsberettiget, ud fra
+    vat_setup's ``non_deductible_vat_pct`` (fix-runde 2026-09-22, FEJL 2).
+    PRÆCIS samme kildefelt og formel som kontrol 109
+    (``cat13_cross_dimension.test_109_deduction_rate_deviation``s
+    ``deductible_pct``) -- genbrugt her, ikke en parallel opsætningslæsning.
+
+    Uden et matchet opsætningsopslag (kode ukendt i vat_setup, eller
+    vat_setup slet ikke indlæst) ELLER intet non_deductible_vat_pct-signal
+    (None eller 0 -- fuld fradragsret): 1.0 (uændret adfærd, 100% fradrag,
+    PRÆCIS som før denne fix-runde)."""
+    setup = setup_by_code.get(tax_code)
+    if not setup or not setup.get("setup_matched"):
+        return 1.0
+    nd_pct = setup.get("non_deductible_vat_pct")
+    if not nd_pct:  # None eller 0 -- fuld fradragsret, intet at reducere
+        return 1.0
+    return max(0.0, 100.0 - nd_pct) / 100.0
+
+
 def _compute_period_rubrics(data: dict) -> dict:
     """Beregn de tre afstemmelige rubrikker pr. periode (nøgle "YYYY-MM") fra
     transaktionerne, på bogførings-/vat_period-basis
@@ -499,7 +563,25 @@ def _compute_period_rubrics(data: dict) -> dict:
     linjer i samme rubrik, før fortegnet låses; abs() pr. linje ville i
     stedet SUMMERE en reversering oveni i stedet for at trække den fra, og gav
     i praksis en falsk, kraftigt oppustet udgående-/RC-rubrik på den rigtige
-    fil, indtil dette blev rettet."""
+    fil, indtil dette blev rettet.
+
+    FIX-RUNDE 2026-09-22 (Bal-godkendt, se de to fejlbeskrivelser i modulets
+    kontrol 82-dokumentation ovenfor):
+      - FEJL 1: linjer klassificeret 'energy_tax' af ``_purchase_rubric``
+        (afgiftskoder, fx elafgift) tælles hverken med i input_vat eller
+        nogen anden afstemt rubrik -- de høres til angivelsens egen
+        "energy_taxes"-rubrik, som v1 bevidst ikke afstemmer.
+      - FEJL 2: hver af de tre fradragsside-bidrag til input_vat (alm.
+        købsmoms, DKRC, RC-ydelser) ganges med linjens EGEN
+        ``_deductible_fraction`` FØR de lægges i input_vat-summen -- en kode
+        med delvis fradragsret (fx 40% ikke-fradragsberettiget) bidrager
+        derfor kun med sin fradragsberettigede andel til input_vat. DKRCs
+        bidrag til output_vat og RC-ydelsers EGEN rubrik forbliver derimod
+        de FULDE, ureducerede beløb (liability-siden af omvendt
+        betalingspligt påvirkes ikke af købssidens fradragsbegrænsning) --
+        derfor to separate sum-nøgler ("dkrc"/"dkrc_fradrag",
+        "service"/"service_fradrag") pr. periode."""
+    setup_by_code = vf.code_rate_lookup(data)
     raw: dict = {}
     for txn in data.get("transactions", []):
         year = (txn.get("period_year") or "").strip()
@@ -507,7 +589,10 @@ def _compute_period_rubrics(data: dict) -> dict:
         if not year or not month:
             continue
         key = f"{year}-{month.zfill(2)}"
-        bucket = raw.setdefault(key, {"sale": 0.0, "dkrc": 0.0, "service": 0.0, "input": 0.0})
+        bucket = raw.setdefault(key, {
+            "sale": 0.0, "dkrc": 0.0, "service": 0.0, "input": 0.0,
+            "dkrc_fradrag": 0.0, "service_fradrag": 0.0, "input_fradrag": 0.0,
+        })
         for line in txn.get("lines", []):
             vat = line.get("tax_amount") or 0
             if vat == 0:
@@ -516,14 +601,21 @@ def _compute_period_rubrics(data: dict) -> dict:
             if direction == "sale":
                 bucket["sale"] += vat
             elif direction == "purchase":
-                rubric = _purchase_rubric(line.get("tax_code", ""),
-                                           line.get("vat_calculation_type", ""))
+                tax_code = line.get("tax_code", "")
+                rubric = _purchase_rubric(tax_code, line.get("vat_calculation_type", ""),
+                                           line.get("tax_percentage"))
+                if rubric == "energy_tax":
+                    continue  # FEJL 1 -- egen "energy_taxes"-rubrik, ikke afstemt af v1
+                fradrag_vat = vat * _deductible_fraction(tax_code, setup_by_code)
                 if rubric == "dkrc":
                     bucket["dkrc"] += vat
+                    bucket["dkrc_fradrag"] += fradrag_vat
                 elif rubric == "rc_services":
                     bucket["service"] += vat
+                    bucket["service_fradrag"] += fradrag_vat
                 else:
                     bucket["input"] += vat
+                    bucket["input_fradrag"] += fradrag_vat
             # direction is None (fx "settlement", eller hverken debet/kredit
             # udfyldt): hverken sale eller køb i moms-forstand -- ignoreres.
 
@@ -537,7 +629,10 @@ def _compute_period_rubrics(data: dict) -> dict:
             # i angivelsens total. Uden RC-siden opstaar en kunstig difference
             # paa praecis aarets RC-sum (verificeret paa den rigtige fil
             # 2026-09-17: 4,0 mio. kunstig -> -326 t.kr. reelt timing-residual).
-            "input_vat": round(v["input"] + v["dkrc"] + v["service"], 2),
+            # FEJL 2 (2026-09-22): de tre bidrag er hver ganget med deres
+            # egen fradragsprocent, FØR de lægges sammen her (se
+            # docstringen ovenfor) -- "*_fradrag", ikke de rå "*"-summer.
+            "input_vat": round(v["input_fradrag"] + v["dkrc_fradrag"] + v["service_fradrag"], 2),
         }
         for key, v in raw.items()
     }

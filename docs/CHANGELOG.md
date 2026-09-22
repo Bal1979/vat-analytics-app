@@ -3,6 +3,85 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Kontrol 82 fix-runde: elafgift + fradragsprocent på fradragssiden (2026-09-22, Bal-godkendt)
+
+Baggrund: to empirisk påviste klassifikationsfejl i kontrol 82's rubrik-logik
+(`backend/analytics/categories/cat10_vat_reconciliation.py`) på beregnet-siden
+af indgående moms, påvist mod Nordic RCC's TastSelv-angivelse og ekspertens
+3-vejs-afstemning ("kunden har ret, motoren tog fejl").
+
+**FEJL 1 (ELAFGIFT):** linjer med afgiftskoder (fx BC/NAV "DOMESTIC|
+ELECTRICITY_TAX") blev talt med i input_vat-rubrikken, men hører til
+angivelsens EGEN "energy_taxes"-rubrik (afgifter, ikke moms), som v1 bevidst
+ikke afstemmer. Ny, GENERISK genkendelse (`vat_rules.is_energy_tax_code`,
+`materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS`, default kun `"_TAX"` —
+BC/NAVs egen suffikskonvention for afgiftskoder, adskilt fra momskoders
+`"_VAT"`-suffiks; sekundært strukturelt fallback-signal: `tax_percentage=0`
+OG `vat_calculation_type="Full VAT"`). INGEN kundespecifikke værdier/lister.
+`_purchase_rubric` returnerer nu en ny kategori `"energy_tax"`, som
+`_compute_period_rubrics` udelader helt fra input_vat (og enhver anden
+afstemt rubrik).
+
+**FEJL 2 (FRADRAGSPROCENT PÅ FRADRAGSSIDEN):** for koder med delvist
+fradrag (vat_setup's `non_deductible_vat_pct` > 0 — RCC's "DOMESTIC|
+REDUCED_PRIVATE_DKRC": 40 % ikke-fradragsberettiget) regnede
+`_compute_period_rubrics` HELE den bogførte moms som fradragsberettiget
+input. Rettet med PRÆCIS samme formel/kildefelt som kontrol 109
+(`vat_amount × (1 − non_deductible_pct/100)`, via `vat_form.
+code_rate_lookup` — genbrugt, ingen parallel opsætningslæsning). Gælder
+generisk for alle tre fradragsside-bidrag til input_vat (alm. købsmoms,
+DKRC, RC-ydelser); DKRCs bidrag til output_vat og RC-ydelsers EGEN rubrik
+forbliver de FULDE, ureducerede beløb (liability-siden af omvendt
+betalingspligt er upåvirket af købssidens fradragsbegrænsning — to-sidet
+mekanik).
+
+**Empirisk verifikation** (`backend/tools/analyze_canonical.py` på
+BC-datasættet, alle tre kanoniske stamdata-sidecars + `vat_declarations.
+json`): kontrol 82's beregnede input_vat-årstotal gik fra en kunstig
+**-326.212 DKK-residual** (se korrektionsnoten ved byggetrin 8/Del D
+nedenfor) til **1,15 DKK** — dvs. den beregnede input_vat matcher nu den
+FAKTISKE TastSelv-angivelse for alle 12 måneder inden for få kroner (jan/
+feb/mar/apr resterer som "timing", low severity, fordi købsmoms angives på
+settlement- ikke vat_period-basis — uændret, dokumenteret V1-designvalg;
+maj-dec bliver nu "match"). Kontrol 82's fund-billede: **12 timing-fund
+(FØR) → 4 timing-fund (EFTER)** — jan/feb/mar/apr forbliver timing (low),
+maj-dec bliver match (intet fund). Fund i alt (BC, MED angivelse):
+**23.095 → 23.087** (12 → 4 kontrol-82-fund, øvrige 103 kontroller
+fund-identiske). **Vagtposter bekræftet uændrede:** BC UDEN angivelsesfil
+**23.083** (kontrol 82 springer over — bekræftet inkl. Momsmotor-sektionens
+rubrik-logik, som deler kildekode med kontrol 82 via `classify_purchase_
+rubric`); kunde 2 (kamstrup_e2e_v2, ingen angivelsesfil, kontrol 82 inaktiv):
+70=348, 71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520, 30=40 — alle
+uændrede (verificeret med `--modules alle` mod de fire selvstændige
+stamdata-undermapper). **603 automatiserede tests** (12 nye, SYNTETISKE
+koder/tal — ingen kundedata), 105/105 validering, katalog/data_contract
+uden drift (v1.5.1/v0.5.0 uændrede — ren regeladfærd, ingen nye felter).
+
+**DOKUMENTATIONSKORREKTION (vigtig for revisionssporet):** byggetrin 8/Del
+D's note nedenfor ("årsresidual -326.212 DKK ≈ 0,56 %") beskrev fejlagtigt
+denne difference som forventelig settlement-timing. Den var i virkeligheden
+FEJL 1 + FEJL 2 ovenfor — en fejl i MOTOREN, ikke i kundens bogføring eller
+en uundgåelig timing-effekt. Baseline-noten "23.095 = 23.083 + kontrol 82's
+12 fund" (byggetrin 8/Del D, gap-analyse-runde 2 m.fl.) opdateres til:
+23.095 (FØR denne fix-runde) / **23.087** (EFTER, 4 kontrol-82-fund) — begge
+tal forudsætter angivelsesfilen; 23.083 (UDEN angivelsesfil) er fortsat
+uændret referencebaseline.
+
+**ÅBEN TRÅD (IKKE rettet i denne runde, uden for godkendt scope):**
+diagnosticeringen fandt to specifikke bilag (`DOC_1004984`, dateret
+2025-03-01 men periode="04"; `DOC_1005326`, dateret 2025-05-31 men
+periode="06") hvis periodefelt afviger fra bogføringsdatoen. Disse bilags
+beløb (46.708,50 hhv. 33.514,87 DKK) forklarer PRÆCIS den resterende
+mar/apr- og maj/jun-difference mellem denne fix-rundes beregnede tal og en
+tidligere udkastet acceptkriterie-liste, som tilsyneladende antog
+datobaseret (ikke periodefelt-baseret) bucketing for disse to bilag. Den
+FAKTISKE TastSelv-angivelse (vat_declarations.json) bekræfter derimod at
+periodefeltet er korrekt (marts/april/maj/juni matcher den reelle
+angivelse inden for få kroner MED periodefelt-baseret bucketing) — så
+denne fix-runde bruger periodefeltet uændret, som hidtil. Rapporteret til
+Bal som en selvstændig, ikke-godkendt kandidat-tråd (periodefelt- vs.
+bogføringsdato-uoverensstemmelse for enkeltbilag) — IKKE rettet her.
+
 ## Semantik-PoC: harness skiftet til LM Studio (2026-09-22, Bal-godkendt)
 
 Baggrund: Bal er skiftet fra Ollama til **LM Studio** som lokal LLM-harness.
@@ -1506,8 +1585,15 @@ skønnede totalsum, som bør bekræftes eksplicit (se sporbarhedsnotat/
 hand-off). HTML-rapport genereret til
 `kunde_rapport_2025.html` (53,6 KB) fra den nye rapport-JSON — 5 sektioner,
 12-måneders kontrol 82-tabel (output/RC grøn alle 12 måneder, input_vat
-"timing" alle 12 måneder, årsresidual -326.212 DKK ≈ 0,56 % — matcher
-dokumentationen i kontrol 82-modulet), 29 kontrol-blokke med fund.
+"timing" alle 12 måneder, årsresidual -326.212 DKK ≈ 0,56 % — matchede
+dengang dokumentationen i kontrol 82-modulet), 29 kontrol-blokke med fund.
+**KORREKTION (2026-09-22, kontrol 82 fix-runde — se toppen af denne fil):**
+denne -326.212 DKK-residual var IKKE en ægte settlement-timing-effekt, som
+teksten dengang antog — den var motorens egen FEJL 1 (elafgift talt med i
+input_vat) + FEJL 2 (fuld moms i stedet for fradragsprocenten på
+DKRC-fradragssiden). Efter fixet er årsresidualen 1,15 DKK. Vigtigt for
+revisionssporet: den oprindelige "kundens difference er timing, ikke en
+fejl"-konklusion var forkert — det var motoren, der tog fejl, ikke kunden.
 
 Katalog **v1.3.0** (kontrol 19 "navn" ændret til "Sats afviger fra vat_setup"
 af den AST-baserede generator — nyt primært make_finding-kald opdaget

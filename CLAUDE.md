@@ -25,6 +25,35 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-09-22)
 
+- **Kontrol 82 fix-runde: elafgift + fradragsprocent på fradragssiden
+  (2026-09-22, Bal-godkendt, committet lokalt — ikke pushet):** to
+  klassifikationsfejl i kontrol 82's rubrik-logik (`cat10_vat_
+  reconciliation.py`), empirisk påvist mod Nordic RCC's TastSelv-angivelse.
+  FEJL 1: afgiftskoder (fx "DOMESTIC|ELECTRICITY_TAX") talte fejlagtigt med
+  i input_vat — ny generisk `vat_rules.is_energy_tax_code` (kode-mønster
+  "_TAX" + strukturelt fallback, INGEN kundespecifikke værdier) udelader dem
+  nu via en ny `_purchase_rubric`-kategori "energy_tax". FEJL 2: koder med
+  delvist fradrag (vat_setup's `non_deductible_vat_pct`) fik HELE momsen talt
+  med som fradragsberettiget — rettet med PRÆCIS kontrol 109's formel/
+  kildefelt (`vat_form.code_rate_lookup`, genbrugt), generisk for alle tre
+  fradragsside-bidrag (alm. købsmoms/DKRC/RC-ydelser); DKRCs/RC-ydelsers
+  EGEN udgående rubrik forbliver upåvirket (kun fradragssiden reduceres).
+  Empirisk på BC-datasættet: kontrol 82's årsresidual -326.212 DKK → 1,15
+  DKK (matcher nu den FAKTISKE angivelse for alle 12 måneder inden for få
+  kroner); fund-billede 12 timing-fund → 4 (jan-apr forbliver timing, maj-dec
+  bliver match); fund i alt (MED angivelse) 23.095→23.087. Vagtposter
+  bekræftet uændrede: BC UDEN angivelse 23.083 (inkl. Momsmotor-sektionen,
+  som deler rubrik-logik via `classify_purchase_rubric`); kunde 2
+  (kamstrup_e2e_v2): 70/71/84/87/88/109/27/30 alle uændrede. **603 tests**
+  (12 nye, syntetiske koder/tal), 105/105 validering, katalog/kontrakt
+  uændrede (v1.5.1/v0.5.0, ren regeladfærd). CHANGELOG korrigerer eksplicit
+  den tidligere "-326.212 ≈ 0,56% er timing, ikke en fejl"-konklusion (det
+  var motoren, ikke kunden, der tog fejl). ÅBEN, IKKE-GODKENDT KANDIDAT-TRÅD:
+  to bilag (`DOC_1004984`, `DOC_1005326`) hvis periodefelt afviger fra
+  bogføringsdatoen forklarer en resterende mar/apr- og maj/jun-difference
+  mod en tidligere acceptkriterie-liste, der tilsyneladende antog
+  datobaseret bucketing — IKKE rettet (periodefeltet matcher den faktiske
+  angivelse bedre og er derfor bevaret uændret); se `docs/CHANGELOG.md`.
 - **Semantik-PoC: harness skiftet til LM Studio (2026-09-22, Bal-godkendt,
   committet lokalt — ikke pushet):** `examples/poc_semantik/run_poc.py`
   (byggetrin 3) omlagt fra Ollamas `/api/chat` til OpenAI-kompatibelt
@@ -433,9 +462,9 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **591 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
+- **603 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
-  øverste statuspunkter for de seneste opdateringer (2026-09-20).
+  øverste statuspunkter for de seneste opdateringer (2026-09-22).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
 - Deployet på Railway (projekt `airy-light`, service → vat.balai.dk, EU West,
   1 worker / 1 replica pga. in-memory jobs).
@@ -446,7 +475,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 591 tests
+python -m pytest -q                            # 603 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 105/105 uafhængig validering
