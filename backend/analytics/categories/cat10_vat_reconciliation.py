@@ -551,10 +551,19 @@ def _deductible_fraction(tax_code: str, setup_by_code: dict) -> float:
 
 
 def _compute_period_rubrics(data: dict) -> dict:
-    """Beregn de tre afstemmelige rubrikker pr. periode (nøgle "YYYY-MM") fra
-    transaktionerne, på bogførings-/vat_period-basis
-    (transactions[].period_year/period). Se _line_direction for sale-/
-    købs-klassifikationen.
+    """Beregn de tre afstemmelige DEKLARATIONS-rubrikker (output_vat/
+    rc_services/input_vat, se ``_DECLARATION_RUBRICS``) PLUS en fjerde
+    "energy_tax"-nøgle pr. periode (nøgle "YYYY-MM") fra transaktionerne, på
+    bogførings-/vat_period-basis (transactions[].period_year/period). Se
+    _line_direction for sale-/købs-klassifikationen.
+
+    "energy_tax" (byggetrin ~12, selvkonsistens-gaten, Bal-godkendt
+    2026-09-23) er IKKE en deklarations-rubrik -- test_82/
+    build_declaration_reconciliation_table konsumerer fortsat kun
+    ``_DECLARATION_RUBRICS`` og er derfor 100% uændrede af denne tilføjelse.
+    Nøglen findes udelukkende, så ``analytics.self_consistency_gate`` kan
+    krydstjekke afgiftsbeløbet (fx elafgift) mod dets egen momskonto uden en
+    parallel beregning af den samme sum.
 
     VIGTIGT (empirisk bekræftet, byggetrin 8/Del D, 2026-09-17): hvert
     rubrik-udtryk summeres FØRST MED FORTEGN over linjerne, og abs()/
@@ -592,6 +601,7 @@ def _compute_period_rubrics(data: dict) -> dict:
         bucket = raw.setdefault(key, {
             "sale": 0.0, "dkrc": 0.0, "service": 0.0, "input": 0.0,
             "dkrc_fradrag": 0.0, "service_fradrag": 0.0, "input_fradrag": 0.0,
+            "energy_tax": 0.0,
         })
         for line in txn.get("lines", []):
             vat = line.get("tax_amount") or 0
@@ -605,7 +615,16 @@ def _compute_period_rubrics(data: dict) -> dict:
                 rubric = _purchase_rubric(tax_code, line.get("vat_calculation_type", ""),
                                            line.get("tax_percentage"))
                 if rubric == "energy_tax":
-                    continue  # FEJL 1 -- egen "energy_taxes"-rubrik, ikke afstemt af v1
+                    # FEJL 1 -- egen "energy_taxes"-rubrik i ANGIVELSEN, ikke
+                    # afstemt af v1's deklarations-kontrol (test_82) — men
+                    # AKKUMULERES stadig her (byggetrin ~12, selvkonsistens-
+                    # gaten, Bal-godkendt 2026-09-23), så
+                    # ``analytics.self_consistency_gate`` kan krydstjekke den
+                    # mod elafgiftskontoen uden en parallel beregning. Ren
+                    # tilføjelse -- de tre deklarations-rubrikker
+                    # (_DECLARATION_RUBRICS) er uændrede og ignorerer nøglen.
+                    bucket["energy_tax"] += vat
+                    continue
                 fradrag_vat = vat * _deductible_fraction(tax_code, setup_by_code)
                 if rubric == "dkrc":
                     bucket["dkrc"] += vat
@@ -633,9 +652,24 @@ def _compute_period_rubrics(data: dict) -> dict:
             # egen fradragsprocent, FØR de lægges sammen her (se
             # docstringen ovenfor) -- "*_fradrag", ikke de rå "*"-summer.
             "input_vat": round(v["input_fradrag"] + v["dkrc_fradrag"] + v["service_fradrag"], 2),
+            # Byggetrin ~12 (selvkonsistens-gaten, Bal-godkendt 2026-09-23):
+            # RÅ afgiftssum (ikke en deklarations-rubrik — se kommentaren ved
+            # akkumuleringen ovenfor). _DECLARATION_RUBRICS konsumerer
+            # fortsat kun de tre oprindelige nøgler, så test_82/
+            # build_declaration_reconciliation_table er 100% uændrede.
+            "energy_tax": round(abs(v["energy_tax"]), 2),
         }
         for key, v in raw.items()
     }
+
+
+def compute_period_rubrics(data: dict) -> dict:
+    """Offentlig alias for ``_compute_period_rubrics`` (byggetrin ~12,
+    Bal-godkendt 2026-09-23) — ``analytics/self_consistency_gate.py`` skal
+    kunne genbruge PRÆCIS den samme rubrik-beregning kontrol 82 bruger (samme
+    kilde-af-sandhed-disciplin som ``classify_purchase_rubric`` ovenfor),
+    ikke en gendannet kopi af logikken. Ren gennemstilling."""
+    return _compute_period_rubrics(data)
 
 
 def build_declaration_reconciliation_table(data, declarations=None):

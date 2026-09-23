@@ -268,6 +268,78 @@ def test_engine_section_missing_data_is_graceful():
     assert "Ingen detaljeret momsopsætning" in out
 
 
+# --- Selvkonsistens-gaten / "momskonto-krydstjekket" (byggetrin ~12, -------
+# Bal-godkendt 2026-09-23) — analytics/self_consistency_gate.py's rapport-blok.
+
+def _sc_gate(**overrides):
+    gate = {
+        "status": "bestaaet",
+        "message": "Bestået: motorens beregnede rubrikker stemmer med de bogførte momskonti.",
+        "tolerance": 1.0, "materiality_pct": 1.0,
+        "rubrik_labels": {"output_vat": "Udgående moms", "input_vat": "Indgående moms",
+                           "rc_services": "RC-ydelser", "energy_tax": "Afgifter"},
+        "rubrikker": {
+            "output_vat": {"konti": ["961100"], "maalbar": True, "beregnet_aar": 100.0,
+                           "bogfoert_aar": 100.0, "difference_aar": 0.0, "status": "match"},
+            "input_vat": {"konti": ["963100"], "maalbar": True, "beregnet_aar": 50.0,
+                          "bogfoert_aar": 50.0, "difference_aar": 0.0, "status": "match"},
+            "rc_services": {"konti": [], "maalbar": False, "beregnet_aar": None,
+                            "bogfoert_aar": None, "difference_aar": None, "status": "ikke_maalbar"},
+            "energy_tax": {"konti": [], "maalbar": False, "beregnet_aar": None,
+                          "bogfoert_aar": None, "difference_aar": None, "status": "ikke_maalbar"},
+        },
+        "perioder": [],
+    }
+    gate.update(overrides)
+    return gate
+
+
+def test_self_consistency_section_missing_shows_not_available():
+    out = gr.render_html(_wrap(_minimal_analytics()), None, niveau=3)
+    assert "Internt momskonto-krydstjek" in out
+    assert "Ingen selvkonsistens-kørsel var tilgængelig" in out
+
+
+def test_self_consistency_section_shows_bestaaet_status_and_table():
+    analytics = _minimal_analytics()
+    analytics["intern_momskonto_afstemning"] = _sc_gate()
+    out = gr.render_html(_wrap(analytics), None, niveau=3)
+    assert "Bestået" in out
+    assert "961100" in out and "20.330" not in out  # ingen kundetal her, kun vores test-fixture
+    assert "Ikke målbar (mangler kontoreference" in out
+    assert "Forbehold" not in out
+
+
+def test_self_consistency_deviation_adds_forbehold_to_declaration_table_and_engine_section():
+    analytics = _minimal_analytics()
+    analytics["declaration_reconciliation"] = {
+        "perioder": [{"periode": "2024-03", "rubrikker": {
+            "output_vat": {"beregnet": 100.0, "angivet": 100.0, "difference": 0.0, "status": "match"},
+        }}],
+        "aarstotaler": {"output_vat": {"beregnet": 100.0, "angivet": 100.0, "difference": 0.0}},
+        "rubrik_labels": {"output_vat": "Udgående moms"},
+    }
+    analytics["intern_momskonto_afstemning"] = _sc_gate(
+        status="afvigelse",
+        rubrikker={
+            **_sc_gate()["rubrikker"],
+            "output_vat": {"konti": ["961100"], "maalbar": True, "beregnet_aar": 100.0,
+                           "bogfoert_aar": 40.0, "difference_aar": 60.0, "status": "afvigelse"},
+        },
+    )
+    report = _wrap(analytics)
+    report["tax_table_oversigt"] = [{
+        "tax_code": "DOMESTIC|REDUCED_PRIVATE_DKRC", "description": "Test", "tax_percentage": 25.0,
+        "vat_calculation_type": "Reverse Charge VAT", "sales_vat_account": "961100",
+        "purchase_vat_account": "963100", "reverse_charge_vat_account": "961400",
+        "setup_matched": True,
+    }]
+    out = gr.render_html(report, None, niveau=3)
+    assert out.count("Forbehold") == 2  # både i Momsangivelse-tabellen og i Momsmotoren
+    assert "⚠" in out
+    assert "motoren selv" in out or "IKKE selv bekræftet" in out
+
+
 # --- Redesign: kuration/observationer (sektion 4) ---------------------------
 
 def test_observations_section_uses_curation_group():

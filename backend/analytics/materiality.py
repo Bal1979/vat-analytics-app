@@ -182,6 +182,39 @@ VAT_DECLARATION_TOLERANCE = _f("MATERIALITY_VAT_DECLARATION_TOLERANCE", 1.0)
 # spillover hen over årsgrænsen) og giver LAV i stedet for HØJ pr. periode.
 VAT_DECLARATION_ANNUAL_TIMING_PCT = _f("MATERIALITY_VAT_DECLARATION_ANNUAL_TIMING_PCT", 1.0)
 
+# Selvkonsistens-gaten / "momskonto-krydstjekket" (byggetrin ~12, Bal-godkendt
+# 2026-09-23, analytics/self_consistency_gate.py): motorens egen kontrol af,
+# om dens beregnede rubrikker (samme kilde-af-sandhed som kontrol 82's
+# _compute_period_rubrics) stemmer med de FAKTISKE posteringer på kundens
+# egne momskonti (tax_table[].sales_vat_account/purchase_vat_account/
+# reverse_charge_vat_account) — UDEN et ekspert-facit at holde det op imod
+# (baggrund: kontrol 82-sagen 2026-09-22, se CHANGELOG).
+
+# Øre-/afrundingstolerance (DKK) for én rubrik i én periode/år — under denne
+# betragtes beregnet og bogført som identiske (samme filosofi som
+# VAT_DECLARATION_TOLERANCE ovenfor).
+SELF_CONSISTENCY_TOLERANCE = _f("MATERIALITY_SELF_CONSISTENCY_TOLERANCE", 1.0)
+
+# Relativ materialitetsgrænse (procent af den beregnede ÅRSTOTAL for rubrikken)
+# der afgør, om en årsdifference er stor nok til at flage gaten som
+# "afvigelse" — under grænsen (og under den absolutte tolerance ovenfor)
+# er differencen støj, ikke et signal om en klassifikationsfejl. Samme
+# "max(absolut, relativ)"-mønster som VAT_DECLARATION_ANNUAL_TIMING_PCT.
+SELF_CONSISTENCY_MATERIALITY_PCT = _f("MATERIALITY_SELF_CONSISTENCY_MATERIALITY_PCT", 1.0)
+
+# BC/NAV's kildekode (``source_code``) for VAT-afregningsbatchen ("moms-
+# afregning") — disse posteringer NULSTILLER momskontiene ved periodeafslutning
+# og skal holdes ude af krydstjekket (de er ikke en del af periodens
+# beregnede rubrik, kun kontoens periodiske nulstilling). Empirisk bekræftet
+# på BC-datasættet: batchen bærer IKKE altid ``supply_direction="settlement"``
+# (kun på nogle af de berørte konti) — ``source_code="MOMSAFREGN"`` er det
+# pålidelige, gennemgående signal. Sammenlignes case-insensitivt. Kalibreret
+# til BC/NAV's observerede vokabular, ikke universel — override via env
+# (komma-separeret liste) for en anden ERP-konvention.
+SELF_CONSISTENCY_SETTLEMENT_SOURCE_CODES = [
+    c.upper() for c in _strlist("MATERIALITY_SELF_CONSISTENCY_SETTLEMENT_SOURCE_CODES", ["MOMSAFREGN"])
+]
+
 # Kontrol 104-108 (krydsdimensionelle kontroller, gap-analysen, Bal-godkendt
 # 2026-09-18, analytics/categories/cat13_cross_dimension.py):
 

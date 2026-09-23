@@ -3,6 +3,100 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Selvkonsistens-gaten — "momskonto-krydstjekket" (2026-09-23, Bal-godkendt)
+
+Baggrund: kontrol 82-sagen dagen før (326 t.kr. residual, se næste afsnit)
+blev kun opdaget, fordi kundens EGEN 3-vejs-afstemning fandtes som facit at
+holde motoren op imod. Den metode kan automatiseres — momskodeopsætningen
+bærer allerede kontoreferencerne (`tax_table[].sales_vat_account`/
+`purchase_vat_account`/`reverse_charge_vat_account`) — så motoren kan
+krydstjekke sine EGNE beregnede rubrikker mod de FAKTISKE posteringer på
+kundens momskonti, UDEN et ekspert-facit.
+
+**Design:** ny `backend/analytics/self_consistency_gate.py`. Kilde-af-
+sandhed-disciplin (ingen parallel logik): de beregnede rubrik-summer kommer
+fra `cat10_vat_reconciliation.compute_period_rubrics` (ny, offentlig alias
+for `_compute_period_rubrics` — SAMME funktion kontrol 82 bruger), og
+rubrik-klassifikationen pr. momskode fra `classify_purchase_rubric` (samme
+funktion Momsmotor-sektionen allerede bruger). `_compute_period_rubrics`
+udvidet med en fjerde, additiv "energy_tax"-sumnøgle pr. periode (elafgiftens
+rå beløb — de tre deklarations-rubrikker og test_82 er 100 % uændrede).
+Gaten er IKKE en ny nummereret kontrol og udsteder INGEN findings — samme
+filosofi som `analytics/reconciliation_gate.py`: et selvstændigt, informativt
+lag, wiret ind i `engine.run_all_tests` som `report["intern_momskonto_
+afstemning"]` (samme sted som `declaration_reconciliation`), kører
+UAFHÆNGIGT af om en angivelse er givet.
+
+**Kontoklassifikation pr. rubrik** (udledt af tax_table, samme
+`classify_purchase_rubric`): `sales_vat_account` → output_vat (altid);
+`reverse_charge_vat_account` → output_vat for 'dkrc'-koder, rc_services for
+'rc_services'-koder (RC-varekøbs egen RC-konto medtages BEVIDST ikke —
+klassificeres 'input' og er allerede fuldt repræsenteret via sin
+`purchase_vat_account`, empirisk bekræftet immateriel som selvstændig
+kontrolstørrelse); `purchase_vat_account` → input_vat for alle ikke-
+energy_tax-koder, energy_tax for 'energy_tax'-koder.
+
+**VAT-afregningsbatch udelades** (empirisk undersøgt på BC-datasættet FØR
+reglen blev fastlagt): batchen, der nulstiller momskontiene periodisk, bærer
+IKKE konsekvent `supply_direction="settlement"` på tværs af alle berørte
+konti — det pålidelige, gennemgående signal er BC/NAVs `source_code=
+"MOMSAFREGN"` (ny `materiality.SELF_CONSISTENCY_SETTLEMENT_SOURCE_CODES`,
+engagement-overstyrbar). Begge signaler ekskluderes (OR).
+
+**Ny materialitetskonfiguration** (`materiality.py`, alle env-overstyrbare,
+tilføjet `MATERIALITY_RUN_CONFIG`/`data_contract.json` for sporbarhed):
+`SELF_CONSISTENCY_TOLERANCE` (default 1,00 DKK, øre-/afrundingstolerance),
+`SELF_CONSISTENCY_MATERIALITY_PCT` (default 1,0 %, årlig relativ
+flag-tærskel), `SELF_CONSISTENCY_SETTLEMENT_SOURCE_CODES` (default
+`["MOMSAFREGN"]`).
+
+**Rapport-laget** (`tools/generate_report.py`): ny "Internt momskonto-
+krydstjek"-sektion i tillidsanker-sektionen (Afstemningen) — status-badge
+(Bestået/Afvigelse/Ikke målbar) + tabel pr. rubrik (konti, beregnet vs.
+bogført årstotal, diff, status), klartekst-konklusion tilføjet. Ved
+afvigelse: et eksplicit `.anchor-warning`-forbehold i BÅDE momsangivelse-
+tabellen (kontrol 82's tillidsanker) og Momsmotor-sektionens rubrik-kolonne
+(⚠-markør pr. berørt momskode) — "motoren må ikke publicere tal, den ikke
+selv kan afstemme".
+
+**Empirisk verifikation** (`backend/tools/analyze_canonical.py --modules
+alle` på BC-datasættet, alle tre kanoniske stamdata-sidecars +
+`vat_declarations.json`, undersøgt FØR udelukkelsesreglen blev fastlagt —
+jf. opgavens "empirisk-først"-krav): gaten konkluderer SELV ~0 kr. diff
+(øre-niveau) på alle fire rubrikker — input_vat 57.878.406,15 DKK (kontoen:
+57.878.406,16, -0,01 rundingsdiff) ↔ konto 963100; output_vat 20.330.889,69
+DKK ↔ konto 961100 (salg) + 961400 (DKRC, "udgående moms via omvendt
+betalingspligt"); rc_services 3.610.868,25 DKK ↔ konto 961300; energy_tax
+(elafgift) 36.023,37 DKK ↔ konto 968100. Status **bestaaet**. RC-varekøbs
+egen konto (961200) bevidst udeladt — empirisk næsten tom/immateriel (netto
+-10.561,55 DKK for hele året) og allerede dækket via input_vat.
+
+**Syntetisk regressionstest** (`tests/test_self_consistency_gate.py::
+test_synthetic_regression_flags_reintroduced_deduction_bug`): simulerer
+PRÆCIS gårsdagens FEJL 2 (fradragsprocent ignoreret) ved at monkeypatche
+`_deductible_fraction` til fejlagtigt altid at returnere 100 % fradrag —
+IKKE ved at rulle den rigtige fix tilbage i produktionskoden. Med fixet
+kode: gaten er tavs (beregnet 600 = bogført 600). Med den genindførte fejl:
+gaten flager `input_vat` som "afvigelse" (beregnet 1.000 ≠ bogført 600,
+diff 400 langt over materialitetsgrænsen) — det er hele pointen med gaten.
+
+**Kunde 2 (kamstrup_e2e_v2, IFS, `--modules alle`):** vat_setup.csv har
+ingen af de tre kontoreferencefelter — gaten melder ærligt "ikke_maalbar"
+(ingen gæt, ingen støj), aktiveres automatisk den dag felterne leveres.
+ALLE vagtposter uændrede: total 1.230.134 fund (70=348, 71=4.139, 84=23,
+87=28, 88=11, 109=402, 27=520, 30=40).
+
+**BC uden angivelse:** 23.083 fund uændret. **BC med angivelse:** 23.087
+fund uændret. Gaten er en afstemningsblok, IKKE en ny kontrol — ingen nye
+findings, ingen ændring af fund-billedet på nogen af de to kørsler.
+
+**Discipliner:** **616 automatiserede tests** (13 nye — 10 syntetiske
+selvkonsistens-gate-tests + 3 rapport-lags-tests), 105/105 uafhængig
+validering, `catalog/rules.json` uændret (v1.5.1, ingen ny nummereret
+kontrol), `catalog/data_contract.json` uændret på `contract_version`
+(v0.5.0 — kun `MATERIALITY_RUN_CONFIG`-dokumentation tilføjet, ingen nye
+INPUT-felter). Ingen kundedata i repoet. Committet lokalt — ikke pushet.
+
 ## Kontrol 82 fix-runde: elafgift + fradragsprocent på fradragssiden (2026-09-22, Bal-godkendt)
 
 Baggrund: to empirisk påviste klassifikationsfejl i kontrol 82's rubrik-logik

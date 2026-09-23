@@ -23,8 +23,45 @@ Resultatfilosofi (vigtig): **RØD = handling krævet** — ingen falske alarmer
 (jf. VIES: 37 røde → 4 reelle). Konservativ mod falske negativer. Prioriteret
 handlingsliste, ikke en mur af flag.
 
-## Status (pr. 2026-09-22)
+## Status (pr. 2026-09-23)
 
+- **Selvkonsistens-gaten — "momskonto-krydstjekket" (2026-09-23,
+  Bal-godkendt, committet lokalt — ikke pushet):** ny `backend/analytics/
+  self_consistency_gate.py` — motoren krydstjekker nu sine EGNE beregnede
+  rubrikker (samme kilde-af-sandhed som kontrol 82's `_compute_period_
+  rubrics`, ny offentlig alias `compute_period_rubrics`, INGEN parallel
+  logik) mod de FAKTISKE posteringer på kundens momskonti
+  (`tax_table[].sales_vat_account`/`purchase_vat_account`/
+  `reverse_charge_vat_account`), UDEN et ekspert-facit — baggrund: kontrol
+  82-sagen dagen før (326 t.kr. residual) blev kun opdaget takket være
+  kundens EGEN 3-vejs-afstemning. `_compute_period_rubrics` udvidet med en
+  fjerde, additiv "energy_tax"-sumnøgle (elafgift) — de tre deklarations-
+  rubrikker/test_82 er 100% uændrede. VAT-afregningsbatchen (BC/NAV's
+  `source_code="MOMSAFREGN"`, OR `supply_direction="settlement"` — begge
+  signaler nødvendige, empirisk undersøgt FØR reglen blev fastlagt)
+  udelades af krydstjekket. IKKE en ny nummereret kontrol, ingen findings —
+  samme filosofi som `reconciliation_gate.py`: wiret ind i
+  `engine.run_all_tests` som `report["intern_momskonto_afstemning"]`,
+  uafhængig af declarations. Rapport-laget (`generate_report.py`): ny
+  "Internt momskonto-krydstjek"-sektion i tillidsanker-sektionen
+  (status-badge + rubrik-tabel), og ved afvigelse et eksplicit
+  `.anchor-warning`-forbehold i BÅDE momsangivelse-tabellen og
+  Momsmotor-sektionen (⚠ pr. berørt momskode) — "motoren må ikke publicere
+  tal, den ikke selv kan afstemme". Empirisk på BC-datasættet: gaten
+  konkluderer SELV ~0 kr. diff på alle fire rubrikker (input_vat
+  57.878.406,15↔963100, output_vat 20.330.889,69↔961100+961400, rc_services
+  3.610.868,25↔961300, energy_tax 36.023,37↔968100) — status **bestaaet**.
+  Syntetisk regressionstest simulerer gårsdagens FEJL 2 (fradragsprocent
+  ignoreret, via monkeypatch af `_deductible_fraction` — IKKE en reel
+  kodetilbagerulning) og bekræfter at gaten FLAGER differencen. Kunde 2
+  (kamstrup_e2e_v2, IFS): vat_setup uden kontoreferencer → gaten melder
+  ærligt "ikke_maalbar" (ingen støj/gæt); ALLE vagtposter uændrede: total
+  1.230.134 (70=348, 71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520, 30=40).
+  BC uden angivelse 23.083 uændret; BC med angivelse 23.087 uændret (ren
+  afstemningsblok, ingen nye findings). **616 tests** (13 nye), 105/105
+  validering, katalog v1.5.1/kontrakt v0.5.0 uændrede (kontrakten fik kun
+  nye `MATERIALITY_RUN_CONFIG`-dokumentationsposter, ingen nye INPUT-felter).
+  Se `docs/CHANGELOG.md`.
 - **Kontrol 82 fix-runde: elafgift + fradragsprocent på fradragssiden
   (2026-09-22, Bal-godkendt, committet lokalt — ikke pushet):** to
   klassifikationsfejl i kontrol 82's rubrik-logik (`cat10_vat_
@@ -462,7 +499,7 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **603 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
+- **616 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
   øverste statuspunkter for de seneste opdateringer (2026-09-22).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
@@ -475,7 +512,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 603 tests
+python -m pytest -q                            # 616 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 105/105 uafhængig validering

@@ -1244,6 +1244,26 @@ MATERIALITY_RUN_CONFIG = [
                        "når gruppens samlede estimerede beløb når denne tærskel. "
                        "Høj-fund-grupper og timing-temaet forfremmes altid, uanset beløb.",
     },
+    {
+        "env": "MATERIALITY_SELF_CONSISTENCY_TOLERANCE", "kode_navn": "SELF_CONSISTENCY_TOLERANCE",
+        "default": 1.0, "beskrivelse": "Øre-/afrundingstolerance (DKK) pr. rubrik/periode/år i "
+                       "selvkonsistens-gaten (analytics/self_consistency_gate.py, byggetrin ~12) "
+                       "— under denne betragtes beregnet og bogført som identiske.",
+    },
+    {
+        "env": "MATERIALITY_SELF_CONSISTENCY_MATERIALITY_PCT", "kode_navn": "SELF_CONSISTENCY_MATERIALITY_PCT",
+        "default": 1.0, "beskrivelse": "Relativ årsgrænse (procent af beregnet årstotal) der "
+                       "afgør, om selvkonsistens-gatens årsdifference for en rubrik er stor nok "
+                       "til at flages som 'afvigelse'.",
+    },
+    {
+        "env": "MATERIALITY_SELF_CONSISTENCY_SETTLEMENT_SOURCE_CODES",
+        "kode_navn": "SELF_CONSISTENCY_SETTLEMENT_SOURCE_CODES",
+        "default": ["MOMSAFREGN"], "beskrivelse": "BC/NAV source_code-værdi(er) for VAT-"
+                       "afregningsbatchen, der udelades af selvkonsistens-gatens momskonto-"
+                       "krydstjek (nulstiller kontiene periodisk, er ikke del af periodens "
+                       "beregnede rubrik).",
+    },
 ]
 
 # ---------------------------------------------------------------------------

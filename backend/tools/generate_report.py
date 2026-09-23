@@ -118,6 +118,20 @@ _RUBRIC_STATUS_LABELS = {
     "timing": "Timing",
     "afvigelse": "Afvigelse",
     "ingen_angivelse": "Ingen angivelse",
+    "ikke_maalbar": "Ikke målbar",
+}
+
+# Selvkonsistens-gaten / "momskonto-krydstjekket" (byggetrin ~12, Bal-godkendt
+# 2026-09-23) — status på RAPPORT-niveau (analytics/self_consistency_gate.py).
+_SELF_CONSISTENCY_STATUS_LABELS = {
+    "bestaaet": "Bestået",
+    "afvigelse": "Afvigelse",
+    "ikke_maalbar": "Ikke målbar",
+}
+_SELF_CONSISTENCY_STATUS_COLORS = {
+    "bestaaet": ("#d4edda", "#155724"),
+    "afvigelse": ("#f8d7da", "#721c24"),
+    "ikke_maalbar": ("#e2e3e5", "#383d41"),
 }
 
 _CALC_TYPE_LABELS = {
@@ -446,7 +460,19 @@ def _engine_diagram_html(tax_rows: list) -> str:
     )
 
 
-def build_engine_section(report: dict, konto_navne: dict) -> str:
+# Momsmotorens rubrik-nøgler (classify_purchase_rubric's returværdier) ->
+# selvkonsistens-gatens rubrik-nøgler (analytics/self_consistency_gate.py) —
+# to forskellige nøglesæt for SAMME underliggende rubrikker (se
+# _PURCHASE_RUBRIC_LABELS vs. self_consistency_gate.RUBRIC_LABELS), fordi
+# Momsmotoren viser klassifikationen pr. KØBSKODE ('dkrc'/'input'), mens
+# gaten afstemmer angivelsens rubrikker ('output_vat'/'input_vat').
+_ENGINE_TO_SELF_CONSISTENCY_RUBRIC = {
+    "dkrc": "output_vat", "rc_services": "rc_services",
+    "input": "input_vat", "energy_tax": "energy_tax",
+}
+
+
+def build_engine_section(report: dict, konto_navne: dict, self_consistency: dict | None = None) -> str:
     tax_rows = report.get("tax_table_oversigt") or []
     parts = ['<section class="engine">', "<h2>Momsmotoren</h2>"]
     parts.append(
@@ -456,6 +482,18 @@ def build_engine_section(report: dict, konto_navne: dict) -> str:
         "jeres egen opsætning — ikke skrevet i hånden — så de altid afspejler den faktiske "
         "konfiguration.</p>"
     )
+    deviating = _deviating_self_consistency_rubrics(self_consistency)
+    if deviating:
+        rubric_labels = self_consistency.get("rubrik_labels", {}) if self_consistency else {}
+        overlap_labels = ", ".join(
+            rubric_labels.get(r, r) for r in deviating
+        )
+        parts.append(
+            "<p class='anchor-warning'><strong>Forbehold:</strong> motorens interne momskonto-"
+            f"krydstjek finder en afvigelse for {_esc(overlap_labels)} — kontokoblingen i tabellen "
+            "nedenfor for de(n) berørte rubrik(ker) er derfor IKKE selv bekræftet mod jeres "
+            "bogføring. Se 'Internt momskonto-krydstjek' i afsnittet Afstemningen.</p>"
+        )
     if not tax_rows:
         parts.append(
             '<p class="anchor-missing">Ingen detaljeret momsopsætning var tilgængelig for denne '
@@ -493,7 +531,10 @@ def build_engine_section(report: dict, konto_navne: dict) -> str:
             acc_html = "–"
         rate = fmt_pct(row.get("tax_percentage"), decimals=2) if matched else "–"
         calc_label = _calc_type_label(calc_type) if matched else "Ukendt/mangler i jeres opsætning"
-        rubric_label = _rubric_label_for_code(code, calc_type, row.get("tax_percentage"))
+        engine_rubric = _cat10.classify_purchase_rubric(code, calc_type, row.get("tax_percentage"))
+        rubric_label = _PURCHASE_RUBRIC_LABELS.get(engine_rubric, "Ukendt")
+        if _ENGINE_TO_SELF_CONSISTENCY_RUBRIC.get(engine_rubric) in deviating:
+            rubric_label += " ⚠"
         parts.append(
             f"<tr><td>{_esc(code)}</td><td>{rate}</td><td>{_esc(calc_label)}</td>"
             f"<td>{acc_html}</td><td>{_esc(rubric_label)}</td></tr>"
@@ -519,7 +560,8 @@ def _rubric_status_badge(status: str) -> str:
     return f'<span class="status-badge" style="background:{bg};color:{fg};">{_esc(label)}</span>'
 
 
-def _reconciliation_conclusion(decl: dict | None, gate: dict | None) -> str:
+def _reconciliation_conclusion(decl: dict | None, gate: dict | None,
+                                self_consistency: dict | None = None) -> str:
     bits = []
     if decl and decl.get("perioder"):
         counts = defaultdict(int)
@@ -540,6 +582,14 @@ def _reconciliation_conclusion(decl: dict | None, gate: dict | None) -> str:
             bits.append("Den samlede kontoafstemning stemmer.")
         elif status and status != "afstemning_ikke_udfoert":
             bits.append("Den samlede kontoafstemning stemmer IKKE fuldt ud — se afstemningsgatens besked.")
+    if self_consistency:
+        sc_status = self_consistency.get("status")
+        if sc_status == "bestaaet":
+            bits.append("Motorens interne momskonto-krydstjek bekræfter, at de beregnede tal "
+                        "stemmer med jeres egen bogføring.")
+        elif sc_status == "afvigelse":
+            bits.append("Motorens interne momskonto-krydstjek finder en afvigelse — se forbeholdet "
+                        "ovenfor, tallene bør afklares før de lægges til grund.")
     if not bits:
         return ""
     return " ".join(bits)
@@ -631,17 +681,99 @@ def _build_recon_charts(decl: dict, rubrics: list, labels: dict, currency: str) 
     )
 
 
+def _self_consistency_status_badge(status: str) -> str:
+    bg, fg = _SELF_CONSISTENCY_STATUS_COLORS.get(status, ("#e2e3e5", "#383d41"))
+    label = _SELF_CONSISTENCY_STATUS_LABELS.get(status, status)
+    return f'<span class="status-badge" style="background:{bg};color:{fg};">{_esc(label)}</span>'
+
+
+def _deviating_self_consistency_rubrics(gate: dict | None) -> set:
+    """Hvilke rubrikker (nøgler) selvkonsistens-gaten har flaget som en
+    reel afvigelse -- bruges til at bære et eksplicit forbehold andre
+    steder i rapporten (Momsmotoren, kontrol 82's rubrik-/kontovisning),
+    jf. "motoren må ikke publicere tal, den ikke selv kan afstemme"."""
+    if not gate:
+        return set()
+    return {
+        r for r, cell in (gate.get("rubrikker") or {}).items()
+        if cell.get("status") == "afvigelse"
+    }
+
+
+def build_self_consistency_section(gate: dict | None, currency: str) -> str:
+    """Sektion: "Intern momskonto-krydstjek" (byggetrin ~12, selvkonsistens-
+    gaten, Bal-godkendt 2026-09-23) — motorens egen kontrol af, om dens
+    beregnede rubrikker stemmer med de FAKTISKE posteringer på kundens egne
+    momskonti, UDEN et ekspert-facit. Se analytics/self_consistency_gate.py."""
+    parts = ["<h3>Internt momskonto-krydstjek</h3>"]
+    if not gate:
+        parts.append(
+            '<p class="anchor-missing">Ingen selvkonsistens-kørsel var tilgængelig for denne '
+            "rapport.</p>"
+        )
+        return "\n".join(parts)
+
+    status = gate.get("status", "ikke_maalbar")
+    parts.append(f"<p>{_self_consistency_status_badge(status)} {_esc(gate.get('message', ''))}</p>")
+
+    labels = gate.get("rubrik_labels", {})
+    rubrikker = gate.get("rubrikker") or {}
+    maalbare = {r: c for r, c in rubrikker.items() if c.get("maalbar")}
+    if maalbare:
+        parts.append(
+            "<p class='section-hint'>Motorens egne beregnede rubrikker (samme kilde som "
+            "tabellen ovenfor) sammenlignet med de faktiske posteringer på jeres egne "
+            "momskonti (identificeret via jeres momsopsætning) — en uafhængig kontrol af "
+            "motoren selv, ikke af jer.</p>"
+        )
+        parts.append(
+            "<div class='table-scroll'><table class='recon-table'><thead><tr>"
+            "<th>Rubrik</th><th>Konto/konti</th><th>Beregnet (år)</th>"
+            "<th>Bogført (år)</th><th>Diff.</th><th>Status</th></tr></thead><tbody>"
+        )
+        for r, cell in maalbare.items():
+            parts.append(
+                f"<tr><td>{_esc(labels.get(r, r))}</td>"
+                f"<td>{_esc(', '.join(cell.get('konti') or []))}</td>"
+                f"<td>{fmt_amount(cell.get('beregnet_aar'), currency)}</td>"
+                f"<td>{fmt_amount(cell.get('bogfoert_aar'), currency)}</td>"
+                f"<td>{fmt_amount(cell.get('difference_aar'), currency)}</td>"
+                f"<td>{_rubric_status_badge(cell.get('status', 'ikke_maalbar'))}</td></tr>"
+            )
+        parts.append("</tbody></table></div>")
+    ikke_maalbare = [labels.get(r, r) for r, c in rubrikker.items() if not c.get("maalbar")]
+    if ikke_maalbare and maalbare:
+        parts.append(
+            f"<p class='anchor-note'>Ikke målbar (mangler kontoreference i momsopsætningen): "
+            f"{_esc(', '.join(ikke_maalbare))}.</p>"
+        )
+    return "\n".join(parts)
+
+
 def build_trust_anchor(report: dict, analytics: dict, currency: str) -> str:
     parts = ['<section class="trust-anchor">', "<h2>Afstemningen</h2>",
              '<p class="section-hint">Dette er rapportens tillidsanker: en fuld, genkørbar '
              "afstemning af jeres bogføring mod den indberettede momsangivelse og mod jeres egne "
              "kontosaldi — ikke et udsnit.</p>"]
 
+    self_consistency = analytics.get("intern_momskonto_afstemning")
+    deviating_rubrics = _deviating_self_consistency_rubrics(self_consistency)
+
     decl = analytics.get("declaration_reconciliation")
     if decl and decl.get("perioder"):
         labels = decl.get("rubrik_labels", {})
         rubrics = list(labels.keys()) or ["output_vat", "rc_services", "input_vat"]
         parts.append('<h3>Momsangivelse pr. periode</h3>')
+        overlapping = deviating_rubrics & set(rubrics)
+        if overlapping:
+            overlap_labels = ", ".join(labels.get(r, r) for r in overlapping)
+            parts.append(
+                "<p class='anchor-warning'><strong>Forbehold:</strong> motorens interne "
+                f"momskonto-krydstjek (nedenfor) finder en afvigelse for {_esc(overlap_labels)} — "
+                "tallene i tabellen herunder for denne/disse rubrik(ker) er derfor IKKE selv "
+                "bekræftet mod jeres bogføring og bør læses med forbehold, indtil differencen er "
+                "afklaret.</p>"
+            )
         udeladt = decl.get("udeladte_nul_perioder") or {}
         if udeladt.get("antal"):
             parts.append(
@@ -699,6 +831,8 @@ def build_trust_anchor(report: dict, analytics: dict, currency: str) -> str:
             "periode-/rubrikafstemningen indgår derfor ikke i denne rapport.</p>"
         )
 
+    parts.append(build_self_consistency_section(self_consistency, currency))
+
     af = report.get("afstemning") or {}
     if af:
         status = af.get("gate_status", "ukendt")
@@ -735,7 +869,7 @@ def build_trust_anchor(report: dict, analytics: dict, currency: str) -> str:
             f"{'BALANCERER' if balanced else 'BALANCERER IKKE'}</span></p>"
         )
 
-    conclusion = _reconciliation_conclusion(decl, af)
+    conclusion = _reconciliation_conclusion(decl, af, self_consistency)
     if conclusion:
         parts.append(f'<p class="conclusion"><strong>Konklusion:</strong> {_esc(conclusion)}</p>')
 
@@ -1126,6 +1260,8 @@ p { line-height: 1.6; margin: 0 0 10px; }
 p:last-child { margin-bottom: 0; }
 .section-hint, .anchor-note, .control-meta { color: var(--muted); font-size: var(--fs-meta); }
 .anchor-missing, .no-findings { color: var(--muted); font-style: italic; }
+.anchor-warning { background: #fff3cd; color: #856404; border-radius: 8px; padding: 10px 14px;
+  border-left: 4px solid #ffc107; }
 .status-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 0.71rem;
   font-weight: 700; letter-spacing: 0.01em; }
 
@@ -1249,7 +1385,8 @@ def render_html(report: dict, data_contract: dict | None, *,
     wanted = NIVEAU_SECTIONS.get(niveau, NIVEAU_SECTIONS[3])
     builders = {
         "hero": lambda: build_hero(report, analytics, currency, niveau),
-        "engine": lambda: build_engine_section(report, konto_navne),
+        "engine": lambda: build_engine_section(report, konto_navne,
+                                                analytics.get("intern_momskonto_afstemning")),
         "trust_anchor": lambda: build_trust_anchor(report, analytics, currency),
         "observations": lambda: build_observations_section(curation),
         "data_foundation": lambda: build_data_foundation(report, analytics, data_contract),

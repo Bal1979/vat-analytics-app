@@ -10,6 +10,7 @@ from analytics.models import make_finding
 from analytics import materiality
 from analytics import modules
 from analytics import readiness
+from analytics import self_consistency_gate
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,13 @@ def run_all_tests(data: dict, active_modules: Optional[Iterable[str]] = None,
     # afvigelserne) til "tillidsanker"-tabellen i kundedialog-rapporten
     # (tools/generate_report.py). None uden en angivelse (uændret filosofi).
     report["declaration_reconciliation"] = build_declaration_reconciliation_table(data, declarations)
+    # Byggetrin ~12 (selvkonsistens-gaten/"momskonto-krydstjekket",
+    # Bal-godkendt 2026-09-23): motorens egen kontrol af, om dens beregnede
+    # rubrikker stemmer med de FAKTISKE posteringer på kundens egne
+    # momskonti — UAFHÆNGIG af declarations (kører altid, uanset om en
+    # angivelse er givet). Se analytics/self_consistency_gate.py. Ren
+    # informativ rapport-blok, ingen finding/fund, blokerer intet.
+    report["intern_momskonto_afstemning"] = self_consistency_gate.evaluate(data)
     return report
 
 
