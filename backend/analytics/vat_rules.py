@@ -774,7 +774,8 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
          vat_setup.csv): fallback på Bus.-gruppen -- ``tax_code``s FØRSTE
          led, adskilt med "|" (BC's egen "gruppe|kode"-konvention, fx
          "EU|SERVICE_VAT_EU", "OUTSIDE DK/EU|SERVICE_VAT_NOT_EU"). Er
-         gruppen IKKE "DOMESTIC", er koden pr. definition udenlandsk handel
+         gruppen IKKE indenlandsk (``is_domestic_bus_group``: "DOMESTIC"/
+         dansk BC's "INDLAND"), er koden pr. definition udenlandsk handel
          -- og enhver udenlandsk salgskode er nulsats/RC på salgssiden.
       3. F2 (gap-analyse-runde 2, Bal-godkendt 2026-09-20): følger
          ``tax_code`` IKKE gruppe|kode-konventionen (intet "|") -- fx en
@@ -793,7 +794,7 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
     code = (tax_code or "").strip()
     if "|" in code:
         bus_group = code.split("|", 1)[0].strip().upper()
-        return bus_group != "DOMESTIC"
+        return not is_domestic_bus_group(bus_group)
     if not code:
         return False
     from analytics import materiality  # lokal import: undgår cirkularitet ved modulindlæsning
@@ -810,6 +811,23 @@ def is_reverse_charge_sale_code(tax_code, vat_calculation_type=""):
 # streng-splits — ingen fortolkning af selve koden — samme "opaque streng"-
 # disciplin som canonical_parser.py's modul-docstring beskriver for
 # ``vat_codes``.
+
+def is_domestic_bus_group(bus_group):
+    """True hvis ``bus_group`` (Bus.-gruppen -- vat_codes-strengens FØRSTE led)
+    er en INDENLANDSK gruppe: en af ``materiality.DOMESTIC_BUS_GROUP_VALUES``
+    (default "domestic" = engelsk BC, "indland" = dansk BC; case-/whitespace-
+    normaliseret, ingen fuzzy-match). DET ENE sted de tre indenlandsk-vs.-
+    udenlandsk-skel i motoren (cat10._purchase_rubric, cat13.test_104,
+    ``is_reverse_charge_sale_code``) konsulterer -- så vokabularet kan udvides
+    ét sted. Blank/ukendt gruppe er IKKE indenlandsk (ingen gæt; se
+    ``materiality.DOMESTIC_BUS_GROUP_VALUES``). Kalderen udtrækker selv
+    gruppen (hver sin eksisterende udtrækslogik er bevaret uændret)."""
+    from analytics import materiality  # lokal import: undgår cirkularitet ved modulindlæsning
+    group = (bus_group or "").strip().lower()
+    if not group:
+        return False
+    return group in materiality.DOMESTIC_BUS_GROUP_VALUES
+
 
 def vat_bus_group(tax_code):
     """Bus.-gruppen (FØRSTE led før '|'), uppercase/trimmet. '' hvis koden

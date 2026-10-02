@@ -3,6 +3,79 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Indenlandsk Bus.-gruppe som eksplicit konstant (2026-10-02, IMPLEMENTERET -- AFVENTER BALS ENDELIGE GODKENDELSE)
+
+**Status: implementeret og committet lokalt, men IKKE endeligt godkendt af Bal.
+Skal ikke pushes/deployes før Bal har taget stilling til ændringen -- den
+ændrer adfærd for data med dansk BC-vokabular (`INDLAND`).**
+
+Baggrund: bifund fra Modtagermoms-runden (se "Åbent punkt" ovenfor).
+Bus.-gruppen `"DOMESTIC"` (vat_codes-strengens første led, BC's
+"gruppe|kode"-konvention) var hardkodet som "indenlandsk" tre steder:
+`cat10._purchase_rubric` (indenlandsk RC -> `dkrc`/udgående rubrik),
+`cat13.test_104` (indenlandsk standardmoms i udenlandsk valuta) og
+`vat_rules.is_reverse_charge_sale_code` (Bus.-gruppe-fallback uden
+beregningstype). Dansk BC bruger `INDLAND`.
+
+### Det EMPIRISK målte værdirum (Momsvirksomhedsbogf.gruppe, dansk BC)
+
+Læst lokalt (kundemappen uden for repoet; ingen kundedata/navne her) fra de
+fire danske momsopsætningsfiler hos multi-entity-kunden, 49 rækker i alt.
+Kolonne "Momsvirksomhedsbogf.gruppe" har PRÆCIS tre værdier:
+
+| Værdi | Antal | Betydning |
+|---|---:|---|
+| `INDLAND` | 20 | indenlandsk (dansk BC for `DOMESTIC`) |
+| `EU` | 8 | EU |
+| *(blank)* | 21 | ingen Bus.-gruppe |
+
+`DOMESTIC` og `UDLAND` forekommer IKKE. Krydstabel (gruppe x produktgruppe x
+beregningstype): `INDLAND` bærer `MOMS`/`1/2MOMS`/`1/4MOMS`/`UM` (Normal
+moms) og `REVERSE` (Modtagermoms, 4 rækker = indenlandsk RC); `EU` bærer
+`MOMS` (Modtagermoms, 4 = EU-RC) og `UM` (Normal moms); blank gruppe bærer de
+samme produktgrupper inkl. 4 x `REVERSE`/Modtagermoms og 1 helt tom række.
+
+### Ændringer
+
+- Ny `materiality.DOMESTIC_BUS_GROUP_VALUES` (env
+  `MATERIALITY_DOMESTIC_BUS_GROUP_VALUES`, default `["domestic", "indland"]`):
+  eksplicit værdiliste, lowercase/whitespace-normaliseret, INGEN fuzzy-match;
+  proveniens-kommentar (dansk BC verificeret empirisk 2026-10-02). En
+  env-override erstatter hele listen.
+- Ny `vat_rules.is_domestic_bus_group(bus_group)` -- DET ENE sted
+  indenlandsk-vs-udenlandsk afgøres. Alle tre kaldssteder omlagt til den
+  (hver bevarer sin eksisterende udtræk af gruppen). Strukturtest sikrer at
+  ingen `== "DOMESTIC"` er tilbage i de tre moduler.
+- Adfærdskonsekvens KUN for data med `INDLAND`-gruppen (engelsk `DOMESTIC`
+  er uændret): indenlandsk Modtagermoms-køb (`INDLAND|REVERSE`) rammer nu
+  `dkrc` i kontrol 82 (før `input`); `INDLAND|MOMS` er ikke længere en
+  "udenlandsk RC-salgskode" i kontrol 22's fallback; `INDLAND|STANDARD_VAT`
+  i udenlandsk valuta kan ramme kontrol 104 (kræver produktkoden
+  `STANDARD_VAT`, som dansk BC ikke bruger -- reelt kun konsistens).
+
+### Åbent punkt: blank Bus.-gruppe (IKKE ændret)
+
+21 af 49 rækker har blank Bus.-gruppe, heraf 4 x `REVERSE`/Modtagermoms
+(sandsynligvis indenlandsk RC). Blank er BEVIDST IKKE i default-listen: en
+tom gruppe er også hvad opake ERP-koder uden "gruppe|kode"-konvention giver
+(IFS), og "blank = indenlandsk" ville være et uverificeret gæt. Konsekvens:
+`|REVERSE` + Modtagermoms klassificeres som `input` i kontrol 82
+(dokumenteret i test; selvkonsistens-gaten ville synliggøre en afvigelse).
+Kræver en selvstændig beslutning, evt. en kunde-specifik override.
+
+### Verifikation
+
+- **689 tests** (654 + 35 nye syntetiske i
+  `tests/test_indenlandsk_gruppe_2026_10_02.py`: konstanten, det målte
+  værdirum, case/whitespace, ingen fuzzy-match, env-override, alle tre
+  kaldssteder, blank-adfærd, strukturvagt), **105/105** validering. Katalog
+  (v1.5.1) og datakontrakt (v0.6.0) uændrede (ren regeladfærd).
+- **Vagtposter** (`analyze_canonical.py --modules alle`, hele `all_findings`
+  hash-sammenlignet + antal pr. kontrol, FØR = commit `8495c87`): se
+  CLAUDE.md-status -- kunde 1 (BC) **23.083**/**23.087** og kunde 2 (IFS)
+  **1.230.134** (70=348, 71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520,
+  30=40) uændrede (ingen af de to datasæt bruger `INDLAND`).
+
 ## Entity_id-søsterrunden: multi-entity-dimensionen (2026-10-02, Bal-godkendt, datakontrakt v0.5.0 -> v0.6.0)
 
 Baggrund: vat-extract Del 10 (commit 6b44a64) leverer en valgfri kolonne
@@ -144,7 +217,9 @@ BC-opsætninger kalder den indenlandske gruppe `INDLAND` (og har en blank
 gruppe). Med dansk `Modtagermoms` + Bus.-gruppe `INDLAND` vil et indenlandsk
 RC-køb derfor ikke ramme `dkrc` i kontrol 82 men falde i `input`. Kræver en
 selvstændig, empirisk beslutning (eksplicit liste af indenlandske gruppenavne,
-samme disciplin) -- foreslået som næste lille runde.
+samme disciplin) -- foreslået som næste lille runde. **Implementeret i
+næste afsnit ("Indenlandsk Bus.-gruppe ...") -- AFVENTER Bals endelige
+godkendelse.**
 
 ### Verifikation
 

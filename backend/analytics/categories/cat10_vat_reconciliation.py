@@ -449,7 +449,10 @@ def _purchase_rubric(tax_code: str, vat_calculation_type: str = "",
       beregningstype i BC/NAV. Bus.-gruppen (vat_codes-strengens FØRSTE led,
       adskilt med "|", fx "DOMESTIC"/"EU"/"OUTSIDE DK/EU") løser
       indenlandsk-vs-udenlandsk-skellet:
-        * Bus.-gruppe "DOMESTIC" -> 'dkrc' (udgående rubrik), UDEN at kræve
+        * Indenlandsk Bus.-gruppe ("DOMESTIC" i engelsk BC, "INDLAND" i dansk
+          BC -- ``vat_rules.is_domestic_bus_group``/
+          ``materiality.DOMESTIC_BUS_GROUP_VALUES``) -> 'dkrc' (udgående
+          rubrik), UDEN at kræve
           "dkrc" i selve kodenavnet -- hærdning af den tidligere rene
           navnemønster-afhængighed.
         * Enhver anden Bus.-gruppe (EU/OUTSIDE DK/EU) er udenlandsk RC, men
@@ -475,7 +478,7 @@ def _purchase_rubric(tax_code: str, vat_calculation_type: str = "",
         if not vr.is_rc_calc_type(calc_type):
             return "input"
         bus_group = (tax_code or "").split("|", 1)[0].strip().upper()
-        if bus_group == "DOMESTIC":
+        if vr.is_domestic_bus_group(bus_group):  # "DOMESTIC" (engelsk BC) / "INDLAND" (dansk BC)
             return "dkrc"
         if vr.text_matches_any(tax_code, materiality.VAT_DECLARATION_SERVICE_VAT_PATTERNS):
             return "rc_services"

@@ -292,6 +292,28 @@ RC_CALC_TYPE_VALUES = [v.strip().lower() for v in
                        _strlist("MATERIALITY_RC_CALC_TYPE_VALUES",
                                 ["calculated tax", "modtagermoms"])]
 
+# INDENLANDSK Bus.-gruppe (Momsvirksomhedsbogf.gruppe / "VAT Bus. Posting Group")
+# -- vat_codes-strengens FØRSTE led i BC's "gruppe|kode"-konvention. Tre steder
+# i motoren skelner "indenlandsk" fra "udenlandsk" på præcis dette led:
+# cat10._purchase_rubric (indenlandsk RC -> udgående rubrik 'dkrc'),
+# cat13.test_104 (indenlandsk standardmoms i udenlandsk valuta) og
+# vat_rules.is_reverse_charge_sale_code (Bus.-gruppe-fallbacket). Hidtil var
+# værdien "DOMESTIC" hårdkodet alle tre steder (engelsk BC-vokabular, kunde 1).
+# PROVENIENS: dansk BC (dansk UI) bruger "INDLAND" i stedet -- verificeret
+# EMPIRISK 2026-10-02 på fire danske momsopsætningsfiler hos multi-entity-
+# kunden (49 opsætningsrækker): værdirummet for Momsvirksomhedsbogf.gruppe er
+# PRÆCIS {"INDLAND" (20), "EU" (8), "" blank (21)} -- hverken "DOMESTIC" eller
+# "UDLAND" forekommer. Eksplicit værdiliste, case-/whitespace-normaliseret,
+# INGEN fuzzy-match. BLANK ("") er bevidst IKKE med: en tom Bus.-gruppe er også
+# hvad opake ERP-koder uden "gruppe|kode"-konvention giver (fx IFS), og "blank =
+# indenlandsk" ville være et uverificeret gæt (de 4 målte blanke
+# "REVERSE"/Modtagermoms-rækker er rapporteret som åbent punkt, ikke
+# antaget). En miljøvariabel-override ERSTATTER hele listen -- medtag alle
+# ønskede værdier.
+DOMESTIC_BUS_GROUP_VALUES = [v.strip().lower() for v in
+                             _strlist("MATERIALITY_DOMESTIC_BUS_GROUP_VALUES",
+                                      ["domestic", "indland"])]
+
 # "Full VAT"-vokabularet (BC/NAVs betegnelse for "beregnes fuldt ud, ingen
 # procentsats af grundlaget") -- bruges KUN af energiafgift-fallbacket i
 # vat_rules.is_energy_tax_code (tax_percentage=0 + denne beregningstype).

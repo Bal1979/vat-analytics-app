@@ -69,8 +69,9 @@ def _ref(txn, line, **extra):
 
 def test_104_foreign_currency_domestic_vat(data: dict) -> list:
     """Købslinje i udenlandsk valuta (Source Currency Code != tom/DKK)
-    bogført med den danske STANDARD-momskode (Bus.-gruppe DOMESTIC,
-    produktkode STANDARD_VAT) og en calc type, der ikke er reverse charge.
+    bogført med den danske STANDARD-momskode (indenlandsk Bus.-gruppe --
+    "DOMESTIC"/dansk BC's "INDLAND", jf. ``vr.is_domestic_bus_group`` --
+    og produktkode STANDARD_VAT) og en calc type, der ikke er reverse charge.
 
     Gap-analysens F29-fund (2026-09-18, side 39, en konkret leverandør-
     familie i ekspertens katalog — ikke navngivet her): valuta alene beviser
@@ -82,7 +83,7 @@ def test_104_foreign_currency_domestic_vat(data: dict) -> list:
     for txn in data["transactions"]:
         for line in txn["lines"]:
             code = line.get("tax_code") or ""
-            if vr.vat_bus_group(code) != "DOMESTIC":
+            if not vr.is_domestic_bus_group(vr.vat_bus_group(code)):
                 continue
             if "STANDARD_VAT" not in vr.vat_product_code(code):
                 continue
