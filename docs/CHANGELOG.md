@@ -3,6 +3,83 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Dansk BC-vokabular i RC-genkendelsen (2026-10-02, Bal-godkendt lille runde)
+
+Baggrund: en ny BC-kunde med DANSK UI har momsopsætning hvor
+"Momsberegningstype" (engelsk "VAT Calculation Type") har danske værdier.
+Motorens RC-genkendelse (`vat_rules.is_rc_calc_type`) kendte kun BC's engelske
+"reverse charge"-substring og IFS' "Calculated Tax" -- "Modtagermoms" indeholder
+ikke teksten "reverse charge" og ville derfor være fejlklassificeret som normal
+moms (samme fejlklasse som kontrol 82-sagen 2026-09-22).
+
+### Det EMPIRISK målte værdirum (dansk BC)
+
+Læst lokalt fra fire danske BC-opsætningsfiler (49 rækker i alt;
+kundedata/navne ikke i repoet). Kolonne
+"Momsberegningstype" har PRÆCIS to værdier:
+
+| Dansk BC-værdi | Engelsk BC-pendant | Antal | Sats | RC? |
+|---|---|---|---|---|
+| `Normal moms` | `Normal VAT` | 37 | 0 / 5,268 / 11,111 / 25 | nej |
+| `Modtagermoms` | `Reverse Charge VAT` | 12 | altid 25 | **ja** |
+
+- "Modtagermoms" bæres af koderne for omvendt betalingspligt (indenlands og EU)
+  i alle fire filer (3 rækker pr. fil).
+- **"Fuld moms" (= "Full VAT") forekommer IKKE** i de målte filer -- og er derfor
+  ikke sidestillet (se nedenfor). Til sammenligning har BC's engelske
+  momsopsætning (kunde 1) `Normal VAT`/`Reverse Charge VAT`/`Full VAT`.
+- Ingen varianter (stavning, whitespace, blanke værdier) fundet.
+- Samtidig observeret: danske BC-opsætninger bruger Bus.-grupperne `INDLAND`/`EU`/
+  blank i stedet for `DOMESTIC`/`EU`/`OUTSIDE DK/EU` -- se "Åbent punkt" nedenfor.
+
+### Ændringer
+
+- `materiality.RC_CALC_TYPE_VALUES`: default `["calculated tax"]` ->
+  `["calculated tax", "modtagermoms"]`. Eksplicit værdiliste, lowercase-
+  normaliseret, INGEN fuzzy-match; proveniens-kommentar (dansk BC UI, verificeret
+  empirisk 2026-10-02). Alle RC-kaldssteder (kontrol 22 via
+  `is_reverse_charge_sale_code`, kontrol 70-75, kontrol 82 `_purchase_rubric`,
+  cat13) går allerede gennem `is_rc_calc_type` -- ingen kaldssted ændret.
+- Nyt `materiality.FULL_VAT_CALC_TYPE_VALUES` (env
+  `MATERIALITY_FULL_VAT_CALC_TYPE_VALUES`, default `["full vat"]`): energiafgift-
+  fallbacket i `vat_rules.is_energy_tax_code` (tax_percentage=0 + "Full VAT")
+  var hårdkodet til strengen "full vat"; det er nu en eksplicit liste ved siden
+  af RC-listen. **"Fuld moms" er BEVIDST IKKE tilføjet:** den er ikke observeret
+  i dansk BC-data, og runden er "empirisk, ikke antaget". Konsekvens hvis en
+  dansk kunde senere bruger "Fuld moms" til afgiftskoder uden "_TAX"-suffiks: de
+  lander i rubrikken `input` -- og selvkonsistens-gaten (momskonto-krydstjekket)
+  rapporterer det som afvigelse, så fejlen er synlig, ikke tavs. Aktiveres ved
+  én linje (env eller default) den dag værdien er set.
+- `tools/generate_report._CALC_TYPE_LABELS`: visningstekster for `normal moms`
+  ("Almindelig moms") og `modtagermoms` ("Omvendt betalingspligt") -- kun visning.
+
+### Åbent punkt (IKKE ændret -- uden for denne runde)
+
+Tre steder hardkoder Bus.-gruppen `"DOMESTIC"` som "indenlandsk"
+(`cat10._purchase_rubric` -> `dkrc`-rubrikken, `cat13` linje ~85,
+`is_reverse_charge_sale_code` fallback-stien uden beregningstype). Danske
+BC-opsætninger kalder den indenlandske gruppe `INDLAND` (og har en blank
+gruppe). Med dansk `Modtagermoms` + Bus.-gruppe `INDLAND` vil et indenlandsk
+RC-køb derfor ikke ramme `dkrc` i kontrol 82 men falde i `input`. Kræver en
+selvstændig, empirisk beslutning (eksplicit liste af indenlandske gruppenavne,
+samme disciplin) -- foreslået som næste lille runde.
+
+### Verifikation
+
+- **636 tests** (616 + 20 nye syntetiske i
+  `tests/test_dansk_bc_vokabular_2026_10_02.py`: det målte værdirum,
+  case/whitespace, ingen fuzzy-match, kontrol 22/70/82/cat09-integration,
+  Full VAT-listen inkl. monkeypatch-aktivering af "fuld moms"), **105/105**
+  validering. `catalog/rules.json` (v1.5.1) og `data_contract.json` (v0.5.0)
+  uændrede.
+- **Vagtposter** (`analyze_canonical.py --modules alle`, FØR = commit `1721d8c`
+  mod EFTER = arbejdstræet, hele `all_findings` + rapport sammenlignet
+  JSON-for-JSON): BC uden angivelser **23.083** og BC med
+  `vat_declarations.json` **23.087** -- byte-for-byte identiske; kunde 2
+  **1.230.134** identisk (70=348, 71=4.139, 84=23, 87=28, 88=11, 109=402,
+  27=520, 30=40). Forventeligt: ingen af de to eksisterende datasæt indeholder
+  danske beregningstype-værdier -- ændringen er additiv.
+
 ## Selvkonsistens-gaten — "momskonto-krydstjekket" (2026-09-23, Bal-godkendt)
 
 Baggrund: kontrol 82-sagen dagen før (326 t.kr. residual, se næste afsnit)

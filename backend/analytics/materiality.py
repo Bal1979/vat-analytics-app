@@ -277,8 +277,35 @@ RC_CODE_PREFIXES = [p.upper() for p in _strlist("MATERIALITY_RC_CODE_PREFIXES", 
 # substring-familie (håndteret separat, ingen ændring). INGEN fuzzy-match —
 # eksplicit værdiliste, lowercase-normaliseret. Engagement-overstyrbar for
 # andre ERP'ers tilsvarende, entydige RC-beregningstype-værdier.
+#
+# DANSK BC-VOKABULAR (Bal-godkendt lille runde, 2026-10-02): en BC-kunde med
+# DANSK UI leverer "Momsberegningstype" (engelsk "VAT Calculation Type") med
+# danske værdier. Proveniens: dansk BC UI, verificeret EMPIRISK 2026-10-02 på
+# fire danske momsopsætningsfiler (49 opsætningsrækker) -- værdirummet er
+# PRÆCIS {"Normal moms" (37), "Modtagermoms" (12)}. "Modtagermoms" er dansk BC
+# for "Reverse Charge VAT" (indeholder IKKE teksten "reverse charge", så
+# substring-familien i is_rc_calc_type rammer den ikke) og er derfor føjet
+# eksplicit til listen. "Normal moms" (= "Normal VAT") er ikke-RC og kræver
+# intet. Bemærk: en miljøvariabel-override ERSTATTER hele listen -- medtag da
+# alle ønskede værdier.
 RC_CALC_TYPE_VALUES = [v.strip().lower() for v in
-                       _strlist("MATERIALITY_RC_CALC_TYPE_VALUES", ["calculated tax"])]
+                       _strlist("MATERIALITY_RC_CALC_TYPE_VALUES",
+                                ["calculated tax", "modtagermoms"])]
+
+# "Full VAT"-vokabularet (BC/NAVs betegnelse for "beregnes fuldt ud, ingen
+# procentsats af grundlaget") -- bruges KUN af energiafgift-fallbacket i
+# vat_rules.is_energy_tax_code (tax_percentage=0 + denne beregningstype).
+# Eksplicit værdiliste, lowercase, ingen fuzzy-match. Default KUN den
+# engelske BC-værdi: dansk BC's tilsvarende ("Fuld moms") er IKKE observeret
+# i de målte danske opsætningsfiler (2026-10-02, se RC_CALC_TYPE_VALUES) og er
+# derfor bevidst IKKE sidestillet (empirisk, ikke antaget). Tilføj den via
+# MATERIALITY_FULL_VAT_CALC_TYPE_VALUES="full vat,fuld moms", eller ret
+# default her, den dag værdien er set i en dansk BC-opsætning. Uden den
+# lander en dansk afgiftskode uden "_TAX"-suffiks i rubrikken 'input', hvilket
+# selvkonsistens-gaten (analytics/self_consistency_gate.py) rapporterer som en
+# afvigelse -- fejlen er altså synlig, ikke tavs.
+FULL_VAT_CALC_TYPE_VALUES = [v.strip().lower() for v in
+                             _strlist("MATERIALITY_FULL_VAT_CALC_TYPE_VALUES", ["full vat"])]
 
 # Kontrol 109 (Fradragsprocent-afvigelse, gap-analyse-runde 2, Bal-godkendt
 # 2026-09-20, cat13_cross_dimension.py): tolerance i DKK mellem bogført og

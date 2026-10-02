@@ -138,6 +138,9 @@ _CALC_TYPE_LABELS = {
     "normal vat": "Almindelig moms",
     "reverse charge vat": "Omvendt betalingspligt",
     "full vat": "Fuld moms (intet fradrag)",
+    # Dansk BC-vokabular (verificeret empirisk 2026-10-02): kun visningstekst.
+    "normal moms": "Almindelig moms",
+    "modtagermoms": "Omvendt betalingspligt",
 }
 
 _PURCHASE_RUBRIC_LABELS = {

@@ -845,8 +845,11 @@ def is_rc_calc_type(vat_calculation_type):
       2. ``materiality.RC_CALC_TYPE_VALUES`` -- en eksplicit, engagement-
          overstyrbar værdiliste for ERP'er, hvis beregningstype-vokabular
          IKKE indeholder "reverse charge" som tekst (fx IFS' "Calculated
-         Tax"). INGEN fuzzy-match -- kun eksakte, lowercase-normaliserede
-         værdier i listen."""
+         Tax", dansk BC's "Modtagermoms"). INGEN fuzzy-match -- kun eksakte,
+         lowercase-normaliserede værdier i listen.
+
+    Dansk BC (2026-10-02, empirisk): "Modtagermoms" (= "Reverse Charge VAT")
+    er i ``RC_CALC_TYPE_VALUES``; "Normal moms" (= "Normal VAT") er ikke-RC."""
     calc_type = (vat_calculation_type or "").strip().lower()
     if not calc_type:
         return False
@@ -871,7 +874,8 @@ def is_energy_tax_code(tax_code, vat_calculation_type="", tax_percentage=None):
          default kun "_TAX" -- BC/NAVs egen suffikskonvention for
          afgiftskoder, adskilt fra ægte momskoders "_VAT"-suffiks).
       2. Strukturelt fallback: ``tax_percentage`` er PRÆCIS 0 OG
-         ``vat_calculation_type`` siger "Full VAT" (BC/NAVs betegnelse for
+         ``vat_calculation_type`` er i ``materiality.FULL_VAT_CALC_TYPE_VALUES``
+         (eksplicit liste, default kun "Full VAT" -- BC/NAVs betegnelse for
          "beregnes fuldt ud, ingen procentsats af grundlaget" -- modsat
          "Normal VAT"/"Reverse Charge VAT", som begge er procentbaserede).
          Begge dele skal være til stede -- tax_percentage=0 ALENE rammer også
@@ -884,7 +888,8 @@ def is_energy_tax_code(tax_code, vat_calculation_type="", tax_percentage=None):
     if text_matches_any(tax_code or "", materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS):
         return True
     calc_type = (vat_calculation_type or "").strip().lower()
-    return calc_type == "full vat" and tax_percentage is not None and tax_percentage == 0
+    return (calc_type in materiality.FULL_VAT_CALC_TYPE_VALUES
+            and tax_percentage is not None and tax_percentage == 0)
 
 
 def is_no_vat_product(tax_code):
