@@ -116,6 +116,10 @@ def adapt_excel_to_saft(parsed_data: dict) -> dict:
             # "source_code"), "" hvis kildefilen ikke har den. Nøglesæt-
             # symmetri med canonical/SAF-T-vejen (kontrol 107-108).
             "source_code": txn.get("source_code", "") or "",
+            # Kontrakt v0.6.0 (multi-entity, vat-extract Del 10): regnskabs-
+            # enhed under fælles CVR. Excel-vejen har ingen kilde -> "" (nøglesæt-
+            # symmetri med canonical/SAF-T).
+            "entity_id": txn.get("entity_id", "") or "",
         }
 
         # Derive period and period_year from the date if not already present

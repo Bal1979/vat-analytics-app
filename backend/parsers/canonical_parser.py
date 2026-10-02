@@ -123,6 +123,10 @@ KNOWN_CANONICAL_COLUMNS = {
     # (som credit_note_flag/supply_direction/tax_point) -- ikke et
     # data_contract-felt, ingen anden kontrol læser det.
     "intercompany",
+    # Multi-entity (vat-extract Del 10, 2026-10-02; kontrakt v0.6.0):
+    # regnskabsenheden (kort tekst-id) under fælles CVR -> ``lines[].entity_id``.
+    # Valgfri, samme fravær-giver-""-mønster. Se ``MULTI_ENTITY_*`` nedenfor.
+    "ext_entity_id",
 }
 
 # Minimumssæt for overhovedet at genkende filen som "kanonisk gl_entries" i
@@ -202,6 +206,56 @@ def _group_key(invoice_number: str, posting_date: str, source_row: int):
     if invoice_number:
         return ("DOC", invoice_number, posting_date)
     return ("ROW", source_row)
+
+
+def _multi_entity_info(entity_ids: set, keyed_lines: int, unprefixed_keyed_lines: int,
+                        lines_without_entity: int, colliding_keys: int) -> dict:
+    """Multi-entity-diagnostik (vat-extract Del 10 / kontrakt v0.6.0).
+
+    ``kollisionsrisiko`` er sand, når filen har >= 2 distinkte ``entity_id``-
+    værdier OG mindst én entity-bærende linje med udfyldt bilagsnummer ikke har
+    en præfikseret bilagsnøgle (ingen ``|`` i ``invoice_numbers``): så kan to
+    enheders bilag med samme (bilagsnr, bogføringsdato) smelte sammen til ét
+    falsk bilag i ``_group_key``-grupperingen. Den aftalte vej er filer kørt med
+    vat-extracts ``--praefiks-bilagsnoegle`` (``<enhed>|<bilagsnr>``).
+    INGEN automatisk omnøgling her -- motoren melder kun ærligt.
+    ``bilagsnoegler_i_flere_enheder`` er den FAKTISK målte kollision (samme
+    nøgle under >= 2 enheder), uafhængigt af præfikset."""
+    n = len(entity_ids)
+    multi = n >= 2
+    return {
+        "antal_enheder": n,
+        "entity_ids": sorted(entity_ids),
+        "multi_entity": multi,
+        "linjer_med_bilagsnr": keyed_lines,
+        "linjer_uden_praefiks": unprefixed_keyed_lines,
+        "linjer_uden_entity_id": lines_without_entity if n else 0,
+        "bilagsnoegler_i_flere_enheder": colliding_keys,
+        "kollisionsrisiko": bool(multi and unprefixed_keyed_lines > 0),
+    }
+
+
+def _multi_entity_warning(me: dict) -> str:
+    detalje = (
+        f" {me['bilagsnoegler_i_flere_enheder']} bilagsnøgle(r) optræder allerede "
+        "under flere enheder og er samlet til ét falsk bilag."
+        if me["bilagsnoegler_i_flere_enheder"] else
+        " Ingen konkret kollision er målt i denne fil, men risikoen er til stede."
+    )
+    delvis = ("delvist " if me["linjer_uden_praefiks"] < me["linjer_med_bilagsnr"] else "")
+    return (
+        f"Multi-entity uden præfikset bilagsnøgle — kollisionsrisiko: filen har "
+        f"{me['antal_enheder']} regnskabsenheder (entity_id), men bilagsnumrene er "
+        f"{delvis}ikke præfiksede med enheden (ingen '|' i invoice_numbers på "
+        f"{_fmt_int_da(me['linjer_uden_praefiks'])} entity-bærende linjer). Bilag med samme "
+        f"bilagsnr og bogføringsdato i forskellige enheder kan blive samlet til ét falsk "
+        f"bilag i bilagsgrupperingen.{detalje} Kør hver enheds fil med vat-extracts "
+        f"--praefiks-bilagsnoegle FØR sammenlægning. Motoren omnøgler ikke selv."
+    )
+
+
+def _fmt_int_da(n: int) -> str:
+    return f"{n:,}".replace(",", ".")
 
 
 def _build_transaction(group_key: tuple, members: list) -> dict:
@@ -347,6 +401,13 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
     group_order = []
     groups: dict = {}
 
+    # Multi-entity (vat-extract Del 10, kontrakt v0.6.0): hvilke regnskabs-
+    # enheder indeholder filen, og er bilagsnøglerne præfiksede med enheden?
+    entity_ids_seen: set = set()
+    keyed_lines = unprefixed_keyed_lines = lines_without_entity = 0
+    key_first_entity: dict = {}   # bilagsnøgle -> første enhed (hukommelsesbillig)
+    colliding_keys_set: set = set()
+
     for idx, row in enumerate(rows):
         gl_account = (row.get("gl_accounts") or "").strip()
         vat_code = (row.get("vat_codes") or "").strip()
@@ -396,6 +457,11 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         # 'ikke målbar'-gates pænt, når kolonnen (endnu) ikke findes i kilden.
         source_code = (row.get("source_code") or "").strip() if "source_code" in row else ""
 
+        # Multi-entity (vat-extract Del 10, 2026-10-02, kontrakt v0.6.0):
+        # regnskabsenheden under fælles CVR -- valgfri kolonne ``ext_entity_id``,
+        # samme fravær-giver-""-mønster. Før var kolonnen stille ignoreret.
+        entity_id = (row.get("ext_entity_id") or "").strip() if "ext_entity_id" in row else ""
+
         line = {
             "account_id": gl_account,
             # KENDT GAB (GAP-11): ingen kontoplan-fil på denne vej -> altid "".
@@ -426,6 +492,9 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             # GAP-14 (kontrakt v0.5.0): nøglesæt-symmetri -- ALTID til stede,
             # default "" (intet signal). Se kommentaren ved source_code ovenfor.
             "source_code": source_code,
+            # Kontrakt v0.6.0: regnskabsenhed (multi-entity) -- ALTID til stede,
+            # default "" (single-entity/ingen kolonne).
+            "entity_id": entity_id,
             # Ekstra, endnu-ikke-kontraktbårne canonical-only felter — bevares
             # for sporbarhed/fremtidig kontraktudvidelse, ingen kontrol læser
             # dem i dag (jf. analytics_mapping.json's object_model_only-liste):
@@ -445,6 +514,17 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
 
         source_row = idx + 2  # +2: header = række 1
         key = _group_key(invoice_number, posting_date, source_row)
+        if entity_id:
+            entity_ids_seen.add(entity_id)
+            if invoice_number:
+                keyed_lines += 1
+                if "|" not in invoice_number:
+                    unprefixed_keyed_lines += 1
+                first = key_first_entity.setdefault(key, entity_id)
+                if first != entity_id:
+                    colliding_keys_set.add(key)
+        elif invoice_number:
+            lines_without_entity += 1
         if key not in groups:
             groups[key] = []
             group_order.append(key)
@@ -556,6 +636,16 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         "rows_out": lineage.get("rows_out"),
         "source_file": lineage.get("source_file", ""),
     }
+    # Multi-entity-værnet (vat-extract Del 10): diagnostik ALTID i parse_info
+    # (tom/neutral uden entity_id), advarsel KUN ved kollisionsrisiko.
+    colliding_keys = len(colliding_keys_set)
+    multi_entity = _multi_entity_info(
+        entity_ids_seen, keyed_lines, unprefixed_keyed_lines,
+        lines_without_entity, colliding_keys,
+    )
+    info["multi_entity"] = multi_entity
+    if multi_entity["kollisionsrisiko"]:
+        info["warnings"].append(_multi_entity_warning(multi_entity))
     if not transactions:
         info["warnings"].append("Ingen rækker fundet i den kanoniske CSV.")
     if not accounts:

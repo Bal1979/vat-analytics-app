@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.5.0"
+CONTRACT_VERSION = "0.6.0"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -670,6 +670,31 @@ LINE_FIELDS = [
                  "analytics/readiness.py — ingen falske alarmer i mellemtiden.",
     },
     {
+        "navn": "entity_id", "type": "string", "obligatorisk": False,
+        "format": "kort tekst-id for regnskabsenheden (fx 'VAND'), højst 64 tegn, ingen '|'",
+        "status": "implemented_partial", "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Multi-entity (kontrakt v0.6.0, vat-extract Del 10, Bal-godkendt "
+                       "2026-10-02): AGGREGERING FØR ANALYSE (flere regnskabsenheder "
+                       "under fælles CVR lægges sammen til ét datagrundlag) og "
+                       "SEGMENTERING I RAPPORTERING (fund/nøgletal pr. enhed). Ingen "
+                       "kontrol konsumerer feltet endnu; parse_info.multi_entity bruger "
+                       "det til bilagsnøgle-værnet.",
+        "noter": "balai_extension pr. §2a — SAF-T Financial v2.1 har ét Company pr. "
+                 "fil, så en regnskabsenhed under samme CVR har ingen nativ plads "
+                 "(én SAF-T pr. CVR forbliver målet). Kilde: den kanoniske CSV's "
+                 "valgfri kolonne ext_entity_id (vat-extract `--konstant "
+                 "ext_entity_id=<enhed>`); Excel/SAF-T har ingen kilde (altid \"\"). "
+                 "Nøglesæt-symmetri: ALTID til stede, default \"\". BILAGSNØGLE: de "
+                 "overlappende bilagsnummerserier på tværs af enheder kolliderer i "
+                 "_group_key (invoice_numbers, posting_dates); den aftalte vej er "
+                 "filer kørt med vat-extracts `--praefiks-bilagsnoegle` "
+                 "(invoice_numbers = '<enhed>|<bilagsnr>'). Ærligt værn: >= 2 "
+                 "distinkte entity_id uden '|' i bilagsnumrene -> advarsel i "
+                 "parse_info.warnings + parse_info.multi_entity.kollisionsrisiko; "
+                 "ingen automatisk omnøgling. Konsekvens: transaction_id kan nu "
+                 "indeholde '|' (DOC_<enhed>|<bilagsnr>_<dato>).",
+    },
+    {
         "navn": "tax_percentage", "type": "number", "obligatorisk": False, "format": "procent",
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
         "kraeves_af": "Kategori 3 (momssats-validering) — readiness FIELD_INFO.",
@@ -1003,6 +1028,22 @@ BALAI_EXTENSIONS = [
         "felt": "ship_to_country", "sti": "transactions[].lines[].ship_to_country",
         "status": "implemented_partial",
         "begrundelse": "Kontrol 36 (place-of-supply/triangulation), samme som ship_from_country.",
+    },
+    {
+        "felt": "entity_id", "sti": "transactions[].lines[].entity_id",
+        "status": "implemented_partial",
+        "begrundelse": "Multi-entity (Bal-godkendt 2026-10-02, vat-extract Del 10, "
+                        "kontrakt v0.6.0): én juridisk enhed/CVR med flere "
+                        "regnskabsenheder, der hver leverer sin finanspost-fil med "
+                        "overlappende bilagsnummerserier. AGGREGERING FØR ANALYSE: "
+                        "enhedernes filer lægges sammen til ét datagrundlag uden at "
+                        "bilagsnøgler kolliderer (bilagsnøglen præfikses med enheden "
+                        "i vat-extract, `--praefiks-bilagsnoegle`). SEGMENTERING I "
+                        "RAPPORTERING: fund/nøgletal kan opdeles pr. regnskabsenhed. "
+                        "Hvorfor ikke SAF-T Financial: ét Company pr. fil — en "
+                        "regnskabsenhed under samme CVR har ingen nativ plads. Kun "
+                        "kontrakt+parser+bilagsnøgle-værn i dag; ingen kontrol og "
+                        "intet rapportafsnit segmenterer endnu på feltet.",
     },
     {
         "felt": "ekstern_indberettet_momsangivelse", "sti": "(separat sidecar-fil: vat_declarations.json)",

@@ -987,6 +987,22 @@ def build_data_foundation(report: dict, analytics: dict, data_contract: dict | N
                 parts.append(f"<li>{_esc(text)}</li>")
             parts.append("</ul>")
 
+    # Multi-entity-værnet (kontrakt v0.6.0): kollisionsrisiko på bilagsnøglen
+    # er et reelt datagrundlags-forbehold, ikke støj -- vises ærligt i rapporten.
+    me = (report.get("parse_info") or {}).get("multi_entity") or {}
+    if me.get("kollisionsrisiko"):
+        parts.append("<h3>Forbehold: flere regnskabsenheder uden præfikset bilagsnøgle</h3>")
+        parts.append(
+            "<p class='anchor-note'>Datagrundlaget omfatter "
+            f"{fmt_int(me.get('antal_enheder'))} regnskabsenheder, men bilagsnumrene er ikke "
+            "præfiksede med enheden. Bilag med samme nummer og bogføringsdato i forskellige "
+            "enheder kan derfor være samlet til ét falsk bilag, hvilket kan påvirke "
+            "bilagsbaserede kontroller (fx dubletter og sekvenser)"
+            + (f"; {fmt_int(me.get('bilagsnoegler_i_flere_enheder'))} bilagsnøgle(r) optræder "
+               "allerede under flere enheder" if me.get("bilagsnoegler_i_flere_enheder") else "")
+            + ". Kør hver enheds udtræk med præfikseret bilagsnøgle og gentag analysen.</p>"
+        )
+
     open_gap_ids = {g.get("id") for g in _relevant_known_gaps(data_contract)}
     upsell = [o for o in _UPSELL_OPPORTUNITIES if open_gap_ids & set(o["gap_ids"])] if data_contract else list(_UPSELL_OPPORTUNITIES)
     if upsell:

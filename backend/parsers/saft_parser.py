@@ -273,6 +273,9 @@ def parse_saft(path: str):
                     # Financial har intet nativt "Source Code"-element -- altid
                     # "" på denne vej. Nøglesæt-symmetri med canonical/Excel.
                     "source_code": "",
+                    # Kontrakt v0.6.0 (multi-entity): SAF-T Financial har ét
+                    # Company pr. fil -> ingen enhedsdimension, altid "".
+                    "entity_id": "",
                 })
             # SAF-T Period er en regnskabsperiode ("1"); kontrollerne forventer
             # kalendermåned. Udled måneden af posteringsdatoen for at undgå

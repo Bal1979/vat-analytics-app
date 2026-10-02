@@ -3,6 +3,75 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Entity_id-søsterrunden: multi-entity-dimensionen (2026-10-02, Bal-godkendt, datakontrakt v0.5.0 -> v0.6.0)
+
+Baggrund: vat-extract Del 10 (commit 6b44a64) leverer en valgfri kolonne
+`ext_entity_id` (regnskabsenheden under fælles CVR) og en eksplicit
+`--praefiks-bilagsnoegle` (`invoice_numbers` = `<enhed>|<bilagsnr>`).
+Multi-entity-kunden er ÉN juridisk enhed med fire regnskabsenheder, hvis
+filer har overlappende bilagsnummerserier -- en naiv sammenlægning giver
+bilagsnøgle-kollisioner i `canonical_parser._group_key`. Denne runde er
+analytics-siden af grænsefladen.
+
+### Ændringer
+
+1. **Kontrakt v0.6.0** (`tools/data_contract_data.py`, regenereret
+   `catalog/data_contract.json`): `transactions[].lines[].entity_id` som
+   `balai_extension` (§2a, valgfri, default `""`, kilder
+   `{excel: false, saft: false, canonical: "partial"}`) + post i
+   `BALAI_EXTENSIONS` med begrundelsen: multi-entity -- regnskabsenhed under
+   fælles CVR; AGGREGERING før analyse, SEGMENTERING i rapportering; SAF-T
+   Financial har ét Company pr. fil og dermed ingen nativ plads. Katalog
+   (`rules.json`, v1.5.1) uændret -- ingen kontrol konsumerer feltet endnu.
+2. **Parser** (`canonical_parser.parse_canonical`): læser `ext_entity_id` ->
+   `lines[].entity_id` (trimmet; nøglesæt-symmetri: altid til stede, `""` ved
+   fravær). Før blev kolonnen stille ignoreret. Nøglen er tilføjet som `""`
+   i Excel-adapteren (`data_adapter`), SAF-T-parseren og
+   `validation/builders.mk_line` (samme symmetri som `source_code`).
+3. **Ærligt værn mod bilagsnøgle-kollision** (ingen automatisk omnøgling):
+   `parse_info["multi_entity"]` er ALTID til stede (`antal_enheder`,
+   `entity_ids`, `linjer_med_bilagsnr`, `linjer_uden_praefiks`,
+   `bilagsnoegler_i_flere_enheder` = faktisk målt kollision,
+   `kollisionsrisiko`). `kollisionsrisiko` er sand, når filen har >= 2
+   distinkte `entity_id` OG mindst én entity-bærende linje med udfyldt
+   bilagsnummer ikke har `|` i `invoice_numbers`. Så lægger parseren en tydelig
+   advarsel i `parse_info["warnings"]` ("Multi-entity uden præfikset
+   bilagsnøgle -- kollisionsrisiko ..."; "delvist" ved blandet præfiks) i
+   stedet for at regne stille videre. Linjer uden bilagsnr tæller ikke (de
+   nøgles aldrig). Én enhed uden præfiks giver ingen advarsel.
+   Rapport-laget: `analyze_canonical` bærer `parse_info.multi_entity` ind i
+   rapport-JSON'en + en linje i CLI-resuméet; kunderapportens "Datagrundlag &
+   metode" får et forbehold-afsnit ved kollisionsrisiko; Excel-arbejdsbilaget
+   viser enhedsantal + præfiks-status. Webappens job-resultat bærer
+   `parse_info` uændret (UI'en viser det ikke i dag).
+4. **Downstream-hygiejne '|' i transaktions-id'er:** `transaction_id` bliver
+   `DOC_<enhed>|<bilagsnr>_<dato>`. Gennemgang viser at kun
+   Bus.-gruppe/momskode-helpers splitter på `|`, aldrig transaktions-id'er.
+   Verificeret med test: motor + curation + HTML-rapport (niveau 3 + bilag) +
+   Excel-arbejdsbilag + JSON-rundtur på et præfikset to-enhedsdatasæt (fund
+   med `|`-id'er) -- intet knækker.
+
+### Ikke gjort (bevidst)
+
+Ingen segmentering af fund/nøgletal pr. enhed (punkt 5 i vat-extracts
+grænseflade) og ingen sammenlægnings-tooling (punkt 4) -- feltet er nu
+bærende på linjen; konsumenter bygges, når multi-entity-kunden køres.
+`analytics_mapping.json` i vat-extract skal re-synkroniseres mod kontrakt
+v0.6.0 (deres repo).
+
+### Verifikation
+
+- **654 tests** (636 + 18 nye syntetiske i
+  `tests/test_multi_entity_2026_10_02.py`: kontrakt, parser, værn i alle
+  varianter, rapport/CLI, `|`-id'er downstream), **105/105** validering.
+- **Vagtposter** (`analyze_canonical.py --modules alle`, FØR = commit
+  `da61722` mod EFTER = arbejdstræet, hele `all_findings` hash-sammenlignet +
+  antal pr. kontrol): kunde 1 (BC) uden angivelser **23.083** og med
+  `vat_declarations.json` **23.087**; kunde 2 (IFS) **1.230.134** (70=348,
+  71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520, 30=40) -- alle
+  byte-identiske. Ingen af de tre datasæt har `ext_entity_id`
+  (`multi_entity.antal_enheder = 0`, ingen ny advarsel): feltet er additivt.
+
 ## Navne-scrub: kundenavne ud af repoet (2026-10-02, Bal-krav)
 
 Husreglen "ingen kundedata i repoet" blev håndhævet også for kundeNAVNE:

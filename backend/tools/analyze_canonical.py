@@ -157,6 +157,9 @@ def build_report(csv_path: str, summary_path: str | None, reconciliation_path: s
             "warnings": parse_warnings,
             "sections": parse_info.get("sections", {}),
             "stamdata": parse_info.get("stamdata", {}),
+            # Multi-entity-diagnostik (kontrakt v0.6.0): enheder, bilagsnøgle-
+            # præfiks og kollisionsrisiko. Altid til stede (neutral uden entity_id).
+            "multi_entity": parse_info.get("multi_entity", {}),
         },
         # Kontonavne-opslagskort til rapport-laget (generate_report.py) —
         # udfyldt når chart_of_accounts-stamdata er indlæst (ext_name-aliaset).
@@ -213,6 +216,11 @@ def _print_summary(report: dict) -> None:
         print(f"Stamdata: vat_setup={stamdata.get('vat_setup_koder', 0)} koder, "
               f"chart_of_accounts={stamdata.get('chart_of_accounts_konti', 0)} konti, "
               f"customers={stamdata.get('customers', 0)}")
+    me = report.get("parse_info", {}).get("multi_entity") or {}
+    if me.get("antal_enheder"):
+        print(f"Multi-entity: {me['antal_enheder']} regnskabsenhed(er); "
+              f"bilagsnøgle {'IKKE præfikseret — KOLLISIONSRISIKO' if me.get('kollisionsrisiko') else 'ok'} "
+              f"({me.get('bilagsnoegler_i_flere_enheder', 0)} nøgler i flere enheder)")
     print()
     analytics = report["analytics"]
     print(f"Transaktioner analyseret: {analytics['summary'].get('total_transactions', '?')}")

@@ -25,6 +25,21 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-10-02)
 
+- **Entity_id-søsterrunden: multi-entity (2026-10-02, Bal-godkendt,
+  committet lokalt — ikke pushet):** grænsefladen fra vat-extract Del 10
+  (commit 6b44a64). Datakontrakt **v0.6.0**: `lines[].entity_id` som
+  balai_extension (regnskabsenhed under fælles CVR; aggregering før analyse,
+  segmentering i rapportering). `canonical_parser` læser `ext_entity_id` -> `lines[].entity_id`
+  (før stille ignoreret). Bilagsgruppering: præfiks-disciplinen
+  (`--praefiks-bilagsnoegle`, `<enhed>|<bilagsnr>`) er den aftalte vej, MEN
+  ærligt værn: >= 2 distinkte entity_id uden `|` i bilagsnumrene giver en
+  advarsel i `parse_info.warnings` + `parse_info.multi_entity.kollisionsrisiko`
+  (+ forbehold i kunderapporten/arbejdsbilaget) — INGEN automatisk
+  omnøgling. `transaction_id` kan nu indeholde `|` — verificeret
+  downstream (motor/curation/HTML/Excel/JSON). Ikke gjort: segmentering pr.
+  enhed i rapporten, sammenlægnings-tooling. Vagtposter byte-identiske (BC
+  23.083/23.087, kunde 2 1.230.134 + otte kontroltal). **654 tests**
+  (18 nye), 105/105. Se `docs/CHANGELOG.md`.
 - **Navne-scrub (2026-10-02, Bal-krav, committet lokalt — ikke pushet):**
   kundenavne (to selskabsnavne + et mappenavn) var lækket i kommentarer/
   docstrings/CHANGELOG/CLAUDE.md/tests (5 filer + materiality.py) — erstattet
@@ -524,7 +539,7 @@ handlingsliste, ikke en mur af flag.
   BC/NAV-fil: 114.575 medium-fund → **46.667** (kontrol 4: 50.479→0, kontrol
   25: 10.671→0, plus 5 øvrige country-afhængige kontroller); 208/208
   afstemning uændret. Se `docs/CHANGELOG.md` for hele før/efter-tabellen.
-- **636 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
+- **654 automatiserede tests** + uafhængig valideringssuite (**105/105 aktive
   kontroller**, én plantet defekt pr. kontrol, gated i CI) — se de to
   øverste statuspunkter for de seneste opdateringer (2026-09-22).
 - Central BALAI-brugerstyring (login/setup/admin ligger IKKE lokalt længere).
@@ -537,7 +552,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 636 tests
+python -m pytest -q                            # 654 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 105/105 uafhængig validering

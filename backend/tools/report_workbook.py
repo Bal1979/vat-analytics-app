@@ -93,6 +93,11 @@ def _write_overview_sheet(ws, report: dict, analytics: dict, curation: dict | No
     ws.append(["Katalogversion", lineage.get("catalog_version", "")])
     ws.append(["Datakontrakt-version", lineage.get("data_contract_version", "")])
     ws.append(["Kørselstidspunkt (UTC)", lineage.get("generated_at", "")])
+    me = (report.get("parse_info") or {}).get("multi_entity") or {}
+    if me.get("antal_enheder"):
+        ws.append(["Regnskabsenheder (entity_id)", me.get("antal_enheder", 0)])
+        ws.append(["Bilagsnøgle præfikseret?",
+                   "NEJ — kollisionsrisiko (se parse_info.warnings)" if me.get("kollisionsrisiko") else "Ja"])
     ws.append([])
 
     sev = analytics.get("severity_summary", {}) or {}

@@ -26,6 +26,7 @@ def mk_line(**kw):
         "vat_number": "",
         "vat_calculation_type": "",
         "source_code": "",
+        "entity_id": "",
     }
     d.update(kw)
     return d
