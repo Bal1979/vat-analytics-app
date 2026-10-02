@@ -25,9 +25,28 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-10-02)
 
-- **Indenlandsk Bus.-gruppe som eksplicit konstant (2026-10-02, committet
-  lokalt — IMPLEMENTERET MEN AFVENTER BALS ENDELIGE GODKENDELSE, ikke
-  pushet):** `"DOMESTIC"` var hardkodet som indenlandsk Bus.-gruppe tre
+- **Opfølgningsrunden: leverandør, journal og eksternt dokumentnr. fra den
+  kanoniske CSV (2026-10-02, Bal-godkendt, committet lokalt — ikke pushet):**
+  eskaleret fra vat-extracts grundarbejds-runde (commit `2681d08`, katalog
+  1.9.0). `canonical_parser` læser nu `supplier_id`/`supplier_name` (-> linjen),
+  `journal_id` (-> TRANSAKTIONEN, kontraktens placering; første ikke-tomme
+  blandt bilagets rækker, ellers "IMPORT") og `source_document_id`. **Forrang/
+  fallback:** en udfyldt `source_document_id`-kolonne (det EKSTERNE
+  dokumentnr., leverandørens fakturanr.) vinder; findes kolonnen ikke, eller er
+  rækkens værdi tom, er feltet UÆNDRET bilagsnummeret (`invoice_numbers`) —
+  fuld bagudkompatibilitet, fallback pr. række. Bilagsgrupperingen
+  (`_group_key`) bruger fortsat kun bilagsnummeret. `suppliers[]` afledes af
+  linjerne (Excel-mønsteret) når `supplier_id`-kolonnen findes; ellers `[]`
+  (ingen leverandørSTAMDATA-sidecar, GAP-11 uændret). Datakontrakt **v0.7.0**
+  (additiv, 79 felter før/efter): `kilder.canonical` true for de tre felter,
+  `suppliers[]` "partial", feltnote "Eksternt dokumentnr.; fallback:
+  bilagsnøglen på ældre kanoniske filer". `parse_info["eksterne_linjefelter"]`
+  er diagnostik. Ingen kontrolkode ændret (katalog v1.5.1); vat-extracts
+  `analytics_mapping.json` skal re-synkroniseres mod v0.7.0. Vagtposter
+  byte-identiske (BC 23.083/23.087, kunde 2 1.230.134 + otte kontroltal).
+  **706 tests** (17 nye), 105/105. Se `docs/CHANGELOG.md`.
+- **Indenlandsk Bus.-gruppe som eksplicit konstant (2026-10-02, ENDELIGT
+  BAL-GODKENDT og pushet t.o.m. `aba9ef8`):** `"DOMESTIC"` var hardkodet som indenlandsk Bus.-gruppe tre
   steder (cat10 `_purchase_rubric`, cat13 kontrol 104, fallback i
   `is_reverse_charge_sale_code`); dansk BC bruger `INDLAND`. Ny
   `materiality.DOMESTIC_BUS_GROUP_VALUES` (default `["domestic","indland"]`,
@@ -76,7 +95,7 @@ handlingsliste, ikke en mur af flag.
   labels for de danske værdier. **Åbent punkt:** `"DOMESTIC"` som indenlandsk
   Bus.-gruppe er hardkodet 3 steder (cat10 `dkrc`, cat13, RC-salgskode-
   fallback) — dansk BC bruger `INDLAND`; implementeret i en senere runde
-  (se øverste statuspunkt, afventer Bals godkendelse).
+  (se statuspunktet "Indenlandsk Bus.-gruppe", endeligt godkendt).
   **636 tests** (20 nye), 105/105 validering; vagtposter 23.083/23.087
   (BC) og kunde 2 (1.230.134; 70=348, 71=4.139, 84=23, 87=28, 88=11,
   109=402, 27=520, 30=40) byte-for-byte uændrede. Se `docs/CHANGELOG.md`.

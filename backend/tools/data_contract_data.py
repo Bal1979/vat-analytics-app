@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.6.0"
+CONTRACT_VERSION = "0.7.0"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -540,9 +540,17 @@ TRANSACTION_FIELDS = [
     },
     {
         "navn": "journal_id", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
-        "kraeves_af": "Ingen kontrol direkte — kontekst/reference.",
-        "noter": "Default \"IMPORT\" (Excel) / \"GL\" (SAF-T) hvis kilden ikke har et journal-id.",
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
+        "kraeves_af": "Ingen kontrol direkte — kontekst/reference (bæres i fund-referencerne).",
+        "noter": "Default \"IMPORT\" (Excel og kanonisk) / \"GL\" (SAF-T) hvis kilden ikke har et journal-id. "
+                 "Kontrakt v0.7.0 (opfølgningsrunden 2026-10-02, Bal-godkendt): "
+                 "canonical_parser læser nu en valgfri ``journal_id``-kolonne (vat-extract "
+                 "katalog 1.9.0; BC: finansjournal-/register-nummeret) og sætter "
+                 "TRANSAKTIONENS journal_id til den FØRSTE ikke-tomme værdi blandt bilagets "
+                 "rækker (samme mønster som description); ingen kolonne/tom værdi -> "
+                 "\"IMPORT\" som før. Feltet er et transaktionsfelt (ikke et linjefelt) — "
+                 "parse_info[\"eksterne_linjefelter\"][\"bilag_med_flere_journal_id\"] "
+                 "tæller bilag hvis rækker bærer >= 2 forskellige journal-id'er.",
     },
     {
         "navn": "period", "type": "string", "obligatorisk": False, "format": "\"1\"-\"12\", zero-padded i Excel-vejen",
@@ -728,16 +736,22 @@ LINE_FIELDS = [
     },
     {
         "navn": "supplier_id", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
         "kraeves_af": "Kategori 4 (EU/grænseoverskridende), 6 (parts-validering), "
                        "9 (reverse charge), 11 (MTIC) — join til suppliers[].",
-        "noter": "",
+        "noter": "Kontrakt v0.7.0 (opfølgningsrunden 2026-10-02, Bal-godkendt): "
+                 "canonical_parser læser nu en valgfri ``supplier_id``-kolonne (vat-extract "
+                 "katalog 1.9.0; BC: 'Leverandørnr.'/'Vendor No.' i finanspostfilen) og "
+                 "afleder suppliers[] af linjerne (samme mønster som Excel-vejen). "
+                 "Ingen kolonne -> \"\" som før (uændret adfærd, ingen kontrol ser en "
+                 "leverandør).",
     },
     {
         "navn": "supplier_name", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": True}, "ekstension": False,
         "kraeves_af": "Kontrol 47 (manglende partsnavn, kategori 6).",
-        "noter": "",
+        "noter": "Kontrakt v0.7.0 (opfølgningsrunden 2026-10-02): læses nu af "
+                 "canonical_parser fra en valgfri ``supplier_name``-kolonne; ellers \"\".",
     },
     {
         "navn": "customer_id", "type": "string", "obligatorisk": False, "format": "",
@@ -756,7 +770,20 @@ LINE_FIELDS = [
         "status": "implemented_partial", "kilder": {"excel": True, "saft": "partial", "canonical": True}, "ekstension": False,
         "kraeves_af": "Kontrol 2/kategori 2 (dubletdetektion, 11-18) — readiness "
                        "signal-felt CATEGORY_REQUIREMENTS[2].",
-        "noter": "VIGTIGT MODELLERINGS-GAB: for Excel-oprindelse er det den reelle "
+        "noter": "Eksternt dokumentnr.; fallback: bilagsnøglen på ældre kanoniske filer. "
+                 "KANONISK VEJ (kontrakt v0.7.0, opfølgningsrunden 2026-10-02, Bal-godkendt "
+                 "beslutning): en udfyldt ``source_document_id``-kolonne i den kanoniske CSV "
+                 "(det EKSTERNE dokumentnr., leverandørens fakturanr. — BC 'External "
+                 "Document No.', SAF-T Line/SourceDocumentID) har FORRANG; findes kolonnen "
+                 "ikke (ældre kanoniske filer), eller er rækkens værdi tom, er feltet "
+                 "uændret bilagsnummeret (``invoice_numbers``, den interne bilagsnøgle) — "
+                 "fuld bagudkompatibilitet. Fallbacket er pr. række. Det eksterne nr. er "
+                 "et stærkere dubletsignal end det interne (samme leverandørfaktura "
+                 "bogført to gange får forskellige interne numre). Bilagsgrupperingen "
+                 "(GAP-12) bruger fortsat KUN bilagsnummeret. "
+                 "parse_info[\"eksterne_linjefelter\"] tæller linjer med eksternt nr. vs. "
+                 "fallback. "
+                 "VIGTIGT MODELLERINGS-GAB: for Excel-oprindelse er det den reelle "
                  "fakturanummer-kolonne (invoice_number). For SAF-T-oprindelse "
                  "sætter saft_parser den til transaktionens FRITEKST-beskrivelse "
                  "(Transaction/Description) — IKKE et fakturanummer, fordi SAF-T "
@@ -819,26 +846,29 @@ LINE_FIELDS = [
 SUPPLIER_FIELDS = [
     {
         "navn": "supplier_id", "type": "string", "obligatorisk": True, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
         "kraeves_af": "Join-nøgle fra lines[].supplier_id i kategori 4/6/9/11.",
-        "noter": "",
+        "noter": "Kanonisk vej (kontrakt v0.7.0): suppliers[] AFLEDES af linjernes "
+                 "supplier_id/supplier_name/vat_number/country (første ikke-tomme "
+                 "værdi pr. leverandør) når ``supplier_id``-kolonnen findes — der er "
+                 "fortsat ingen leverandørSTAMDATA-sidecar (GAP-11), derfor 'partial'.",
     },
     {
         "navn": "name", "type": "string", "obligatorisk": False, "format": "",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
         "kraeves_af": "Ingen kontrol direkte.",
         "noter": "",
     },
     {
         "navn": "vat_number", "type": "string", "obligatorisk": False, "format": "EU-momsnummerformat",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
         "kraeves_af": "cat04._vat_of() fallback (linje-niveau har forrang); "
                        "kategori 6/9/11 supplier_lookup.",
         "noter": "",
     },
     {
         "navn": "country", "type": "string", "obligatorisk": False, "format": "ISO 3166-1 alpha-2",
-        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
+        "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": "partial"}, "ekstension": False,
         "kraeves_af": "cat04._country_of() fallback (linje-niveau har forrang).",
         "noter": "Excel-vejen udleder leverandørens land fra transaktionens "
                  "generiske 'country'-kolonne (kan være upræcist ved flere parter "
@@ -1413,7 +1443,14 @@ KNOWN_GAPS = [
                        "eller (b) et separat, eksplicit svagheds-flag i outputtet "
                        "frem for at overloade source_document_id. Begge er uden "
                        "for denne opgaves scope (kun parsere/adapter/kontrakt/"
-                       "tests, ingen motor- eller SAF-T-parser-strukturændringer).",
+                       "tests, ingen motor- eller SAF-T-parser-strukturændringer). "
+                       "TREDJE input-vej (kanonisk CSV, opfølgningsrunden 2026-10-02, "
+                       "kontrakt v0.7.0): her kan feltet være det rigtige EKSTERNE "
+                       "dokumentnr. (eksplicit ``source_document_id``-kolonne har "
+                       "forrang), eller — på ældre kanoniske filer/tomme rækker — "
+                       "fallback til det INTERNE bilagsnr. (invoice_numbers). Samme "
+                       "felt kan altså være svagere/stærkere signal pr. fil; "
+                       "parse_info[\"eksterne_linjefelter\"] viser fordelingen.",
         "beroerte_felter": ["transactions[].lines[].source_document_id"],
     },
     {
@@ -1523,7 +1560,10 @@ KNOWN_GAPS = [
                        "IKKE kontrol 94-97 (kræver at gl_entries-mappingen også "
                        "leverer en kunde-reference pr. linje, uden for denne "
                        "opgaves scope). Leverandørstamdata (suppliers[]) har fortsat "
-                       "ingen sidecar-fil og er derfor uændret altid tom.",
+                       "ingen sidecar-fil. OPDATERING 2026-10-02 (kontrakt v0.7.0): "
+                       "når gl_entries-filen selv bærer en ``supplier_id``-kolonne, "
+                       "AFLEDES suppliers[] af linjerne (samme mønster som Excel-vejen); "
+                       "uden kolonnen er den uændret tom.",
         "beroerte_felter": ["accounts[].account_type", "accounts[].standard_account_id",
                              "accounts[].opening_balance", "accounts[].closing_balance",
                              "transactions[].lines[].account_type",

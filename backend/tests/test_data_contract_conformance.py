@@ -103,8 +103,8 @@ def _assert_canonical_source_conforms(canonical: dict, contract: dict):
     excel/saft), men for den kanoniske CSV-vej (byggetrin 8).
 
     Forskel fra excel/saft: den kanoniske vej lover STRUKTURELT INTET for hele
-    objekter (suppliers/customers, jf. GAP-11) -- kilder.canonical er False for
-    ALLE felter på de objekter. At kræve mindst én fixture-instans dér (som den
+    objekter, hvor kilder.canonical er False for ALLE felter (customers, jf.
+    GAP-11; suppliers[] er "partial" siden kontrakt v0.7.0, afledt af linjerne). At kræve mindst én fixture-instans dér (som den
     delte ``_assert_object_conforms`` gør) ville tvinge en fabrikeret kunde-/
     leverandørrække ind i fixturen for et objekt, kontrakten selv siger den
     kanoniske vej aldrig udfylder -- så disse objekter springes bevidst helt
@@ -312,12 +312,16 @@ def _write_canonical_fixture(tmp_path, with_summary=True, with_masterdata=True):
         "posting_dates", "tax_point", "vat_period", "credit_note_flag",
         "invoice_numbers", "gl_accounts", "vat_codes", "vat_amount",
         "debit_amount", "credit_amount", "supply_direction", "currency_fx",
+        # Opfølgningsrunden 2026-10-02 (kontrakt v0.7.0): de fire nye valgfrie
+        # kolonner, så kontraktens kilder.canonical=true/partial for
+        # supplier_id/supplier_name/journal_id/suppliers[] bevises mod parser-output.
+        "supplier_id", "supplier_name", "journal_id", "source_document_id",
     ]
     rows = [
         ["2024-03-15", "2024-03-10", "2024-03", "false", "F-100", "1000",
-         "U25", "250.0", "0", "1250.0", "sale", ""],
+         "U25", "250.0", "0", "1250.0", "sale", "", "L-1", "Testleverandør A/S", "FINANS", "EXT-9"],
         ["2024-03-16", "2024-03-16", "2024-03", "false", "7000123", "2100",
-         "", "0", "800.0", "0", "purchase", ""],
+         "", "0", "800.0", "0", "purchase", "", "", "", "", ""],
     ]
     path = tmp_path / "canonical_gl_entries.csv"
     with open(path, "w", encoding="utf-8", newline="") as f:

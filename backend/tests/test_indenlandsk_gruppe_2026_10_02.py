@@ -1,7 +1,6 @@
 """
 Indenlandsk Bus.-gruppe som eksplicit materiality-konstant (2026-10-02,
-bifund fra Modtagermoms-runden; IMPLEMENTERET MEN AFVENTER Bals endelige
-godkendelse).
+bifund fra Modtagermoms-runden; endeligt Bal-godkendt 2026-10-02).
 
 Baggrund (INGEN kundenavne/-tekster i denne fil): "DOMESTIC" var hårdkodet som
 den indenlandske Bus.-gruppe (vat_codes-strengens FØRSTE led i BC's

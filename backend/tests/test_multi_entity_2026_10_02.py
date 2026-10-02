@@ -73,7 +73,8 @@ def _warn(info):
 # --- 1. Kontrakt -----------------------------------------------------------------
 
 def test_contract_has_entity_id_as_balai_extension_v060():
-    assert dcd.CONTRACT_VERSION == "0.6.0"
+    # entity_id blev indført i v0.6.0; kontrakten er siden bumpet additivt (v0.7.0).
+    assert tuple(int(x) for x in dcd.CONTRACT_VERSION.split(".")) >= (0, 6, 0)
     contract, _problems = gen.build_contract()
     lines = contract["objekter"]["transactions"]["sub_objekt"]["felter"]
     field = next(f for f in lines if f["navn"] == "entity_id")

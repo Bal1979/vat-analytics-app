@@ -65,6 +65,18 @@ Designprincipper (samme disciplin som ``saft_parser.py``):
     ``analytics/readiness.py`` (Del B) for hvordan motoren undgår at flage
     50.479 falske "mangler Description"-fund, når kolonnen slet ikke findes
     i datagrundlaget.
+  * **Leverandør, journal og eksternt dokumentnr. (opfølgningsrunden
+    2026-10-02, Bal-godkendt, kontrakt v0.7.0).** vat-extract (katalog 1.9.0,
+    commit 2681d08) kan levere ``supplier_id``, ``supplier_name``,
+    ``journal_id`` og ``source_document_id`` som kolonner. Parseren læser dem
+    (alle valgfrie; fravær -> ``""``/uændret adfærd): ``supplier_id``/
+    ``supplier_name`` på linjen (+ ``suppliers[]`` afledt af dem, som
+    Excel-vejen), ``journal_id`` på TRANSAKTIONEN (kontraktens placering;
+    første ikke-tomme blandt bilagets rækker, ellers "IMPORT").
+    ``source_document_id`` er det EKSTERNE dokumentnr. (leverandørens
+    fakturanr.) og har FORRANG for bilagsnummeret; findes kolonnen ikke, eller
+    er rækkens værdi tom, er feltet uændret bilagsnummeret (se
+    ``_resolve_source_document_id``). Bilagsgrupperingen berøres ikke.
   * **Kendt gap, dokumenteret (ikke skjult) — DELVIST LUKKET (byggetrin 8,
     Del C, Bal-godkendt 2026-09-17):** den seedede BC/NAV-mapping (2026-09-16)
     producerer selv INGEN selvstændig momssats-kolonne (``tax_percentage``),
@@ -127,6 +139,12 @@ KNOWN_CANONICAL_COLUMNS = {
     # regnskabsenheden (kort tekst-id) under fælles CVR -> ``lines[].entity_id``.
     # Valgfri, samme fravær-giver-""-mønster. Se ``MULTI_ENTITY_*`` nedenfor.
     "ext_entity_id",
+    # Opfølgningsrunden 2026-10-02 (kontrakt v0.7.0; vat-extract katalog 1.9.0,
+    # commit 2681d08): fire kanoniske linje-/transaktionsfelter en dansk BC-
+    # finanspostfil leverer som kolonner. Alle valgfrie, samme fravær-giver-""-
+    # mønster. ``source_document_id`` er det EKSTERNE dokumentnr. og har
+    # forrang for bilagsnummeret (se ``_resolve_source_document_id``).
+    "supplier_id", "supplier_name", "journal_id", "source_document_id",
 }
 
 # Minimumssæt for overhovedet at genkende filen som "kanonisk gl_entries" i
@@ -206,6 +224,60 @@ def _group_key(invoice_number: str, posting_date: str, source_row: int):
     if invoice_number:
         return ("DOC", invoice_number, posting_date)
     return ("ROW", source_row)
+
+
+def _col(row: dict, name: str) -> str:
+    """Valgfri tekstkolonne: trimmet værdi, ``""`` ved fravær af kolonnen eller
+    ved tom værdi. Samme fravær-giver-""-mønster som description/source_code."""
+    return (row.get(name) or "").strip() if name in row else ""
+
+
+def _resolve_source_document_id(external_doc: str, invoice_number: str) -> str:
+    """``lines[].source_document_id`` på den kanoniske vej (opfølgningsrunden
+    2026-10-02, Bal-godkendt beslutning).
+
+    FORRANG: en udfyldt, EKSPLICIT ``source_document_id``-kolonne (det EKSTERNE
+    dokumentnr., leverandørens fakturanr. -- SAF-T ``Line/SourceDocumentID``, BC
+    "External Document No.") vinder over bilagsnummeret: det er et stærkere
+    dubletdetektions-signal (samme leverandørfaktura bogført to gange får
+    forskellige INTERNE bilagsnumre, men det samme eksterne nr.).
+    FALLBACK: ellers (kolonnen findes ikke -- ældre kanoniske filer -- eller
+    rækkens værdi er tom, fx en intern postering uden eksternt bilag) er
+    feltet UÆNDRET bilagsnummeret (``invoice_numbers``, den interne bilagsnøgle)
+    -- fuld bagudkompatibilitet. Fallbacket er pr. række: en tom ekstern værdi
+    giver ikke et "mangler fakturanr."-fund på en intern postering, som den
+    heller ikke gjorde før kolonnen fandtes.
+
+    BilagsGRUPPERINGEN (``_group_key``) bruger fortsat ``invoice_numbers`` alene;
+    det eksterne nr. påvirker aldrig, hvilke rækker der danner ét bilag."""
+    return external_doc or invoice_number
+
+
+def _build_suppliers(lines_iter) -> list:
+    """Leverandørlisten (``suppliers[]``) afledt af linjernes ``supplier_id``/
+    ``supplier_name`` -- præcis samme mønster som Excel-vejen
+    (``excel_parser``: ``suppliers_seen`` pr. supplier_id), så de kontroller der
+    joiner linjen mod ``suppliers[]`` (kategori 4/6/9/11, fx kontrol 84's
+    ``_country``/``_vat``-fallback) ser den samme struktur på den kanoniske vej.
+    Første ikke-tomme værdi pr. leverandør vinder for navn/momsnr./land (en
+    leverandørs første linje kan mangle et felt, en senere have det).
+    Rækkefølgen er første forekomst (deterministisk). Ingen leverandørlinjer
+    -> tom liste (UÆNDRET adfærd for filer uden supplier_id-kolonnen)."""
+    seen: dict = {}
+    for line in lines_iter:
+        sid = line.get("supplier_id") or ""
+        if not sid:
+            continue
+        rec = seen.get(sid)
+        if rec is None:
+            rec = seen[sid] = {"supplier_id": sid, "name": "", "vat_number": "", "country": ""}
+        if not rec["name"] and line.get("supplier_name"):
+            rec["name"] = line["supplier_name"]
+        if not rec["vat_number"] and line.get("vat_number"):
+            rec["vat_number"] = line["vat_number"]
+        if not rec["country"] and line.get("country"):
+            rec["country"] = line["country"]
+    return list(seen.values())
 
 
 def _multi_entity_info(entity_ids: set, keyed_lines: int, unprefixed_keyed_lines: int,
@@ -298,6 +370,12 @@ def _build_transaction(group_key: tuple, members: list) -> dict:
     # document_date-fallbacket ovenfor.
     description = next((l["description"] for l in lines if l["description"]), "")
 
+    # Opfølgningsrunden 2026-10-02 (kontrakt v0.7.0): journal_id er et
+    # TRANSAKTIONS-felt i kontrakten (ikke et linjefelt). Tages fra den FØRSTE
+    # ikke-tomme ``journal_id``-kolonneværdi blandt bilagets rækker (samme
+    # mønster som description); ingen værdi -> den hidtidige default "IMPORT".
+    journal_id = next((m["journal_id"] for m in members if m.get("journal_id")), "") or "IMPORT"
+
     return {
         "transaction_id": transaction_id,
         "date": first["posting_date"],
@@ -308,7 +386,7 @@ def _build_transaction(group_key: tuple, members: list) -> dict:
         # tax_point tages fra gruppens første række.
         "document_date": first["tax_point"] or first["posting_date"],
         "description": description,
-        "journal_id": "IMPORT",
+        "journal_id": journal_id,
         "period": period,
         "period_year": period_year,
         "total_debit": total_debit,
@@ -404,6 +482,7 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
     # Multi-entity (vat-extract Del 10, kontrakt v0.6.0): hvilke regnskabs-
     # enheder indeholder filen, og er bilagsnøglerne præfiksede med enheden?
     entity_ids_seen: set = set()
+    ext_doc_lines = fallback_doc_lines = 0   # source_document_id: eksternt nr. vs. bilagsnr.-fallback
     keyed_lines = unprefixed_keyed_lines = lines_without_entity = 0
     key_first_entity: dict = {}   # bilagsnøgle -> første enhed (hukommelsesbillig)
     colliding_keys_set: set = set()
@@ -462,6 +541,21 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         # samme fravær-giver-""-mønster. Før var kolonnen stille ignoreret.
         entity_id = (row.get("ext_entity_id") or "").strip() if "ext_entity_id" in row else ""
 
+        # Opfølgningsrunden 2026-10-02 (kontrakt v0.7.0): fire valgfrie kolonner.
+        # supplier_id/supplier_name -> linjen; journal_id -> transaktionen (se
+        # _build_transaction); source_document_id (EKSTERNT dokumentnr.) har
+        # forrang for bilagsnummeret, ellers fallback (se
+        # _resolve_source_document_id).
+        supplier_id = _col(row, "supplier_id")
+        supplier_name = _col(row, "supplier_name")
+        journal_id = _col(row, "journal_id")
+        external_doc = _col(row, "source_document_id")
+        source_document_id = _resolve_source_document_id(external_doc, invoice_number)
+        if external_doc:
+            ext_doc_lines += 1
+        elif invoice_number:
+            fallback_doc_lines += 1
+
         line = {
             "account_id": gl_account,
             # KENDT GAB (GAP-11): ingen kontoplan-fil på denne vej -> altid "".
@@ -481,9 +575,9 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "tax_base": tax_base,
             "tax_amount": vat_amount,
             "currency": currency,
-            "supplier_id": "", "supplier_name": "",
+            "supplier_id": supplier_id, "supplier_name": supplier_name,
             "customer_id": "", "customer_name": "",
-            "source_document_id": invoice_number,
+            "source_document_id": source_document_id,
             "country": (row.get("counterparty_country") or "").strip() if "counterparty_country" in row else "",
             "ship_from_country": (row.get("ship_from") or "").strip() if "ship_from" in row else "",
             "ship_to_country": (row.get("ship_to") or "").strip() if "ship_to" in row else "",
@@ -534,9 +628,15 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "posting_date": posting_date,
             "tax_point": tax_point,
             "vat_period": vat_period,
+            "journal_id": journal_id,
         })
 
     transactions = [_build_transaction(key, groups[key]) for key in group_order]
+    journal_conflicts = sum(
+        1 for key in group_order
+        if len({m["journal_id"] for m in groups[key] if m["journal_id"]}) > 1
+    )
+    suppliers = _build_suppliers(ln for t in transactions for ln in t["lines"])
 
     accounts = [
         {
@@ -644,6 +744,20 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         lines_without_entity, colliding_keys,
     )
     info["multi_entity"] = multi_entity
+    # Opfølgningsrunden 2026-10-02 (kontrakt v0.7.0): ærlig diagnostik for de fire
+    # nye kolonner -- ALTID til stede (neutral uden kolonnerne). Viser hvor
+    # mange linjer der fik det EKSTERNE dokumentnr. vs. bilagsnummer-fallback.
+    info["eksterne_linjefelter"] = {
+        "supplier_id_kolonne": "supplier_id" in fieldnames,
+        "supplier_name_kolonne": "supplier_name" in fieldnames,
+        "journal_id_kolonne": "journal_id" in fieldnames,
+        "source_document_id_kolonne": "source_document_id" in fieldnames,
+        "linjer_med_leverandoer": sum(1 for t in transactions for ln in t["lines"] if ln["supplier_id"]),
+        "leverandoerer": len(suppliers),
+        "linjer_eksternt_dokumentnr": ext_doc_lines,
+        "linjer_dokumentnr_fallback_bilagsnr": fallback_doc_lines,
+        "bilag_med_flere_journal_id": journal_conflicts,
+    }
     if multi_entity["kollisionsrisiko"]:
         info["warnings"].append(_multi_entity_warning(multi_entity))
     if not transactions:
@@ -658,7 +772,10 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         "accounts": accounts,
         "tax_table": tax_table,
         "transactions": transactions,
-        "suppliers": [],  # KENDT GAB (GAP-11, uændret): ingen leverandørstamdata-fil i dag.
+        # GAP-11 (uændret): ingen leverandørSTAMDATA-fil. Men fra opfølgnings-
+        # runden 2026-10-02 afledes suppliers[] af linjernes supplier_id/-name
+        # (samme mønster som Excel-vejen) NÅR kolonnerne findes; ellers [].
+        "suppliers": suppliers,
         "customers": [],  # GAP-11 (delvist lukket nedenfor, hvis customers.csv findes ved
                           # siden af CSV'en — se canonical_masterdata.enrich_canonical).
         "summary": {

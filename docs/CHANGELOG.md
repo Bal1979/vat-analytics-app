@@ -3,11 +3,104 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
-## Indenlandsk Bus.-gruppe som eksplicit konstant (2026-10-02, IMPLEMENTERET -- AFVENTER BALS ENDELIGE GODKENDELSE)
+## Opfølgningsrunden: leverandør, journal og eksternt dokumentnr. fra den kanoniske CSV (2026-10-02, Bal-godkendt, datakontrakt v0.6.0 -> v0.7.0, additiv)
 
-**Status: implementeret og committet lokalt, men IKKE endeligt godkendt af Bal.
-Skal ikke pushes/deployes før Bal har taget stilling til ændringen -- den
-ændrer adfærd for data med dansk BC-vokabular (`INDLAND`).**
+Baggrund: vat-extracts grundarbejds-runde (commit `2681d08`, katalog 1.9.0, jf.
+dets `docs/Data-Extract_Analytics-mapping.md` §1d) kan nu levere `supplier_id`,
+`supplier_name`, `journal_id` og `source_document_id` som kolonner i den kanoniske
+`gl_entries`-CSV. `canonical_parser` læste dem ikke (kontraktens
+`kilder.canonical=false`) -- felterne blev produceret, men aldrig konsumeret.
+
+### Ændringer
+
+1. **Parser** (`canonical_parser.parse_canonical`): fire nye valgfrie kolonner
+   (alle trimmet; fravær af kolonne/værdi giver `""` -- ingen crash, ingen
+   gætning):
+   - `supplier_id`, `supplier_name` -> `lines[].supplier_id`/`supplier_name`
+     (før konstant `""`).
+   - `journal_id` -> **`transactions[].journal_id`** (kontraktens placering --
+     journal er et transaktionsfelt, ikke et linjefelt): den FØRSTE ikke-tomme
+     værdi blandt bilagets rækker (samme mønster som `description`), ellers den
+     hidtidige default `"IMPORT"`.
+   - `source_document_id` -> `lines[].source_document_id`, se punkt 2.
+   - `suppliers[]` AFLEDES af linjernes `supplier_id`/`supplier_name`/
+     `vat_number`/`country` (første ikke-tomme værdi pr. leverandør) -- samme
+     mønster som Excel-vejen (`suppliers_seen` pr. `supplier_id`). Uden
+     `supplier_id`-kolonnen er listen uændret `[]`. Der er stadig INGEN
+     leverandørSTAMDATA-sidecar (GAP-11; en `vendors.csv` fra vat-extract
+     konsumeres ikke).
+   - `parse_info["eksterne_linjefelter"]` (ALTID til stede): hvilke af de fire
+     kolonner filen har, antal linjer med leverandør, antal leverandører, antal
+     linjer med eksternt dokumentnr. vs. bilagsnr.-fallback, og antal bilag hvis
+     rækker bærer >= 2 forskellige `journal_id`.
+2. **`source_document_id`-kollisionen (beslutning, implementeret):** i dag fødtes
+   `lines[].source_document_id` af bilagsnummeret (`invoice_numbers`, det
+   INTERNE bilagsnr.). NY adfærd: en udfyldt, eksplicit `source_document_id`-
+   kolonne (det EKSTERNE dokumentnr., leverandørens fakturanr.) har **FORRANG**;
+   findes kolonnen ikke (ældre kanoniske filer), ELLER er rækkens værdi tom
+   (fx en intern postering uden eksternt bilag), er feltet UÆNDRET bilagsnummeret
+   -- fuld bagudkompatibilitet. Fallbacket er **pr. række**: en tom ekstern værdi
+   giver ikke et "mangler fakturanr."-fund (kontrol 92) på en intern postering,
+   som den heller ikke gjorde før kolonnen fandtes. **Bilagsgrupperingen
+   (`_group_key`) bruger fortsat KUN `invoice_numbers`** -- det eksterne nr.
+   ændrer aldrig hvilke rækker der danner ét bilag. Gevinst: samme
+   leverandørfaktura bogført to gange får forskellige interne numre men samme
+   eksterne nr. -> kontrol 11/12/etc. (dubletdetektion) fanger det nu.
+3. **Kontrakt v0.7.0** (`tools/data_contract_data.py`, regenereret
+   `catalog/data_contract.json`; additiv -- 79 felter før og efter, ingen
+   fjernet): `kilder.canonical` false -> **true** for `lines.supplier_id`,
+   `lines.supplier_name`, `transactions.journal_id`; `suppliers[]`-felterne
+   false -> `"partial"` (afledt af linjerne, ingen stamdata). Feltnoten for
+   `source_document_id` indleder med "Eksternt dokumentnr.; fallback:
+   bilagsnøglen på ældre kanoniske filer" + den fulde forrang/fallback-semantik;
+   GAP-06 og GAP-11 fik tilsvarende opdateringer. Katalog (`rules.json`,
+   v1.5.1) uændret -- ingen kontrol er ændret; de eksisterende modparts-kontroller
+   læser bare nu en udfyldt `supplier_id`. vat-extracts
+   `analytics_mapping.json` skal re-synkroniseres mod v0.7.0 (deres repo;
+   additive kilde-flag, ingen nye felter).
+
+### Hvordan modparts-kontrollerne får leverandør-info (undersøgelse)
+
+På den kanoniske vej var `supplier_id` konstant `""` og `suppliers[]` tom, så
+kontrol 11/12/47/48/84-familien m.fl. enten sprang linjer over (`if not
+line["supplier_id"]`) eller hentede kun land/momsnr. fra linjens egne kolonner
+(`counterparty_country`/`vat_registration_numbers`). Mønstret i motoren: kontroller
+læser linjens felter FØRST og falder tilbage på `suppliers[]`-opslag via
+`line["supplier_id"]` (`cat11._country/_vat`, `cat04`, `cat06`, `cat09`). Denne runde
+følger Excel-mønstret og leverer begge ben (linje-`supplier_id` + afledt
+`suppliers[]`) -- ingen kontrolkode ændret.
+
+### Tests
+
+**706 tests** (689 + 17 nye syntetiske i
+`tests/test_ekstern_leverandoer_journal_2026_10_02.py`: kontrakt v0.7.0 (kilder,
+additiv, feltnote), kolonnerne læses + trimmes, `journal_id` på transaktionen
+(default/første ikke-tomme/konflikttæller), forrang/fallback for
+`source_document_id` (ingen kolonne = gammel adfærd; tom række = fallback;
+grupperingen uberørt), `suppliers[]`-afledning, og kontrol 11/47/84 ser den
+linje-leverede leverandør -- inkl. negativ kontrol uden kolonnerne). Eksisterende
+`test_data_contract_conformance` fik de fire kolonner i sin kanoniske fixture;
+multi-entity-testens versions-assert er gjort robust mod additive bump.
+**105/105** validering.
+
+### Vagtposter (fuld kørsel, hele `all_findings` hash-sammenlignet)
+
+`analyze_canonical`-pipelinen (`--modules alle`), FØR = HEAD `aba9ef8` mod EFTER =
+arbejdstræet; sha256 over `all_findings` (sorterede nøgler) + antal pr. kontrol +
+`parse_info.sections`: kunde 1 (BC) uden angivelser **23.083**
+(`81de72c1abd8787f`) og med `vat_declarations.json` **23.087**
+(`585a4e5180434ecf`); kunde 2 (IFS) **1.230.134** (`571796c973f7566b`; 70=348,
+71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520, 30=40) -- alle **byte-identiske**,
+ingen nye advarsler. Ingen af de tre eksisterende kanoniske filer har de nye
+kolonner, så ændringen er additiv (`eksterne_linjefelter` viser alle fire
+`*_kolonne` = false).
+
+## Indenlandsk Bus.-gruppe som eksplicit konstant (2026-10-02, ENDELIGT BAL-GODKENDT)
+
+**Status: Bal har godkendt runden endeligt (2026-10-02) og pushet t.o.m.
+`aba9ef8`. Runden ændrer adfærd for data med dansk BC-vokabular (`INDLAND`);
+andre data er uberørte.** (Var tidligere markeret "afventer Bals endelige
+godkendelse".)
 
 Baggrund: bifund fra Modtagermoms-runden (se "Åbent punkt" ovenfor).
 Bus.-gruppen `"DOMESTIC"` (vat_codes-strengens første led, BC's
@@ -218,8 +311,8 @@ gruppe). Med dansk `Modtagermoms` + Bus.-gruppe `INDLAND` vil et indenlandsk
 RC-køb derfor ikke ramme `dkrc` i kontrol 82 men falde i `input`. Kræver en
 selvstændig, empirisk beslutning (eksplicit liste af indenlandske gruppenavne,
 samme disciplin) -- foreslået som næste lille runde. **Implementeret i
-næste afsnit ("Indenlandsk Bus.-gruppe ...") -- AFVENTER Bals endelige
-godkendelse.**
+næste afsnit ("Indenlandsk Bus.-gruppe ..."), endeligt Bal-godkendt
+2026-10-02.**
 
 ### Verifikation
 

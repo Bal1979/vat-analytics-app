@@ -1,5 +1,5 @@
 {
-  "contract_version": "0.6.0",
+  "contract_version": "0.7.0",
   "beskrivelse": "Maskinlæsbar datakontrakt for VAT Analytics-motorens input — den kanoniske struktur, adapt_excel_to_saft() og saft_parser.parse_saft() BEGGE producerer. DESKRIPTIV, ikke håndhævende (ingen runtime-validering indført af dette katalog). Rediger ikke i hånden; kør tools/build_data_contract.py.",
   "genereret_fra": "tools/data_contract_data.py (håndholdt single source) + analytics/modules.py (introspektion af analyse-moduler)",
   "ankerdokument": "balai-platform/BALAI-dataflow-arkitektur.md §2a + §7",
@@ -543,11 +543,11 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": true
           },
           "ekstension": false,
-          "kraeves_af": "Ingen kontrol direkte — kontekst/reference.",
-          "noter": "Default \"IMPORT\" (Excel) / \"GL\" (SAF-T) hvis kilden ikke har et journal-id."
+          "kraeves_af": "Ingen kontrol direkte — kontekst/reference (bæres i fund-referencerne).",
+          "noter": "Default \"IMPORT\" (Excel og kanonisk) / \"GL\" (SAF-T) hvis kilden ikke har et journal-id. Kontrakt v0.7.0 (opfølgningsrunden 2026-10-02, Bal-godkendt): canonical_parser læser nu en valgfri ``journal_id``-kolonne (vat-extract katalog 1.9.0; BC: finansjournal-/register-nummeret) og sætter TRANSAKTIONENS journal_id til den FØRSTE ikke-tomme værdi blandt bilagets rækker (samme mønster som description); ingen kolonne/tom værdi -> \"IMPORT\" som før. Feltet er et transaktionsfelt (ikke et linjefelt) — parse_info[\"eksterne_linjefelter\"][\"bilag_med_flere_journal_id\"] tæller bilag hvis rækker bærer >= 2 forskellige journal-id'er."
         },
         {
           "navn": "period",
@@ -848,11 +848,11 @@
             "kilder": {
               "excel": true,
               "saft": true,
-              "canonical": false
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kategori 4 (EU/grænseoverskridende), 6 (parts-validering), 9 (reverse charge), 11 (MTIC) — join til suppliers[].",
-            "noter": ""
+            "noter": "Kontrakt v0.7.0 (opfølgningsrunden 2026-10-02, Bal-godkendt): canonical_parser læser nu en valgfri ``supplier_id``-kolonne (vat-extract katalog 1.9.0; BC: 'Leverandørnr.'/'Vendor No.' i finanspostfilen) og afleder suppliers[] af linjerne (samme mønster som Excel-vejen). Ingen kolonne -> \"\" som før (uændret adfærd, ingen kontrol ser en leverandør)."
           },
           {
             "navn": "supplier_name",
@@ -863,11 +863,11 @@
             "kilder": {
               "excel": true,
               "saft": true,
-              "canonical": false
+              "canonical": true
             },
             "ekstension": false,
             "kraeves_af": "Kontrol 47 (manglende partsnavn, kategori 6).",
-            "noter": ""
+            "noter": "Kontrakt v0.7.0 (opfølgningsrunden 2026-10-02): læses nu af canonical_parser fra en valgfri ``supplier_name``-kolonne; ellers \"\"."
           },
           {
             "navn": "customer_id",
@@ -912,7 +912,7 @@
             },
             "ekstension": false,
             "kraeves_af": "Kontrol 2/kategori 2 (dubletdetektion, 11-18) — readiness signal-felt CATEGORY_REQUIREMENTS[2].",
-            "noter": "VIGTIGT MODELLERINGS-GAB: for Excel-oprindelse er det den reelle fakturanummer-kolonne (invoice_number). For SAF-T-oprindelse sætter saft_parser den til transaktionens FRITEKST-beskrivelse (Transaction/Description) — IKKE et fakturanummer, fordi SAF-T Financial GeneralLedgerEntries ikke bærer et selvstændigt dokument-id på transaktionsniveau. Dubletdetektion på SAF-T-oprindelse dedupliker derfor reelt på fritekst, et svagere signal end på Excel-oprindelse. Se known_gaps."
+            "noter": "Eksternt dokumentnr.; fallback: bilagsnøglen på ældre kanoniske filer. KANONISK VEJ (kontrakt v0.7.0, opfølgningsrunden 2026-10-02, Bal-godkendt beslutning): en udfyldt ``source_document_id``-kolonne i den kanoniske CSV (det EKSTERNE dokumentnr., leverandørens fakturanr. — BC 'External Document No.', SAF-T Line/SourceDocumentID) har FORRANG; findes kolonnen ikke (ældre kanoniske filer), eller er rækkens værdi tom, er feltet uændret bilagsnummeret (``invoice_numbers``, den interne bilagsnøgle) — fuld bagudkompatibilitet. Fallbacket er pr. række. Det eksterne nr. er et stærkere dubletsignal end det interne (samme leverandørfaktura bogført to gange får forskellige interne numre). Bilagsgrupperingen (GAP-12) bruger fortsat KUN bilagsnummeret. parse_info[\"eksterne_linjefelter\"] tæller linjer med eksternt nr. vs. fallback. VIGTIGT MODELLERINGS-GAB: for Excel-oprindelse er det den reelle fakturanummer-kolonne (invoice_number). For SAF-T-oprindelse sætter saft_parser den til transaktionens FRITEKST-beskrivelse (Transaction/Description) — IKKE et fakturanummer, fordi SAF-T Financial GeneralLedgerEntries ikke bærer et selvstændigt dokument-id på transaktionsniveau. Dubletdetektion på SAF-T-oprindelse dedupliker derfor reelt på fritekst, et svagere signal end på Excel-oprindelse. Se known_gaps."
           },
           {
             "navn": "country",
@@ -1004,11 +1004,11 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Join-nøgle fra lines[].supplier_id i kategori 4/6/9/11.",
-          "noter": ""
+          "noter": "Kanonisk vej (kontrakt v0.7.0): suppliers[] AFLEDES af linjernes supplier_id/supplier_name/vat_number/country (første ikke-tomme værdi pr. leverandør) når ``supplier_id``-kolonnen findes — der er fortsat ingen leverandørSTAMDATA-sidecar (GAP-11), derfor 'partial'."
         },
         {
           "navn": "name",
@@ -1019,7 +1019,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "Ingen kontrol direkte.",
@@ -1034,7 +1034,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "cat04._vat_of() fallback (linje-niveau har forrang); kategori 6/9/11 supplier_lookup.",
@@ -1049,7 +1049,7 @@
           "kilder": {
             "excel": true,
             "saft": true,
-            "canonical": false
+            "canonical": "partial"
           },
           "ekstension": false,
           "kraeves_af": "cat04._country_of() fallback (linje-niveau har forrang).",
@@ -1586,7 +1586,7 @@
       "id": "GAP-06",
       "status": "aaben",
       "titel": "source_document_id betyder noget forskelligt på de to input-veje — formentlig uløseligt",
-      "beskrivelse": "Excel-oprindelse: reelt fakturanummer (invoice_number-kolonne). SAF-T-oprindelse: transaktionens fritekstbeskrivelse (Transaction/Description). Dette er IKKE en parser-mangel, der kan rettes ved bedre mapping — det er en strukturel grænse i selve SAF-T Financial-skemaet: GeneralLedgerEntries/Transaction har intet selvstændigt dokument-/fakturanummer-element på transaktions- eller linjeniveau (kun JournalID, TransactionID og fritekst-Description); et sådant nummer findes typisk kun i et separat SourceDocuments-afsnit i SAF-T (fakturaer/betalinger som selvstændige objekter), som denne parser ikke joiner mod GL-transaktioner i dag. Konsekvens: dubletdetektion (kategori 2, kontrol 11-18) er et systematisk svagere signal på SAF-T-oprindelse end på Excel-oprindelse (fritekst dedupliker dårligere end et fakturanummer), uden at dette er synligt i outputtet. Reel lukning kræver enten (a) at parseren udvides til at joine SourceDocuments mod GL-linjer via dokument-referencer — en ikke-triviel SAF-T-strukturel udvidelse, eller (b) et separat, eksplicit svagheds-flag i outputtet frem for at overloade source_document_id. Begge er uden for denne opgaves scope (kun parsere/adapter/kontrakt/tests, ingen motor- eller SAF-T-parser-strukturændringer).",
+      "beskrivelse": "Excel-oprindelse: reelt fakturanummer (invoice_number-kolonne). SAF-T-oprindelse: transaktionens fritekstbeskrivelse (Transaction/Description). Dette er IKKE en parser-mangel, der kan rettes ved bedre mapping — det er en strukturel grænse i selve SAF-T Financial-skemaet: GeneralLedgerEntries/Transaction har intet selvstændigt dokument-/fakturanummer-element på transaktions- eller linjeniveau (kun JournalID, TransactionID og fritekst-Description); et sådant nummer findes typisk kun i et separat SourceDocuments-afsnit i SAF-T (fakturaer/betalinger som selvstændige objekter), som denne parser ikke joiner mod GL-transaktioner i dag. Konsekvens: dubletdetektion (kategori 2, kontrol 11-18) er et systematisk svagere signal på SAF-T-oprindelse end på Excel-oprindelse (fritekst dedupliker dårligere end et fakturanummer), uden at dette er synligt i outputtet. Reel lukning kræver enten (a) at parseren udvides til at joine SourceDocuments mod GL-linjer via dokument-referencer — en ikke-triviel SAF-T-strukturel udvidelse, eller (b) et separat, eksplicit svagheds-flag i outputtet frem for at overloade source_document_id. Begge er uden for denne opgaves scope (kun parsere/adapter/kontrakt/tests, ingen motor- eller SAF-T-parser-strukturændringer). TREDJE input-vej (kanonisk CSV, opfølgningsrunden 2026-10-02, kontrakt v0.7.0): her kan feltet være det rigtige EKSTERNE dokumentnr. (eksplicit ``source_document_id``-kolonne har forrang), eller — på ældre kanoniske filer/tomme rækker — fallback til det INTERNE bilagsnr. (invoice_numbers). Samme felt kan altså være svagere/stærkere signal pr. fil; parse_info[\"eksterne_linjefelter\"] viser fordelingen.",
       "beroerte_felter": [
         "transactions[].lines[].source_document_id"
       ]
@@ -1641,7 +1641,7 @@
       "id": "GAP-11",
       "status": "delvist_lukket",
       "titel": "Kanonisk vej har ingen stamdata — kontoplan-metadata og leverandør-/kundeoplysninger altid tomme",
-      "beskrivelse": "Byggetrin 8 (2026-09-17): den seedede BC/NAV-mapping producerer udelukkende ``gl_entries`` (transaktionslinjer) — intet target_object for kontoplan (accounts[].account_type/standard_account_id/opening_balance/closing_balance), leverandører eller kunder (jf. mapping_og_transformation.md's 'Ét target_object pr. transformations-kørsel'-begrænsning). canonical_parser afleder derfor kun accounts[].account_id (distinkte gl_accounts) fra selve gl_entries-filen. DELVIST LUKKET, byggetrin 8/Del C (2026-09-17, Bal-godkendt): to VALGFRIE sidecar-filer kan nu berige dette EFTER parsningen (se parsers/canonical_masterdata.py): (1) ``chart_of_accounts.csv`` (join-nøgle: kontonummeret) joiner account_type/standard_account_id/opening_balance/closing_balance ind i BÅDE accounts[] og transactions[].lines[] — vat_rules.is_non_vat_account (kontrol 80's momsrelevans-scope) KAN dermed aktiveres, når filen leveres. (2) ``customers.csv`` fylder den SELVSTÆNDIGE customers[]-liste (customer_id/name/vat_number/country). KENDT, FORTSAT ÅBEN BEGRÆNSNING for kunde-siden (ikke skjult): gl_entries bærer INGEN customer_id-kolonne på selve linjerne, så cat12._cust_country()'s join (line.get('customer_id')) altid er \"\" på den kanoniske vej — customers.csv alene aktiverer IKKE kontrol 94-97 (kræver at gl_entries-mappingen også leverer en kunde-reference pr. linje, uden for denne opgaves scope). Leverandørstamdata (suppliers[]) har fortsat ingen sidecar-fil og er derfor uændret altid tom.",
+      "beskrivelse": "Byggetrin 8 (2026-09-17): den seedede BC/NAV-mapping producerer udelukkende ``gl_entries`` (transaktionslinjer) — intet target_object for kontoplan (accounts[].account_type/standard_account_id/opening_balance/closing_balance), leverandører eller kunder (jf. mapping_og_transformation.md's 'Ét target_object pr. transformations-kørsel'-begrænsning). canonical_parser afleder derfor kun accounts[].account_id (distinkte gl_accounts) fra selve gl_entries-filen. DELVIST LUKKET, byggetrin 8/Del C (2026-09-17, Bal-godkendt): to VALGFRIE sidecar-filer kan nu berige dette EFTER parsningen (se parsers/canonical_masterdata.py): (1) ``chart_of_accounts.csv`` (join-nøgle: kontonummeret) joiner account_type/standard_account_id/opening_balance/closing_balance ind i BÅDE accounts[] og transactions[].lines[] — vat_rules.is_non_vat_account (kontrol 80's momsrelevans-scope) KAN dermed aktiveres, når filen leveres. (2) ``customers.csv`` fylder den SELVSTÆNDIGE customers[]-liste (customer_id/name/vat_number/country). KENDT, FORTSAT ÅBEN BEGRÆNSNING for kunde-siden (ikke skjult): gl_entries bærer INGEN customer_id-kolonne på selve linjerne, så cat12._cust_country()'s join (line.get('customer_id')) altid er \"\" på den kanoniske vej — customers.csv alene aktiverer IKKE kontrol 94-97 (kræver at gl_entries-mappingen også leverer en kunde-reference pr. linje, uden for denne opgaves scope). Leverandørstamdata (suppliers[]) har fortsat ingen sidecar-fil. OPDATERING 2026-10-02 (kontrakt v0.7.0): når gl_entries-filen selv bærer en ``supplier_id``-kolonne, AFLEDES suppliers[] af linjerne (samme mønster som Excel-vejen); uden kolonnen er den uændret tom.",
       "beroerte_felter": [
         "accounts[].account_type",
         "accounts[].standard_account_id",
