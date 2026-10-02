@@ -25,6 +25,14 @@ handlingsliste, ikke en mur af flag.
 
 ## Status (pr. 2026-10-02)
 
+- **Navne-scrub (2026-10-02, Bal-krav, committet lokalt — ikke pushet):**
+  kundenavne (to selskabsnavne + et mappenavn) var lækket i kommentarer/
+  docstrings/CHANGELOG/CLAUDE.md/tests (5 filer + materiality.py) — erstattet
+  med aliasserne "kunde 1 (BC)"/"kunde 2 (IFS)"/"kundemappen"; grep af hele
+  repoet (ekskl. .git/venv) viser 0 forekomster af navne/CVR-numre.
+  Husreglen i "Datapolitik" er skærpet. **OBS:** git-HISTORIKKEN (tidligere
+  commits) indeholder stadig navnene — fjernelse kræver et destruktivt
+  historik-scrub (Bals go). Ren kommentar-/docs-ændring, ingen adfærd.
 - **Dansk BC-vokabular i RC-genkendelsen (2026-10-02, Bal-godkendt lille
   runde, committet lokalt — ikke pushet):** dansk BC leverer
   "Momsberegningstype" med værdierne "Normal moms"/"Modtagermoms" (empirisk
@@ -71,7 +79,7 @@ handlingsliste, ikke en mur af flag.
   Syntetisk regressionstest simulerer gårsdagens FEJL 2 (fradragsprocent
   ignoreret, via monkeypatch af `_deductible_fraction` — IKKE en reel
   kodetilbagerulning) og bekræfter at gaten FLAGER differencen. Kunde 2
-  (kamstrup_e2e_v2, IFS): vat_setup uden kontoreferencer → gaten melder
+  (IFS): vat_setup uden kontoreferencer → gaten melder
   ærligt "ikke_maalbar" (ingen støj/gæt); ALLE vagtposter uændrede: total
   1.230.134 (70=348, 71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520, 30=40).
   BC uden angivelse 23.083 uændret; BC med angivelse 23.087 uændret (ren
@@ -82,7 +90,7 @@ handlingsliste, ikke en mur af flag.
 - **Kontrol 82 fix-runde: elafgift + fradragsprocent på fradragssiden
   (2026-09-22, Bal-godkendt, committet lokalt — ikke pushet):** to
   klassifikationsfejl i kontrol 82's rubrik-logik (`cat10_vat_
-  reconciliation.py`), empirisk påvist mod Nordic RCC's TastSelv-angivelse.
+  reconciliation.py`), empirisk påvist mod kunde 1's TastSelv-angivelse.
   FEJL 1: afgiftskoder (fx "DOMESTIC|ELECTRICITY_TAX") talte fejlagtigt med
   i input_vat — ny generisk `vat_rules.is_energy_tax_code` (kode-mønster
   "_TAX" + strukturelt fallback, INGEN kundespecifikke værdier) udelader dem
@@ -98,7 +106,7 @@ handlingsliste, ikke en mur af flag.
   bliver match); fund i alt (MED angivelse) 23.095→23.087. Vagtposter
   bekræftet uændrede: BC UDEN angivelse 23.083 (inkl. Momsmotor-sektionen,
   som deler rubrik-logik via `classify_purchase_rubric`); kunde 2
-  (kamstrup_e2e_v2): 70/71/84/87/88/109/27/30 alle uændrede. **603 tests**
+  (IFS, kundemappen): 70/71/84/87/88/109/27/30 alle uændrede. **603 tests**
   (12 nye, syntetiske koder/tal), 105/105 validering, katalog/kontrakt
   uændrede (v1.5.1/v0.5.0, ren regeladfærd). CHANGELOG korrigerer eksplicit
   den tidligere "-326.212 ≈ 0,56% er timing, ikke en fejl"-konklusion (det
@@ -646,6 +654,14 @@ er CI-gated (`tests/test_catalog_fresh.py`: committet == genereret). Bump
 
 Input (kundedata) slettes straks efter kørsel; resultat efter retention; revisionslog
 kun metadata (aldrig momsnumre/navne/beløb). Se `docs/VAT-Analytics_Sikkerhed_og_databehandling.docx`.
+
+**Husregel — kundedata/-navne i repoet (skærpet 2026-10-02 efter navnelækage):**
+ALDRIG kundedata i repoet (filer, tests, fixtures, rapporter) — og **heller
+ikke kundeNAVNE** i kommentarer, docstrings, docs, CHANGELOG eller
+commit-beskeder. Brug aliasser: "kunde 1 (BC)", "kunde 2 (IFS)",
+"multi-entity-kunden"; kundedata-stier omtales som "kundemappen", aldrig med
+navne-bærende mappenavne. Systemvokabular (BC-gruppeværdier som
+`INDLAND`/`DOMESTIC`, kolonnenavne) er ikke kundedata og er ok.
 
 ## Env-variabler
 

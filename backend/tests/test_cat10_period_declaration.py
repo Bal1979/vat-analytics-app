@@ -153,7 +153,7 @@ def test_calc_type_normal_vat_is_deterministically_input():
 
 def test_calc_type_full_vat_energy_tax_code_is_energy_tax_not_input():
     """Fix-runde 2026-09-22 (Bal-godkendt, FEJL 1 — empirisk påvist mod
-    Nordic RCC's TastSelv-angivelse): en afgiftskode som "DOMESTIC|
+    kunde 1's TastSelv-angivelse): en afgiftskode som "DOMESTIC|
     ELECTRICITY_TAX" (calc_type "Full VAT") blev tidligere fejlagtigt
     klassificeret 'input' (almindelig købsmoms) og talte dermed med i den
     beregnede input_vat-rubrik. Den hører til angivelsens EGEN
@@ -254,7 +254,7 @@ def test_rubric_sums_signed_before_abs_nets_credit_notes():
 
 
 # --- FEJL 1 (fix-runde 2026-09-22, Bal-godkendt): elafgift/energiafgift ----
-# Empirisk påvist mod Nordic RCC's TastSelv-angivelse: afgiftskoder (fx
+# Empirisk påvist mod kunde 1's TastSelv-angivelse: afgiftskoder (fx
 # elafgift) blev talt med i input_vat-rubrikken, men hører til angivelsens
 # EGEN "energy_taxes"-rubrik, som v1 bevidst ikke afstemmer. SYNTETISKE
 # koder/tal (INGEN kundedata).
@@ -307,7 +307,7 @@ def test_energy_tax_line_excluded_entirely_from_input_vat_rubric():
 
 def test_default_energy_tax_pattern_documented_example():
     """materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS's default ("_TAX")
-    rammer PRÆCIS det dokumenterede eksempel (RCC-empiri: "DOMESTIC|
+    rammer PRÆCIS det dokumenterede eksempel (kunde 1-empiri: "DOMESTIC|
     ELECTRICITY_TAX")."""
     assert vr.text_matches_any("DOMESTIC|ELECTRICITY_TAX",
                                 materiality.VAT_DECLARATION_ENERGY_TAX_PATTERNS)
@@ -338,7 +338,7 @@ def _setup(tax_code, non_deductible_pct, tax_percentage=25.0):
 
 
 def test_partial_deduction_reduces_input_vat_for_ordinary_purchase_code():
-    """En almindelig købskode med 40% ikke-fradragsberettiget (RCC-mønster,
+    """En almindelig købskode med 40% ikke-fradragsberettiget (kunde 1-mønster,
     syntetisk kode/tal): bogført moms 1.000,00, men kun 60% (600,00) er
     fradragsberettiget -- input_vat-rubrikken skal afspejle DET
     fradragsberettigede beløb, ikke det fulde bogførte."""
@@ -352,7 +352,7 @@ def test_partial_deduction_reduces_input_vat_for_ordinary_purchase_code():
 
 
 def test_partial_deduction_applies_to_dkrc_fradragsside_but_not_output_vat():
-    """DKRC med delvis fradragsret (RCC-facit-mønster: 40% ikke-fradrags-
+    """DKRC med delvis fradragsret (kunde 1-facit-mønster: 40% ikke-fradrags-
     berettiget): output_vat (liability-siden) forbliver DET FULDE beløb --
     kun DKRCs bidrag til input_vat (fradragssiden) reduceres. To-sidet
     omvendt betalingspligt-mekanik: fuld udgående forpligtelse, begrænset

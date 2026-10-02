@@ -371,7 +371,7 @@ def test_81_zero_rated_share(data):
 # den dokumenterede begrænsning (kalibreret til den observerede BC/NAV-
 # taksonomi; en anden klients koder kræver en engagement-specifik override).
 #
-# FIX-RUNDE 2026-09-22 (Bal-godkendt, empirisk påvist mod Nordic RCC's
+# FIX-RUNDE 2026-09-22 (Bal-godkendt, empirisk påvist mod kunde 1's
 # TastSelv-angivelse OG ekspertens 3-vejs-afstemning — "kunden har ret,
 # motoren tog fejl"):
 #

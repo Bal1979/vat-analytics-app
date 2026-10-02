@@ -152,8 +152,8 @@ VAT_DECLARATION_SERVICE_VAT_PATTERNS = [
     p.lower() for p in _strlist("MATERIALITY_VAT_DECLARATION_SERVICE_VAT_PATTERNS", ["SERVICE_VAT"])
 ]
 
-# Fix-runde 2026-09-22 (Bal-godkendt, FEJL 1 — empirisk påvist mod Nordic
-# RCC's TastSelv-angivelse og ekspertens 3-vejs-afstemning): kode-navnemønster
+# Fix-runde 2026-09-22 (Bal-godkendt, FEJL 1 — empirisk påvist mod
+# kunde 1's TastSelv-angivelse og ekspertens 3-vejs-afstemning): kode-navnemønster
 # der identificerer en AFGIFTSKODE (fx elafgift, "DOMESTIC|ELECTRICITY_TAX")
 # frem for en ægte momskode, i BC/NAVs "Bus.-gruppe|Produktkode"-konvention.
 # BC/NAV navngiver afgiftskoder med suffikset "_TAX" (modsat momskoders

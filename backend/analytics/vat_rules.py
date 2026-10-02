@@ -862,7 +862,7 @@ def is_rc_calc_type(vat_calculation_type):
 def is_energy_tax_code(tax_code, vat_calculation_type="", tax_percentage=None):
     """True hvis en KØBSLINJES momskode identificerer en afgifts-/
     punktafgiftskode (fx elafgift) frem for ægte moms (kontrol 82 fix-runde,
-    Bal-godkendt 2026-09-22, FEJL 1 — empirisk påvist mod Nordic RCC's
+    Bal-godkendt 2026-09-22, FEJL 1 — empirisk påvist mod kunde 1's
     TastSelv-angivelse: "DOMESTIC|ELECTRICITY_TAX"-linjer talte fejlagtigt
     med i den beregnede input_vat-rubrik; hører til angivelsens EGEN
     "energy_taxes"-rubrik, som v1 bevidst ikke afstemmer, og skal derfor

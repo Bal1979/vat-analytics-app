@@ -3,6 +3,19 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Navne-scrub: kundenavne ud af repoet (2026-10-02, Bal-krav)
+
+Husreglen "ingen kundedata i repoet" blev håndhævet også for kundeNAVNE:
+kommentarer/docstrings/docs/tests havde navne på to kunder og et
+navne-bærende kundemappenavn. Alle forekomster erstattet med aliasser
+("kunde 1 (BC)", "kunde 2 (IFS)", "kundemappen") i `CLAUDE.md`,
+`docs/CHANGELOG.md`, `analytics/vat_rules.py`, `analytics/materiality.py`,
+`analytics/categories/cat10_vat_reconciliation.py` og
+`tests/test_cat10_period_declaration.py`. Kun kommentarer/docs/docstrings
+ændret -- ingen adfærd, katalog/kontrakt uændrede. `CLAUDE.md` Datapolitik
+fik en skærpet husregel. Git-historikken indeholder stadig navnene (kræver
+destruktivt historik-scrub; afventer Bals go).
+
 ## Dansk BC-vokabular i RC-genkendelsen (2026-10-02, Bal-godkendt lille runde)
 
 Baggrund: en ny BC-kunde med DANSK UI har momsopsætning hvor
@@ -157,7 +170,7 @@ kode: gaten er tavs (beregnet 600 = bogført 600). Med den genindførte fejl:
 gaten flager `input_vat` som "afvigelse" (beregnet 1.000 ≠ bogført 600,
 diff 400 langt over materialitetsgrænsen) — det er hele pointen med gaten.
 
-**Kunde 2 (kamstrup_e2e_v2, IFS, `--modules alle`):** vat_setup.csv har
+**Kunde 2 (IFS, `--modules alle`):** vat_setup.csv har
 ingen af de tre kontoreferencefelter — gaten melder ærligt "ikke_maalbar"
 (ingen gæt, ingen støj), aktiveres automatisk den dag felterne leveres.
 ALLE vagtposter uændrede: total 1.230.134 fund (70=348, 71=4.139, 84=23,
@@ -178,7 +191,7 @@ INPUT-felter). Ingen kundedata i repoet. Committet lokalt — ikke pushet.
 
 Baggrund: to empirisk påviste klassifikationsfejl i kontrol 82's rubrik-logik
 (`backend/analytics/categories/cat10_vat_reconciliation.py`) på beregnet-siden
-af indgående moms, påvist mod Nordic RCC's TastSelv-angivelse og ekspertens
+af indgående moms, påvist mod kunde 1's TastSelv-angivelse og ekspertens
 3-vejs-afstemning ("kunden har ret, motoren tog fejl").
 
 **FEJL 1 (ELAFGIFT):** linjer med afgiftskoder (fx BC/NAV "DOMESTIC|
@@ -194,7 +207,7 @@ OG `vat_calculation_type="Full VAT"`). INGEN kundespecifikke værdier/lister.
 afstemt rubrik).
 
 **FEJL 2 (FRADRAGSPROCENT PÅ FRADRAGSSIDEN):** for koder med delvist
-fradrag (vat_setup's `non_deductible_vat_pct` > 0 — RCC's "DOMESTIC|
+fradrag (vat_setup's `non_deductible_vat_pct` > 0 — kunde 1's "DOMESTIC|
 REDUCED_PRIVATE_DKRC": 40 % ikke-fradragsberettiget) regnede
 `_compute_period_rubrics` HELE den bogførte moms som fradragsberettiget
 input. Rettet med PRÆCIS samme formel/kildefelt som kontrol 109
@@ -221,7 +234,7 @@ maj-dec bliver match (intet fund). Fund i alt (BC, MED angivelse):
 fund-identiske). **Vagtposter bekræftet uændrede:** BC UDEN angivelsesfil
 **23.083** (kontrol 82 springer over — bekræftet inkl. Momsmotor-sektionens
 rubrik-logik, som deler kildekode med kontrol 82 via `classify_purchase_
-rubric`); kunde 2 (kamstrup_e2e_v2, ingen angivelsesfil, kontrol 82 inaktiv):
+rubric`); kunde 2 (IFS, kundemappen, ingen angivelsesfil, kontrol 82 inaktiv):
 70=348, 71=4.139, 84=23, 87=28, 88=11, 109=402, 27=520, 30=40 — alle
 uændrede (verificeret med `--modules alle` mod de fire selvstændige
 stamdata-undermapper). **603 automatiserede tests** (12 nye, SYNTETISKE
