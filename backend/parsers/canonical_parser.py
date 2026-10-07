@@ -77,6 +77,20 @@ Designprincipper (samme disciplin som ``saft_parser.py``):
     fakturanr.) og har FORRANG for bilagsnummeret; findes kolonnen ikke, eller
     er rækkens værdi tom, er feltet uændret bilagsnummeret (se
     ``_resolve_source_document_id``). Bilagsgrupperingen berøres ikke.
+  * **Leverandør-/kunde-split af dokumentnr. og modpartsland (ekspertreview,
+    kontrakt v0.8.0).** Et enkelt bilag kan bære både leverandør- og
+    kundedata; ét samlet felt gør overførslen tvetydig. Parseren læser derfor
+    valgfrie ``supplier_document_id``/``customer_document_id`` og
+    ``supplier_country``/``customer_country`` (+ ``supplier_standard_tax_code``)
+    og bærer dem på linjen. Forrangskæder (fravær af kolonner = UÆNDRET output):
+    ``lines[].source_document_id`` = supplier_document_id > customer_document_id
+    > source_document_id > invoice_numbers (``_resolve_document_id``);
+    ``lines[].country`` = supplier_country > customer_country >
+    counterparty_country (``_resolve_country``). Hierarkiet i kontrol 70-75
+    (momsnr.-præfiks > landefelt, ``vat_rules.counterparty_country``) er
+    uberørt — det læser stadig kun ``lines[].country`` som landefelt.
+    Linjer med BEGGE sider tælles i ``parse_info["eksterne_linjefelter"]``
+    (flag-kontrol er en åben tråd, ikke bygget).
   * **Kendt gap, dokumenteret (ikke skjult) — DELVIST LUKKET (byggetrin 8,
     Del C, Bal-godkendt 2026-09-17):** den seedede BC/NAV-mapping (2026-09-16)
     producerer selv INGEN selvstændig momssats-kolonne (``tax_percentage``),
@@ -145,6 +159,11 @@ KNOWN_CANONICAL_COLUMNS = {
     # mønster. ``source_document_id`` er det EKSTERNE dokumentnr. og har
     # forrang for bilagsnummeret (se ``_resolve_source_document_id``).
     "supplier_id", "supplier_name", "journal_id", "source_document_id",
+    # Ekspertreview (kontrakt v0.8.0): leverandør-/kundesplit af dokumentnr. og
+    # modpartsland + modpartens standard-momskode (leverandørsiden). Valgfrie;
+    # forrangskæder i ``_resolve_document_id``/``_resolve_country``.
+    "supplier_document_id", "customer_document_id",
+    "supplier_country", "customer_country", "supplier_standard_tax_code",
 }
 
 # Minimumssæt for overhovedet at genkende filen som "kanonisk gl_entries" i
@@ -253,6 +272,43 @@ def _resolve_source_document_id(external_doc: str, invoice_number: str) -> str:
     return external_doc or invoice_number
 
 
+def _resolve_document_id(supplier_doc: str, customer_doc: str,
+                         external_doc: str, invoice_number: str) -> tuple:
+    """``lines[].source_document_id`` med ekspertreviewets forrangskæde
+    (kontrakt v0.8.0): ``supplier_document_id`` > ``customer_document_id`` >
+    ``source_document_id`` (eksplicit eksternt nr.) > ``invoice_numbers``.
+    Returnerer ``(værdi, kilde)`` hvor kilde er "supplier"/"customer"/"source"/
+    "invoice"/"" (til diagnostik). Pr. række; tomme værdier springes over.
+    Uden de to nye kolonner er resultatet identisk med
+    ``_resolve_source_document_id`` (fuld bagudkompatibilitet).
+
+    Ved en række der bærer BEGGE sider vinder leverandørsiden (deterministisk
+    valg — dubletdetektionen kontrol 2/11-18 er købsorienteret); rækken
+    tælles som "begge sider" i diagnostikken og kan flages af en senere
+    kontrol (åben tråd)."""
+    if supplier_doc:
+        return supplier_doc, "supplier"
+    if customer_doc:
+        return customer_doc, "customer"
+    if external_doc:
+        return external_doc, "source"
+    if invoice_number:
+        return invoice_number, "invoice"
+    return "", ""
+
+
+def _resolve_country(supplier_country: str, customer_country: str,
+                     counterparty_country: str) -> str:
+    """``lines[].country`` (modpartens land) med ekspertreviewets fallbackkæde
+    (kontrakt v0.8.0): ``supplier_country`` > ``customer_country`` > det
+    eksisterende ``counterparty_country``-kolonne. Værdien er den RÅ
+    landeværdi (ISO-kode eller landenavn) -- hierarkiet momsnr.-præfiks >
+    landefelt (kontrol 70-75, ``vat_rules.counterparty_country``) anvendes
+    senere i motoren og er uændret. Uden de to nye kolonner er resultatet
+    identisk med ``counterparty_country``."""
+    return supplier_country or customer_country or counterparty_country
+
+
 def _build_suppliers(lines_iter) -> list:
     """Leverandørlisten (``suppliers[]``) afledt af linjernes ``supplier_id``/
     ``supplier_name`` -- præcis samme mønster som Excel-vejen
@@ -270,13 +326,21 @@ def _build_suppliers(lines_iter) -> list:
             continue
         rec = seen.get(sid)
         if rec is None:
-            rec = seen[sid] = {"supplier_id": sid, "name": "", "vat_number": "", "country": ""}
+            rec = seen[sid] = {"supplier_id": sid, "name": "", "vat_number": "", "country": "",
+                               "standard_tax_code": ""}
         if not rec["name"] and line.get("supplier_name"):
             rec["name"] = line["supplier_name"]
         if not rec["vat_number"] and line.get("vat_number"):
             rec["vat_number"] = line["vat_number"]
-        if not rec["country"] and line.get("country"):
-            rec["country"] = line["country"]
+        # Leverandørens EGET land (supplier_country) har forrang for linjens
+        # samlede modpartsland; uden supplier_country-kolonnen er det
+        # ``line["country"]`` som før (uændret).
+        if not rec["country"] and (line.get("supplier_country") or line.get("country")):
+            rec["country"] = line.get("supplier_country") or line["country"]
+        # Kontrakt v0.8.0: modpartens standard-momsopsætning (valgfri
+        # linjekolonne ``supplier_standard_tax_code``; ellers "").
+        if not rec["standard_tax_code"] and line.get("supplier_standard_tax_code"):
+            rec["standard_tax_code"] = line["supplier_standard_tax_code"]
     return list(seen.values())
 
 
@@ -483,6 +547,8 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
     # enheder indeholder filen, og er bilagsnøglerne præfiksede med enheden?
     entity_ids_seen: set = set()
     ext_doc_lines = fallback_doc_lines = 0   # source_document_id: eksternt nr. vs. bilagsnr.-fallback
+    # Ekspertreview (kontrakt v0.8.0): leverandør-/kundesplit-diagnostik.
+    supplier_doc_lines = customer_doc_lines = side_country_lines = both_side_lines = 0
     keyed_lines = unprefixed_keyed_lines = lines_without_entity = 0
     key_first_entity: dict = {}   # bilagsnøgle -> første enhed (hukommelsesbillig)
     colliding_keys_set: set = set()
@@ -550,11 +616,31 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         supplier_name = _col(row, "supplier_name")
         journal_id = _col(row, "journal_id")
         external_doc = _col(row, "source_document_id")
-        source_document_id = _resolve_source_document_id(external_doc, invoice_number)
-        if external_doc:
+        # Ekspertreview (kontrakt v0.8.0): leverandør-/kundesplit. Forrang:
+        # supplier_document_id > customer_document_id > source_document_id >
+        # invoice_numbers; land: supplier_country > customer_country >
+        # counterparty_country. Fravær af de nye kolonner = uændret output.
+        supplier_doc = _col(row, "supplier_document_id")
+        customer_doc = _col(row, "customer_document_id")
+        supplier_country = _col(row, "supplier_country")
+        customer_country = _col(row, "customer_country")
+        counterparty_country = _col(row, "counterparty_country")
+        supplier_standard_tax_code = _col(row, "supplier_standard_tax_code")
+        source_document_id, doc_source = _resolve_document_id(
+            supplier_doc, customer_doc, external_doc, invoice_number)
+        country = _resolve_country(supplier_country, customer_country, counterparty_country)
+        if doc_source == "source":
             ext_doc_lines += 1
-        elif invoice_number:
+        elif doc_source == "invoice":
             fallback_doc_lines += 1
+        if supplier_doc:
+            supplier_doc_lines += 1
+        if customer_doc:
+            customer_doc_lines += 1
+        if supplier_country or customer_country:
+            side_country_lines += 1
+        if (supplier_id or supplier_doc or supplier_country) and (customer_doc or customer_country):
+            both_side_lines += 1
 
         line = {
             "account_id": gl_account,
@@ -578,7 +664,16 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "supplier_id": supplier_id, "supplier_name": supplier_name,
             "customer_id": "", "customer_name": "",
             "source_document_id": source_document_id,
-            "country": (row.get("counterparty_country") or "").strip() if "counterparty_country" in row else "",
+            # Kontrakt v0.8.0: leverandør-/kundesplit. ALTID til stede (default
+            # ""), så en kontrol kan flage linjer med begge sider.
+            "supplier_document_id": supplier_doc,
+            "customer_document_id": customer_doc,
+            "supplier_country": supplier_country,
+            "customer_country": customer_country,
+            # Canonical-only (ikke linjefelt i kontrakten): leverandørens
+            # standard-momskode -> suppliers[].standard_tax_code.
+            "supplier_standard_tax_code": supplier_standard_tax_code,
+            "country": country,
             "ship_from_country": (row.get("ship_from") or "").strip() if "ship_from" in row else "",
             "ship_to_country": (row.get("ship_to") or "").strip() if "ship_to" in row else "",
             "vat_number": (row.get("vat_registration_numbers") or "").strip() if "vat_registration_numbers" in row else "",
@@ -646,6 +741,15 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
             "standard_account_id": "",
             "opening_balance": 0.0,
             "closing_balance": 0.0,
+            # Kontrakt v0.8.0 (ekspertreview): nøglesæt-symmetri -- ALTID til
+            # stede, "intet signal"-defaults. Fyldes af canonical_masterdata.
+            # enrich_canonical NÅR chart_of_accounts.csv leverer dem.
+            # movement_balance er None (ikke 0.0), så "ingen bevægelsesdata"
+            # kan skelnes fra "bevægelsen er faktisk 0".
+            "name": "",
+            "account_type_name": "",
+            "account_tax_type": "",
+            "movement_balance": None,
         }
         for acc_id in sorted(accounts_seen)
     ]
@@ -756,6 +860,16 @@ def parse_canonical(csv_path: str, summary_path: str | None = None,
         "leverandoerer": len(suppliers),
         "linjer_eksternt_dokumentnr": ext_doc_lines,
         "linjer_dokumentnr_fallback_bilagsnr": fallback_doc_lines,
+        # Kontrakt v0.8.0 (ekspertreview): leverandør-/kundesplit.
+        "supplier_document_id_kolonne": "supplier_document_id" in fieldnames,
+        "customer_document_id_kolonne": "customer_document_id" in fieldnames,
+        "supplier_country_kolonne": "supplier_country" in fieldnames,
+        "customer_country_kolonne": "customer_country" in fieldnames,
+        "supplier_standard_tax_code_kolonne": "supplier_standard_tax_code" in fieldnames,
+        "linjer_supplier_dokumentnr": supplier_doc_lines,
+        "linjer_customer_dokumentnr": customer_doc_lines,
+        "linjer_med_sidespecifikt_land": side_country_lines,
+        "linjer_med_begge_sider": both_side_lines,
         "bilag_med_flere_journal_id": journal_conflicts,
     }
     if multi_entity["kollisionsrisiko"]:

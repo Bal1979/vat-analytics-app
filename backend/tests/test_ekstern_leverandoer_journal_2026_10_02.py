@@ -69,7 +69,8 @@ def _field(contract, obj, name, sub=False):
 
 
 def test_contract_v070_canonical_sources_true_for_the_fields():
-    assert dcd.CONTRACT_VERSION == "0.7.0"
+    # Feltene blev indført i v0.7.0; kontrakten er siden bumpet additivt (v0.8.0).
+    assert tuple(int(x) for x in dcd.CONTRACT_VERSION.split(".")) >= (0, 7, 0)
     contract, _ = gen.build_contract()
     for navn in ("supplier_id", "supplier_name", "source_document_id"):
         f = _field(contract, "transactions", navn, sub=True)
@@ -84,12 +85,13 @@ def test_contract_v070_suppliers_list_is_partial_and_additive():
     contract, _ = gen.build_contract()
     for navn in ("supplier_id", "name", "vat_number", "country"):
         assert _field(contract, "suppliers", navn)["kilder"]["canonical"] == "partial", navn
-    # Additiv: antallet af kontraktfelter er uændret (79), kun kilder/noter ændret.
+    # Additiv: v0.7.0 tilføjede ingen felter (79); siden er kontrakten kun vokset
+    # additivt (v0.8.0: +10), så antallet må aldrig være under de 79 fra v0.7.0.
     total = sum(
         len(o["felter"]) + (len(o["sub_objekt"]["felter"]) if "sub_objekt" in o else 0)
         for o in contract["objekter"].values()
     )
-    assert total == 79
+    assert total >= 79
 
 
 def test_contract_source_document_id_note_documents_semantics():
@@ -224,8 +226,10 @@ def test_suppliers_list_derived_from_lines_first_nonempty_wins(tmp_path):
          "vat_registration_numbers", "counterparty_country"],
     )
     assert canonical["suppliers"] == [
-        {"supplier_id": "L-1", "name": "Leverandør Et", "vat_number": "DE123456789", "country": "DE"},
-        {"supplier_id": "L-2", "name": "Leverandør To", "vat_number": "", "country": ""},
+        {"supplier_id": "L-1", "name": "Leverandør Et", "vat_number": "DE123456789", "country": "DE",
+         "standard_tax_code": ""},
+        {"supplier_id": "L-2", "name": "Leverandør To", "vat_number": "", "country": "",
+         "standard_tax_code": ""},
     ]
     assert info["eksterne_linjefelter"]["leverandoerer"] == 2
 

@@ -55,6 +55,13 @@ disciplin som resten af canonical_parser.py. Ingen ændring af rådata
                                 momsrelevans-scope) kan aktiveres, i stedet
                                 for det strukturelle "" GAP-11 dokumenterer.
 
+    * (kontrakt v0.8.0, ekspertreview) chart_of_accounts.csv bærer desuden
+                                ``ext_name``/``name`` (kontonavn -> accounts[].name),
+                                ``ext_description`` (kontobeskrivelse),
+                                ``account_type_name``, ``account_tax_type``,
+                                ``movement_balance`` (alle valgfrie, "ext_"-præfiks
+                                først); customers.csv ``standard_tax_code``.
+
     * customers.csv          — kundestamdata. Fylder den SELVSTÆNDIGE
                                 customers[]-liste (customer_id/name/
                                 vat_number/country). F1 (gap-analyse-runde 2,
@@ -96,6 +103,10 @@ from __future__ import annotations
 
 import csv
 import os
+
+
+# Tolerance (DKK) for konsistensreglen movement_balance = closing - opening.
+MOVEMENT_TOLERANCE = 0.01
 
 
 def _read_rows(path: str) -> list:
@@ -229,13 +240,31 @@ def load_chart_of_accounts(path: str) -> tuple:
         acc = (row.get("gl_accounts") or "").strip()
         if not acc:
             continue
+        legacy_name = (row.get("ext_name") or row.get("description")
+                       or row.get("name") or "").strip()
         lookup[acc] = {
             "account_type": (row.get("account_type") or "").strip(),
             "standard_account_id": (row.get("standard_account_id") or "").strip(),
             "opening_balance": _num_or_none(row.get("opening_balance")),
             "closing_balance": _num_or_none(row.get("closing_balance")),
-            "description": (row.get("ext_name") or row.get("description")
-                             or row.get("name") or "").strip(),
+            # description: en EKSPLICIT kontobeskrivelse (``ext_description``,
+            # kontrakt v0.8.0) har forrang; uden den kolonne er værdien den
+            # hidtidige alias-kæde (ext_name > description > name), dvs. UÆNDRET
+            # for alle leverancer der ikke har ext_description.
+            "description": ((row.get("ext_description") or "").strip() or legacy_name),
+            # Kontrakt v0.8.0 (ekspertreview): kontonavnet som EGET felt,
+            # adskilt fra beskrivelsen. ext_name > name > description-kolonnen
+            # (på ældre filer bærer den kontonavnet, jf. alias-bugfixet).
+            "name": legacy_name,
+            "account_type_name": (row.get("ext_account_type_name")
+                                   or row.get("account_type_name") or "").strip(),
+            # RÅ ERP-værdi (ikke normaliseret) -- normalisering til et fast
+            # værdisæt (skyldig/udgående vs. tilgodehavende/indgående) er en
+            # åben tråd, se CLAUDE.md.
+            "account_tax_type": (row.get("ext_account_tax_type")
+                                  or row.get("account_tax_type") or "").strip(),
+            "movement_balance": _num_or_none(
+                (row.get("ext_movement_balance") or "").strip() or row.get("movement_balance")),
         }
     warnings = []
     if not lookup:
@@ -316,6 +345,10 @@ def load_customers(path: str) -> tuple:
             "name": name,
             "vat_number": vat_number,
             "country": country,
+            # Kontrakt v0.8.0 (ekspertreview): modpartens standard-momsopsætning.
+            # RÅ værdi; "" uden kolonne.
+            "standard_tax_code": (row.get("ext_standard_tax_code")
+                                   or row.get("standard_tax_code") or "").strip(),
         })
     warnings = []
     if not customers:
@@ -401,6 +434,8 @@ def enrich_canonical(canonical: dict, csv_path: str,
                     # se opgavens Del A, punkt 2, Bal-godkendt 2026-09-17.
                     line["vat_calculation_type"] = info["vat_calculation_type"]
 
+    movement_checked = movement_inconsistent = 0
+    movement_seen = False
     if coa_lookup:
         for acc in canonical.get("accounts", []):
             info = coa_lookup.get(acc.get("account_id", ""))
@@ -416,6 +451,24 @@ def enrich_canonical(canonical: dict, csv_path: str,
                 acc["closing_balance"] = info["closing_balance"]
             if info["description"]:
                 acc["description"] = info["description"]
+            # Kontrakt v0.8.0 (ekspertreview): nye kontofelter. Kun overskrevet
+            # NÅR filen leverer en værdi (ellers beholdes parserens defaults).
+            if info["name"]:
+                acc["name"] = info["name"]
+            if info["account_type_name"]:
+                acc["account_type_name"] = info["account_type_name"]
+            if info["account_tax_type"]:
+                acc["account_tax_type"] = info["account_tax_type"]
+            if info["movement_balance"] is not None:
+                movement_seen = True
+                acc["movement_balance"] = info["movement_balance"]
+                # Konsistensregel: movement = closing - opening, når alle tre er
+                # leveret af filen (afstemningsanker; DIAGNOSTIK, ingen fund).
+                if info["opening_balance"] is not None and info["closing_balance"] is not None:
+                    movement_checked += 1
+                    if abs(info["movement_balance"]
+                           - (info["closing_balance"] - info["opening_balance"])) > MOVEMENT_TOLERANCE:
+                        movement_inconsistent += 1
         for txn in canonical.get("transactions", []):
             for line in txn.get("lines", []):
                 info = coa_lookup.get(line.get("account_id", ""))
@@ -429,9 +482,18 @@ def enrich_canonical(canonical: dict, csv_path: str,
     if customers:
         canonical["customers"] = customers
 
-    return {
+    diagnostik = {
         "vat_setup_koder": len(vat_lookup),
         "chart_of_accounts_konti": len(coa_lookup),
         "customers": len(customers),
         "advarsler": warnings,
     }
+    if movement_seen:
+        # Kontrakt v0.8.0: konsistensdiagnostik for movement_balance (antal
+        # konti hvor movement, opening OG closing alle er leveret, og hvor
+        # movement != closing - opening). Ingen kundedata, kun tal. Kun med
+        # når filen leverer movement_balance, så stamdata-diagnostikken er
+        # UÆNDRET for alle eksisterende leverancer.
+        diagnostik["konti_movement_tjekket"] = movement_checked
+        diagnostik["konti_movement_inkonsistent"] = movement_inconsistent
+    return diagnostik

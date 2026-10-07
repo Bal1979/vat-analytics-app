@@ -124,6 +124,7 @@ def build_contract():
                 "knapper": dcd.MATERIALITY_RUN_CONFIG,
             },
         },
+        "aendringslog": dcd.AENDRINGSLOG,
         "known_gaps": dcd.KNOWN_GAPS,
         "parse_info_note": dcd.PARSE_INFO_NOTE,
     }

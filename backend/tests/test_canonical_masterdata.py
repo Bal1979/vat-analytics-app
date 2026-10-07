@@ -244,7 +244,8 @@ def test_load_customers_valid_file(tmp_path):
     customers, warnings = md.load_customers(str(path))
     assert warnings == []
     assert customers == [{"customer_id": "K001", "name": "Testkunde ApS",
-                          "vat_number": "DK12345678", "country": "DK"}]
+                          "vat_number": "DK12345678", "country": "DK",
+                          "standard_tax_code": ""}]
 
 
 def test_load_customers_missing_file_returns_empty():
@@ -267,7 +268,8 @@ def test_load_customers_accepts_vat_extract_ext_prefixed_columns(tmp_path):
     customers, warnings = md.load_customers(str(path))
     assert warnings == []
     assert customers == [{"customer_id": "CU0001", "name": "50Hertz Transmission GmbH",
-                          "vat_number": "", "country": "DE"}]
+                          "vat_number": "", "country": "DE",
+                          "standard_tax_code": ""}]
 
 
 # --- enrich_canonical ---------------------------------------------------------
@@ -316,7 +318,8 @@ def test_enrich_canonical_with_all_three_sidecars(tmp_path):
     # customers[] er fyldt strukturelt (KENDT BEGRÆNSNING: intet
     # customer_id-felt på linjerne at joine igennem -- se modulets docstring).
     assert canonical["customers"] == [{"customer_id": "K001", "name": "Testkunde ApS",
-                                       "vat_number": "DK12345678", "country": "DK"}]
+                                       "vat_number": "DK12345678", "country": "DK",
+                                       "standard_tax_code": ""}]
     assert canonical["transactions"][0]["lines"][0].get("customer_id", "") == ""
 
 

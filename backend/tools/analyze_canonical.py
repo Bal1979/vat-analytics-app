@@ -164,9 +164,9 @@ def build_report(csv_path: str, summary_path: str | None, reconciliation_path: s
         # Kontonavne-opslagskort til rapport-laget (generate_report.py) —
         # udfyldt når chart_of_accounts-stamdata er indlæst (ext_name-aliaset).
         "konto_navne": {
-            a["account_id"]: a["description"]
+            a["account_id"]: (a.get("name") or a["description"])
             for a in canonical.get("accounts", [])
-            if a.get("account_id") and a.get("description")
+            if a.get("account_id") and (a.get("name") or a.get("description"))
         },
         # Byggetrin ~10 (Bal-godkendt 2026-09-18): letvægts-udtræk af
         # tax_table til rapport-lagets 'Momsmotoren'-sektion

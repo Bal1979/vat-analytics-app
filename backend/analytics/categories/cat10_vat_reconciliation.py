@@ -113,7 +113,11 @@ def test_77_vat_account_reconciliation(data):
 
     vat_accounts = [
         a for a in data.get("accounts", [])
-        if vr.text_matches_any(a.get("description", ""), ("moms", "vat"))
+        # Kontrakt v0.8.0: kontonavnet er nu et eget felt (``name``); match på
+        # navn + beskrivelse. Uden ``name`` (Excel/SAF-T/ældre kanonisk) er
+        # teksten ren beskrivelse som før -- uændret resultat.
+        if vr.text_matches_any(f'{a.get("name", "") or ""} {a.get("description", "") or ""}',
+                               ("moms", "vat"))
     ]
     if not vat_accounts:
         return findings
@@ -213,8 +217,9 @@ def test_80_revenue_without_output_vat(data):
     account_line_totals = defaultdict(lambda: {"lines": 0, "no_code": 0})
     account_names = {}
     for acc in data.get("accounts", []):
-        if acc.get("description"):
-            account_names[acc.get("account_id")] = acc["description"]
+        label = acc.get("name") or acc.get("description")
+        if label:
+            account_names[acc.get("account_id")] = label
 
     per_account = defaultdict(lambda: {"count": 0, "base_sum": 0.0, "refs": []})
 

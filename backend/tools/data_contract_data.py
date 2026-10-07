@@ -49,7 +49,7 @@ Konventioner pr. felt
 
 from __future__ import annotations
 
-CONTRACT_VERSION = "0.7.0"
+CONTRACT_VERSION = "0.8.0"
 
 # ---------------------------------------------------------------------------
 # 1. HEADER
@@ -216,7 +216,15 @@ ACCOUNT_FIELDS = [
                        "reconciliation — matcher kontonavnet mod 'moms'/'vat') og "
                        "kontrol 80's kontolabel i finding-teksten (account_names). "
                        "Ikke længere kun 'kontekst i rapport'.",
-        "noter": "Byggetrin 9/Del B alias-bugfix (2026-09-17, Bal-godkendt): den "
+        "noter": "KONTRAKT v0.8.0 (ekspertreview): ``description`` er KONTOBESKRIVELSEN "
+                 "(fri tekst), adskilt fra det nye felt ``name`` (kontonavnet). "
+                 "Kanonisk vej: en eksplicit ``ext_description``-kolonne i "
+                 "chart_of_accounts.csv har forrang; findes den ikke, er "
+                 "``description`` UÆNDRET den hidtidige alias-kæde (ext_name > "
+                 "description > name), dvs. på alle eksisterende leverancer bærer "
+                 "``description`` fortsat kontonavnet og ``name`` har samme værdi "
+                 "(bagudkompatibelt). "
+                 "Byggetrin 9/Del B alias-bugfix (2026-09-17, Bal-godkendt): den "
                  "kanoniske vejs chart_of_accounts.csv-loader læste tidligere KUN "
                  "en upræfikset 'description'-kolonne, men vat-extracts reelle "
                  "transform-output navngiver kontonavnet 'ext_name' — feltet var "
@@ -282,7 +290,65 @@ ACCOUNT_FIELDS = [
                  "allerede 'a.get(\"closing_balance\", 0) or 0', så None giver "
                  "samme \"ingen saldoinformation\"-adfærd som tidligere 0.0 — "
                  "uændret kontrol-adfærd i det tilfælde. Et fladt GL-udtræk uden "
-                 "en selvstændig kontoplan-fane vil typisk stadig mangle kolonnen.",
+                 "en selvstændig kontoplan-fane vil typisk stadig mangle kolonnen. "
+                 "KONTRAKT v0.8.0: konsistensregel -- når opening_balance, "
+                 "closing_balance OG movement_balance alle er leveret, skal "
+                 "movement_balance = closing_balance - opening_balance (tolerance "
+                 "0,01 DKK). Parseren tæller afvigelser som diagnostik "
+                 "(parse_info.stamdata.konti_movement_inkonsistent); der er endnu "
+                 "ingen kontrol.",
+    },
+    {
+        "navn": "name", "type": "string", "obligatorisk": False, "format": "",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": False,
+        "kraeves_af": "Kontrol 77 (momskontoafstemning, matcher navn+beskrivelse mod "
+                       "'moms'/'vat') og kontolabel i kontrol 80 + rapportens "
+                       "konto_navne (navn før beskrivelse).",
+        "noter": "NYT i v0.8.0 (ekspertreview): kontoNAVNET, adskilt fra "
+                 "``description`` (kontobeskrivelsen). Kanonisk vej: ``ext_name`` > "
+                 "``name`` > (ældre filer) ``description``-kolonnen, når "
+                 "chart_of_accounts.csv er indlæst; ellers \"\". Excel/SAF-T "
+                 "udfylder det ikke (deres kontonavn ligger i ``description``). "
+                 "Fallback: motoren læser ``name`` først og ``description`` ellers, "
+                 "så resultatet er uændret for leverancer uden det nye felt.",
+    },
+    {
+        "navn": "account_type_name", "type": "string", "obligatorisk": False,
+        "format": "fri tekst, evt. SAF-T AccountType-tekst",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": False,
+        "kraeves_af": "Ingen kontrol i dag.",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: kontotypens tekst som ERP'et "
+                 "leverer den (``ext_account_type_name``/``account_type_name``). "
+                 "Adskilt fra ``account_type`` (SAF-T-enum, bruges til scope); "
+                 "ingen normalisering, ingen kontrol bruger det.",
+    },
+    {
+        "navn": "account_tax_type", "type": "string", "obligatorisk": False,
+        "format": "RÅ ERP-værdi (ikke normaliseret)",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Ingen kontrol i dag (forberedt: momstilsvar fra momskonti "
+                       "grupperet efter kontoens momstype).",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: hvilken SLAGS momskonto "
+                 "kontoen er -- fx skyldig/udgående moms vs. tilgodehavende/"
+                 "indgående moms (``ext_account_tax_type``/``account_tax_type``). "
+                 "VÆRDISÆT: parseren bærer den RÅ ERP-værdi uændret (trimmet). "
+                 "Normalisering til et fast værdisæt er en ÅBEN TRÅD (CLAUDE.md); "
+                 "ingen konsument må antage et bestemt ordforråd før den er afgjort.",
+    },
+    {
+        "navn": "movement_balance", "type": "number (nullable)", "obligatorisk": False,
+        "format": "DKK, kan være negativ",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Ingen kontrol i dag (forberedt: afstemning mod saldobalancen).",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: årets bevægelser på kontoen "
+                 "i DKK -- AFSTEMNINGSANKER mod saldobalancen. None (ikke 0.0) uden "
+                 "signal, så \"ingen bevægelsesdata\" skelnes fra \"bevægelsen er "
+                 "0\". Konsistensregel: movement_balance = closing_balance - "
+                 "opening_balance, når begge leveres (se closing_balance).",
     },
 ]
 
@@ -771,6 +837,15 @@ LINE_FIELDS = [
         "kraeves_af": "Kontrol 2/kategori 2 (dubletdetektion, 11-18) — readiness "
                        "signal-felt CATEGORY_REQUIREMENTS[2].",
         "noter": "Eksternt dokumentnr.; fallback: bilagsnøglen på ældre kanoniske filer. "
+                 "FORRANGSKÆDE (kontrakt v0.8.0, ekspertreview): supplier_document_id > "
+                 "customer_document_id > source_document_id > invoice_numbers "
+                 "(bilagsnummeret) -- pr. række, første ikke-tomme vinder. "
+                 "``source_document_id`` er den samlede, side-løse værdi motoren "
+                 "læser (dubletdetektion); de to nye felter er den sideopdelte "
+                 "kilde. Ved en række med BEGGE sider vinder leverandørsiden "
+                 "(deterministisk; købsorienteret dubletdetektion) -- rækken kan "
+                 "flages via supplier_document_id + customer_document_id begge "
+                 "udfyldt. Uden de to nye kolonner er feltet UÆNDRET. "
                  "KANONISK VEJ (kontrakt v0.7.0, opfølgningsrunden 2026-10-02, Bal-godkendt "
                  "beslutning): en udfyldt ``source_document_id``-kolonne i den kanoniske CSV "
                  "(det EKSTERNE dokumentnr., leverandørens fakturanr. — BC 'External "
@@ -797,7 +872,60 @@ LINE_FIELDS = [
         "status": "implemented", "kilder": {"excel": True, "saft": True, "canonical": False}, "ekstension": False,
         "kraeves_af": "Kategori 4 (grænseoverskridende/EU), 9, 11, 12 — readiness "
                        "signal-felt for kategori 4/9/11/12.",
-        "noter": "Modpartens land (ikke vareflow — se ship_from/ship_to_country).",
+        "noter": "Modpartens land (ikke vareflow — se ship_from/ship_to_country). "
+                 "Kanonisk vej (kontrakt v0.8.0, ekspertreview): FALLBACKKÆDE "
+                 "supplier_country > customer_country > counterparty_country-kolonnen "
+                 "(den hidtidige kilde; kolonnenavnet i den kanoniske CSV er "
+                 "``counterparty_country``, kontraktfeltet er ``country``). Råværdien "
+                 "bæres uændret; HIERARKIET i kontrol 70-75 (momsnr.-præfiks > "
+                 "landefelt, vat_rules.counterparty_country) er uberørt og læser "
+                 "fortsat kun dette felt som landefelt. Uden de nye kolonner er "
+                 "feltet UÆNDRET.",
+    },
+    {
+        "navn": "supplier_document_id", "type": "string", "obligatorisk": False, "format": "",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Indgår i forrangskæden for source_document_id (kontrol 2/kategori "
+                       "2, dubletdetektion). Ingen kontrol læser feltet direkte i dag.",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: leverandørsidens dokumentnr. "
+                 "(leverandørens fakturanr.). BEGRUNDELSE FOR SPLITTET: ét bilag kan "
+                 "bære både leverandør- og kundedata; ét samlet felt gør overførslen "
+                 "tvetydig, og splittet gør linjer med BEGGE sider flagbare. Altid til "
+                 "stede (\"\" uden kolonne). Forrang: se source_document_id.",
+    },
+    {
+        "navn": "customer_document_id", "type": "string", "obligatorisk": False, "format": "",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Indgår i forrangskæden for source_document_id. Ingen kontrol "
+                       "læser feltet direkte i dag.",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: kundesidens dokumentnr. "
+                 "(fx salgsfakturanr.). Samme begrundelse og forrang som "
+                 "supplier_document_id (den vinder kun, når supplier_document_id er "
+                 "tom).",
+    },
+    {
+        "navn": "supplier_country", "type": "string", "obligatorisk": False,
+        "format": "ISO 3166-1 alpha-2 eller landenavn",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Indgår i fallbackkæden for country (kategori 4/9/11, kontrol 70-75). "
+                       "Ingen kontrol læser feltet direkte i dag.",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: leverandørsidens land. "
+                 "Samme begrundelse som supplier_document_id. Fallback: se country. "
+                 "Bruges desuden som suppliers[].country før det samlede country.",
+    },
+    {
+        "navn": "customer_country", "type": "string", "obligatorisk": False,
+        "format": "ISO 3166-1 alpha-2 eller landenavn",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Indgår i fallbackkæden for country. Ingen kontrol læser feltet "
+                       "direkte i dag.",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: kundesidens land. Samme "
+                 "begrundelse som supplier_document_id; vinder for country kun når "
+                 "supplier_country er tom.",
     },
     {
         "navn": "ship_from_country", "type": "string", "obligatorisk": False, "format": "ISO 3166-1 alpha-2",
@@ -874,6 +1002,22 @@ SUPPLIER_FIELDS = [
                  "generiske 'country'-kolonne (kan være upræcist ved flere parter "
                  "på samme række, men rammer normalt rigtigt i et fladt udtræk).",
     },
+    {
+        "navn": "standard_tax_code", "type": "string", "obligatorisk": False,
+        "format": "RÅ ERP-/SAF-T-værdi (ikke normaliseret)",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Ingen kontrol i dag (forberedt: kontrollen \"følger transaktionen "
+                       "modpartens standardopsætning?\").",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: modpartens STANDARD-"
+                 "momsopsætning (momskode/-gruppe leverandøren normalt bogføres med). "
+                 "Beslægtet med tax_table[].standard_tax_code (kodens SAF-T-"
+                 "StandardTaxCode) og SAF-T Validatorens Default-Tax-ID-logik (ikke i "
+                 "dette repo). Kanonisk vej: afledes af linjernes valgfrie kolonne "
+                 "``supplier_standard_tax_code`` (første ikke-tomme pr. leverandør; "
+                 "der er stadig ingen leverandørstamdata-sidecar, GAP-11); altid til "
+                 "stede (\"\" uden kolonne). Rå værdi, ingen normalisering.",
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -936,6 +1080,20 @@ CUSTOMER_FIELDS = [
                  "smallere end oprindeligt dokumenteret — kun de tilfælde, hvor "
                  "linjens eget country-felt er tomt, men en kundespecifik "
                  "land-kolonne findes. Den situation er nu også dækket.",
+    },
+    {
+        "navn": "standard_tax_code", "type": "string", "obligatorisk": False,
+        "format": "RÅ ERP-/SAF-T-værdi (ikke normaliseret)",
+        "status": "implemented_partial",
+        "kilder": {"excel": False, "saft": False, "canonical": "partial"}, "ekstension": True,
+        "kraeves_af": "Ingen kontrol i dag (forberedt: kontrollen \"følger transaktionen "
+                       "modpartens standardopsætning?\").",
+        "noter": "NYT i v0.8.0 (ekspertreview), VALGFRI: modpartens STANDARD-"
+                 "momsopsætning. Samme semantik som suppliers[].standard_tax_code. "
+                 "Kanonisk vej: kolonnen ``ext_standard_tax_code``/``standard_tax_code`` "
+                 "i customers.csv-sidecaren (altid til stede på hver kunde, \"\" uden "
+                 "kolonne). Kendt begrænsning som resten af customers[]: kan ikke "
+                 "joines til linjerne (GAP-11).",
     },
 ]
 
@@ -1006,6 +1164,64 @@ PARSE_INFO_NOTE = (
 )
 
 # ---------------------------------------------------------------------------
+# AENDRINGSLOG — kontraktens egen versionshistorik (kun nyeste version her;
+# ældre versioner: docs/CHANGELOG.md). Konsumeres af f.eks. vat-extract ved
+# kontrakt-pin-opdatering.
+# ---------------------------------------------------------------------------
+
+AENDRINGSLOG = [
+    {
+        "version": "0.8.0",
+        "dato": "2026-10-07",
+        "type": "additiv (ingen felter fjernet eller omdøbt; ældre leverancer giver UÆNDRET output)",
+        "baggrund": "Ekspertreview af standardstrukturen.",
+        "aendringer": [
+            {"felt": "transactions[].lines[].supplier_document_id", "ny": True,
+             "note": "Leverandørsidens dokumentnr. Forrangskæde for source_document_id: "
+                     "supplier_document_id > customer_document_id > source_document_id "
+                     "> invoice_numbers. Begrundelse: enkelte bilag kan bære både "
+                     "leverandør- og kundedata; ét samlet felt er tvetydigt, splittet "
+                     "gør linjer med begge sider flagbare."},
+            {"felt": "transactions[].lines[].customer_document_id", "ny": True,
+             "note": "Kundesidens dokumentnr.; vinder kun når supplier_document_id er tom."},
+            {"felt": "transactions[].lines[].source_document_id", "ny": False,
+             "note": "Uændret felt; forrangskæden er udvidet (se ovenfor). Uden de to nye "
+                     "kolonner uændret adfærd."},
+            {"felt": "transactions[].lines[].supplier_country", "ny": True,
+             "note": "Leverandørsidens land. Fallbackkæde for lines[].country: "
+                     "supplier_country > customer_country > counterparty_country-kolonnen "
+                     "(den hidtidige kilde). Hierarkiet i kontrol 70-75 (momsnr.-præfiks "
+                     "> landefelt) er uberørt."},
+            {"felt": "transactions[].lines[].customer_country", "ny": True,
+             "note": "Kundesidens land; vinder for country kun når supplier_country er tom."},
+            {"felt": "accounts[].name", "ny": True,
+             "note": "Kontonavn, adskilt fra description (kontobeskrivelse). Fallback til "
+                     "den hidtidige alias-kæde, så ældre filer er uændrede."},
+            {"felt": "accounts[].account_type_name", "ny": True,
+             "note": "Valgfri; kontotypens tekst (evt. SAF-T AccountType-tekst)."},
+            {"felt": "accounts[].account_tax_type", "ny": True,
+             "note": "Valgfri; momskontoens art (skyldig/udgående vs. tilgodehavende/"
+                     "indgående). RÅ ERP-værdi bæres uændret; normalisering er en åben tråd."},
+            {"felt": "accounts[].movement_balance", "ny": True,
+             "note": "Valgfri; årets bevægelser i DKK (afstemningsanker mod saldobalancen). "
+                     "Konsistensregel: movement_balance = closing_balance - opening_balance "
+                     "når begge leveres."},
+            {"felt": "accounts[].opening_balance / closing_balance", "ny": False,
+             "note": "Uændrede felter; dokumenteret sammen med movement_balance."},
+            {"felt": "suppliers[].standard_tax_code", "ny": True,
+             "note": "Valgfri; modpartens standard-momsopsætning (muliggør kontrollen "
+                     "'følger transaktionen modpartens standardopsætning')."},
+            {"felt": "customers[].standard_tax_code", "ny": True,
+             "note": "Som suppliers[].standard_tax_code; fra customers.csv-sidecaren."},
+        ],
+        "bagudkompatibilitet": "Nye felter er altid til stede i parser-output (default "
+                               "\"\"/None); uden de nye kolonner er alle eksisterende felter "
+                               "(source_document_id, country, description m.fl.) "
+                               "byte-for-byte uændrede.",
+    },
+]
+
+# ---------------------------------------------------------------------------
 # OBJEKT-REGISTER
 # ---------------------------------------------------------------------------
 
@@ -1074,6 +1290,43 @@ BALAI_EXTENSIONS = [
                         "regnskabsenhed under samme CVR har ingen nativ plads. Kun "
                         "kontrakt+parser+bilagsnøgle-værn i dag; ingen kontrol og "
                         "intet rapportafsnit segmenterer endnu på feltet.",
+    },
+    {
+        "felt": "supplier_document_id / customer_document_id / supplier_country / "
+                "customer_country",
+        "sti": "transactions[].lines[].supplier_document_id / customer_document_id / "
+               "supplier_country / customer_country",
+        "status": "implemented_partial",
+        "begrundelse": "Ekspertreview, kontrakt v0.8.0: split af source_document_id og "
+                        "modpartsland i en leverandør- og en kundeside. Enkelte bilag "
+                        "kan bære både leverandør- og kundedata; ét samlet felt gør "
+                        "overførslen tvetydig, og splittet gør linjer med BEGGE sider "
+                        "flagbare. SAF-T Financial har intet nativt side-opdelt "
+                        "dokumentnr./land på linjeniveau. Forrang/fallback: "
+                        "source_document_id = supplier_document_id > "
+                        "customer_document_id > source_document_id > invoice_numbers; "
+                        "country = supplier_country > customer_country > "
+                        "counterparty_country. Kun kontrakt+parser i dag; ingen "
+                        "flag-kontrol (åben tråd).",
+    },
+    {
+        "felt": "account_tax_type / movement_balance",
+        "sti": "accounts[].account_tax_type / accounts[].movement_balance",
+        "status": "implemented_partial",
+        "begrundelse": "Ekspertreview, kontrakt v0.8.0: kontoens momstype (rå ERP-værdi; "
+                        "skyldig/udgående vs. tilgodehavende/indgående -- normalisering "
+                        "er en åben tråd) og årets bevægelser i DKK som afstemningsanker "
+                        "mod saldobalancen (movement = closing - opening). Ingen "
+                        "kontrol bruger dem endnu.",
+    },
+    {
+        "felt": "standard_tax_code (suppliers/customers)",
+        "sti": "suppliers[].standard_tax_code / customers[].standard_tax_code",
+        "status": "implemented_partial",
+        "begrundelse": "Ekspertreview, kontrakt v0.8.0: modpartens standard-"
+                        "momsopsætning, så en senere kontrol kan afgøre om "
+                        "transaktionen følger modpartens standardopsætning. Beslægtet "
+                        "med tax_table[].standard_tax_code. Ingen kontrol endnu.",
     },
     {
         "felt": "ekstern_indberettet_momsangivelse", "sti": "(separat sidecar-fil: vat_declarations.json)",
@@ -1450,7 +1703,11 @@ KNOWN_GAPS = [
                        "forrang), eller — på ældre kanoniske filer/tomme rækker — "
                        "fallback til det INTERNE bilagsnr. (invoice_numbers). Samme "
                        "felt kan altså være svagere/stærkere signal pr. fil; "
-                       "parse_info[\"eksterne_linjefelter\"] viser fordelingen.",
+                       "parse_info[\"eksterne_linjefelter\"] viser fordelingen. "
+                       "KONTRAKT v0.8.0 (ekspertreview): feltet er nu det side-løse "
+                       "resultat af kæden supplier_document_id > customer_document_id > "
+                       "source_document_id > invoice_numbers; en række med begge sider "
+                       "vinder leverandørsiden (flag-kontrol er en åben tråd).",
         "beroerte_felter": ["transactions[].lines[].source_document_id"],
     },
     {

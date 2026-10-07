@@ -23,8 +23,29 @@ Resultatfilosofi (vigtig): **RØD = handling krævet** — ingen falske alarmer
 (jf. VIES: 37 røde → 4 reelle). Konservativ mod falske negativer. Prioriteret
 handlingsliste, ikke en mur af flag.
 
-## Status (pr. 2026-10-02)
+## Status (pr. 2026-10-07)
 
+- **Ekspertreview af standardstrukturen -> datakontrakt v0.8.0 (2026-10-07,
+  Bal-godkendt, committet lokalt — ikke pushet):** additiv (79 -> 89 felter,
+  ingen fjernet). (1) `source_document_id` splittet i `lines[].supplier_document_id`/
+  `customer_document_id` (begrundelse: et bilag kan bære begge sider; ét felt er
+  tvetydigt, splittet gør begge-sider-linjer flagbare); kæde pr. række:
+  supplier_document_id > customer_document_id > source_document_id >
+  invoice_numbers. (2) Modpartsland splittet i `supplier_country`/
+  `customer_country`; `lines[].country` = supplier_country > customer_country >
+  CSV-kolonnen `counterparty_country`; hierarkiet momsnr.-præfiks > landefelt
+  (kontrol 70-75) er urørt. (3) `accounts[]`: `name` (kontonavn; `description` er nu
+  beskrivelsen — ekstra `ext_description` har forrang, ellers uændret alias-kæde),
+  `account_type_name`, `account_tax_type` (RÅ ERP-værdi), `movement_balance`
+  (konsistens: = closing − opening, tæller afvigelser som diagnostik). (4)
+  `standard_tax_code` på `suppliers[]` (fra linjekolonne `supplier_standard_tax_code`)
+  og `customers[]` (customers.csv). (5) Parser konsumerer alle; ny
+  `aendringslog` i kontrakten; `parse_info["eksterne_linjefelter"]` udvidet
+  (inkl. `linjer_med_begge_sider`). Kontrol 77/80-labels læser nu `name` før
+  `description` (identisk resultat uden `name`). **Ingen nye kontroller** (katalog
+  v1.5.1 uændret); vagtposter byte-identiske (BC 23.083/23.087/23.549, kunde 2
+  1.230.134 + otte kontroltal). **733 tests** (27 nye), 105/105. vat-extracts
+  kontrakt-pin (0.7.0) opdateres af en senere runde. Se `docs/CHANGELOG.md`.
 - **Opfølgningsrunden: leverandør, journal og eksternt dokumentnr. fra den
   kanoniske CSV (2026-10-02, Bal-godkendt, committet lokalt — ikke pushet):**
   eskaleret fra vat-extracts grundarbejds-runde (commit `2681d08`, katalog
@@ -586,7 +607,7 @@ handlingsliste, ikke en mur af flag.
 cd backend
 source venv/bin/activate                       # Python 3.13-baseline
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m pytest -q                            # 689 tests
+python -m pytest -q                            # 733 tests
 python tools/build_rules_catalog.py            # catalog/rules.json (drift-gated)
 python tools/build_data_contract.py            # catalog/data_contract.json (drift-gated)
 python -m validation.run_validation            # 105/105 uafhængig validering
@@ -653,11 +674,13 @@ committer/pusher (SSH ligger kun på hans Mac).
 
 ## Maskinlæsbar datakontrakt (motorens input)
 
-`catalog/data_contract.json` (v0.2.1) beskriver hele motorens kanoniske
+`catalog/data_contract.json` (**v0.8.0**; versionshistorik: `aendringslog` i
+filen for nyeste version + `docs/CHANGELOG.md`) beskriver hele motorens kanoniske
 inputstruktur — de 7 objekter `header/accounts/tax_table/transactions
-(+lines)/suppliers/customers/summary`, 69 felter i alt (heraf to nye
+(+lines)/suppliers/customers/summary`, 89 felter i alt (heraf to
 lineage-felter på `header`: `mapping_version`/`schema_fingerprint`, byggetrin
-8). Samme mønster som
+8). Konsumeres af vat-extract (kontrakt-pin) — bump versionen ved enhver
+felt-/semantikændring og notér forrang/fallback pr. felt. Samme mønster som
 regelkataloget: **hånd-vedligeholdt single source** `tools/data_contract_data.py`
 → generator `tools/build_data_contract.py` → `catalog/data_contract.json`,
 drift-gated i CI (`tests/test_data_contract_fresh.py`: committet == genereret,
@@ -736,6 +759,23 @@ Postgres), `AUTH_BASE_URL` (default `https://auth.balai.dk`), `AUTH_DB_PATH`,
 
 ## Åbne tråde
 
+- **Efter ekspertreviewet (kontrakt v0.8.0, 2026-10-07) — forberedte, IKKE byggede
+  kontroller/afklaringer:**
+  (a) **Flag-kontrol for linjer med både supplier- og customer-data** (begge
+  `supplier_document_id`/`supplier_country` og `customer_document_id`/
+  `customer_country` udfyldt; i dag kun tæller `parse_info["eksterne_linjefelter"]
+  ["linjer_med_begge_sider"]`, og leverandørsiden vinder `source_document_id`).
+  (b) **Afstemningskontrol mod `accounts[].movement_balance`** (mod saldobalancen;
+  konsistensreglen movement = closing − opening er kun diagnostik i dag).
+  (c) **`account_tax_type`-baseret momstilsvar** (momskonti grupperet efter art:
+  skyldig/udgående vs. tilgodehavende/indgående) — **værdisættet er åbent:** parseren
+  bærer den RÅ ERP-værdi; normalisering til et fast ordforråd skal afgøres først.
+  (d) **`standard_tax_code`-afvigelseskontrol** ("følger transaktionen modpartens
+  standardopsætning?"), beslægtet med Default-Tax-ID-logikken i SAF-T Validatoren.
+  Hertil: leverandørstamdata-sidecar findes stadig ikke (GAP-11) — `suppliers[].
+  standard_tax_code` afledes af en linjekolonne; og customers[] kan ikke joines til
+  linjerne. vat-extracts `analytics_mapping.json`/kontrakt-pin skal re-synkroniseres
+  mod v0.8.0 (additive kilde-flag + nye felter).
 - **GAP-14 (`source_code`, byggetrin ~11, 2026-09-18):** kontrol 107-108
   kræver bilagstype/BC "Source Code" på linjen. Motorsiden er FÆRDIG
   (`canonical_parser.py` læser en valgfri `source_code`-kolonne; Excel-vejen

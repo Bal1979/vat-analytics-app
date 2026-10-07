@@ -3,6 +3,92 @@
 Følger katalogversionen (`backend/catalog/rules.json` → `catalog_version`) og de
 væsentlige løft mod EY-standard.
 
+## Ekspertreview af standardstrukturen: leverandør-/kundesplit, kontofelter og modparts-standardmoms (2026-10-07, Bal-godkendt, datakontrakt v0.7.0 -> v0.8.0, additiv)
+
+Baggrund: et ekspertreview af standardstrukturen afgjorde fem kontraktændringer.
+Runden er kontrakt + parser + dokumentation; **ingen nye kontroller** (katalog
+uændret) -- se "Åbne tråde" i `CLAUDE.md` for de fire kontroller der er forberedt.
+Kontrakten er **additiv**: 79 -> 89 felter (+10), ingen fjernet/omdøbt, og alle nye
+felter er altid til stede i parser-output (default `""`/`None`), så leverancer uden
+de nye kolonner giver UÆNDRET output på alle eksisterende felter.
+
+### Ændringer (pr. felt, med forrang/fallback)
+
+1. **Split af `source_document_id`** -> to nye linjefelter
+   `lines[].supplier_document_id` og `lines[].customer_document_id` (kanonisk CSV,
+   valgfrie kolonner, trimmet). *Begrundelse (også i kontrakten):* enkelte bilag kan
+   bære både leverandør- og kundedata; ét samlet felt gør overførslen tvetydig, og
+   splittet gør linjer med BEGGE sider flagbare. **Forrangskæde (pr. række, første
+   ikke-tomme vinder):** `supplier_document_id` > `customer_document_id` >
+   `source_document_id` (eksplicit eksternt nr., v0.7.0) > `invoice_numbers`. Det
+   samlede `lines[].source_document_id` er resultatet af kæden (det motoren læser);
+   en række med begge sider får leverandørsiden (deterministisk valg -- dubletdetektion
+   er købsorienteret). Uden de to kolonner: byte-for-byte uændret.
+2. **Split af modpartsland** -> `lines[].supplier_country` og
+   `lines[].customer_country`. **Fallbackkæde for `lines[].country`:**
+   `supplier_country` > `customer_country` > den eksisterende kolonne
+   `counterparty_country` (den hidtidige kilde; kontraktfeltet hedder `country`,
+   CSV-kolonnen `counterparty_country`). Råværdien bæres uændret. **Hierarkiet i
+   kontrol 70-75 (momsnr.-præfiks > landefelt, `vat_rules.counterparty_country`) er
+   urørt** -- det læser stadig kun `lines[].country`. `suppliers[].country` tager
+   `supplier_country` før linjens samlede land.
+3. **`accounts[]` udvidet** (alle valgfri; fra `chart_of_accounts.csv`, kolonner
+   med `ext_`-præfiks først): `name` (kontonavn; `ext_name` > `name` > ældre
+   `description`-kolonne), `description` (nu kontobeskrivelsen: en eksplicit
+   `ext_description` har forrang, ellers den hidtidige alias-kæde -- dvs. uændret
+   på alle eksisterende leverancer, hvor `name == description`),
+   `account_type_name` (rå tekst), `account_tax_type` (RÅ ERP-værdi; normalisering
+   til fast værdisæt er en åben tråd), `movement_balance` (årets bevægelser i DKK,
+   `None` uden signal -- afstemningsanker mod saldobalancen). `opening_balance`/
+   `closing_balance` er uændrede. **Konsistensregel (dokumenteret):**
+   `movement_balance = closing_balance - opening_balance` når alle tre leveres
+   (tolerance 0,01 DKK); parseren tæller afvigelser som diagnostik
+   (`parse_info.stamdata.konti_movement_tjekket`/`konti_movement_inkonsistent`, kun
+   med når filen leverer `movement_balance`) -- ingen fund.
+   Motoren læser nu kontonavn (`name`) før beskrivelse i kontrol 77's
+   momskonto-match, kontrol 80's kontolabel og rapportens `konto_navne`
+   (`cat10_vat_reconciliation.py`, `analyze_canonical.py`): identisk resultat når
+   `name` mangler eller er lig `description`; forhindrer at en adskilt beskrivelse
+   skjuler et kontonavn med "moms"/"vat".
+4. **`suppliers[]`/`customers[]` + `standard_tax_code`** (modpartens standard-
+   momsopsætning, rå værdi). Leverandører: afledt af en valgfri linjekolonne
+   `supplier_standard_tax_code` (første ikke-tomme pr. leverandør -- der er
+   fortsat ingen leverandørstamdata-sidecar, GAP-11); kunder: `customers.csv`
+   (`ext_standard_tax_code`/`standard_tax_code`). Altid til stede (`""` uden kolonne).
+   Beslægtet med `tax_table[].standard_tax_code`. (Kontraktobjektet hedder
+   `suppliers`, ikke `vendors`.)
+5. **Parser** (`canonical_parser.py`, `canonical_masterdata.py`): konsumerer de nye
+   felter med kæderne ovenfor; `parse_info["eksterne_linjefelter"]` udvidet med
+   kolonne-flag og tællere (`linjer_supplier_dokumentnr`, `linjer_customer_
+   dokumentnr`, `linjer_med_sidespecifikt_land`, **`linjer_med_begge_sider`**).
+   `linjer_eksternt_dokumentnr`/`linjer_dokumentnr_fallback_bilagsnr` tæller nu
+   hvor kæden faktisk endte (uændret på filer uden de nye kolonner).
+6. **Kontrakt v0.8.0** (`tools/data_contract_data.py` -> `catalog/data_contract.json`):
+   10 nye felter (4 linjer, 4 konti, 1 leverandør, 1 kunde), nye noter om forrang/
+   fallback på `source_document_id`/`country`, tre nye `balai_extensions`-poster,
+   GAP-06 opdateret, og en ny top-level `aendringslog` med et indslag pr. nyt felt
+   (til brug ved kontrakt-pin-opdatering i vat-extract; selve pinnen rørt ikke her).
+   Katalog (`rules.json`) uændret.
+
+### Tests
+
+**733 tests** (706 + 27 nye syntetiske i
+`tests/test_ekspertreview_kontrakt_v080_2026_10_07.py`: kontraktfelter/kilder/noter/
+ændringslog/additivitet, hvert led i dokumentnr.- og land-kæden, begge-sider-
+tælleren, momsnr.-præfiks-hierarkiet uændret, chart_of_accounts-felter +
+konsistensdiagnostik + bagudkompatibilitet, kontrol 77 på `name`, standard_tax_code).
+Eksisterende tests justeret kun hvor de hævdede eksakt nøglesæt (leverandør-/
+kundedict fik `standard_tax_code`; v0.7.0-testen fik "kontraktfelter >= 79").
+Konformanstestens kanoniske fixture bærer nu de nye kolonner. **105/105** validering.
+
+### Vagtposter (fuld kørsel, hele `all_findings` hash-sammenlignet)
+
+`analyze_canonical`-pipelinen (`--modules alle`), FØR = HEAD `62a6414` mod EFTER =
+arbejdstræet: kunde 1 (BC) uden angivelser **23.083**, med `vat_declarations.json`
+**23.087**, uden sidecars **23.549**; kunde 2 (IFS) **1.230.134** (70=348, 71=4.139,
+84=23, 87=28, 88=11, 109=402, 27=520, 30=40) -- alle fund-hashes **byte-identiske**.
+Ingen af de to kanoniske filer har de nye kolonner.
+
 ## Opfølgningsrunden: leverandør, journal og eksternt dokumentnr. fra den kanoniske CSV (2026-10-02, Bal-godkendt, datakontrakt v0.6.0 -> v0.7.0, additiv)
 
 Baggrund: vat-extracts grundarbejds-runde (commit `2681d08`, katalog 1.9.0, jf.

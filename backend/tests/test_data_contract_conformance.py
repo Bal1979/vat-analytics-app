@@ -316,12 +316,19 @@ def _write_canonical_fixture(tmp_path, with_summary=True, with_masterdata=True):
         # kolonner, så kontraktens kilder.canonical=true/partial for
         # supplier_id/supplier_name/journal_id/suppliers[] bevises mod parser-output.
         "supplier_id", "supplier_name", "journal_id", "source_document_id",
+        # Ekspertreview (kontrakt v0.8.0): leverandør-/kundesplit + modpartens
+        # standard-momskode (leverandørsiden), så kilder.canonical="partial"
+        # bevises mod parser-output.
+        "supplier_document_id", "customer_document_id",
+        "supplier_country", "customer_country", "supplier_standard_tax_code",
     ]
     rows = [
         ["2024-03-15", "2024-03-10", "2024-03", "false", "F-100", "1000",
-         "U25", "250.0", "0", "1250.0", "sale", "", "L-1", "Testleverandør A/S", "FINANS", "EXT-9"],
+         "U25", "250.0", "0", "1250.0", "sale", "", "L-1", "Testleverandør A/S", "FINANS", "EXT-9",
+         "SUP-9", "CUS-9", "SE", "FI", "I25"],
         ["2024-03-16", "2024-03-16", "2024-03", "false", "7000123", "2100",
-         "", "0", "800.0", "0", "purchase", "", "", "", "", ""],
+         "", "0", "800.0", "0", "purchase", "", "", "", "", "",
+         "", "", "", "", ""],
     ]
     path = tmp_path / "canonical_gl_entries.csv"
     with open(path, "w", encoding="utf-8", newline="") as f:
@@ -350,13 +357,17 @@ def _write_canonical_fixture(tmp_path, with_summary=True, with_masterdata=True):
         with open(tmp_path / "chart_of_accounts.csv", "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["gl_accounts", "account_type", "standard_account_id",
-                             "opening_balance", "closing_balance"])
-            writer.writerow(["1000", "Revenue", "1000", "0", "0"])
-            writer.writerow(["2100", "Asset", "5820", "0", "0"])
+                             "opening_balance", "closing_balance",
+                             "ext_name", "ext_description", "ext_account_type_name",
+                             "ext_account_tax_type", "ext_movement_balance"])
+            writer.writerow(["1000", "Revenue", "1000", "0", "0",
+                             "Salg", "Salg af varer", "Resultat", "Output VAT", "0"])
+            writer.writerow(["2100", "Asset", "5820", "0", "0", "", "", "", "", ""])
         with open(tmp_path / "customers.csv", "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["customer_id", "name", "vat_number", "country"])
-            writer.writerow(["K001", "Testkunde ApS", "DK12345678", "DK"])
+            writer.writerow(["customer_id", "name", "vat_number", "country",
+                             "standard_tax_code"])
+            writer.writerow(["K001", "Testkunde ApS", "DK12345678", "DK", "U25"])
 
     return str(path)
 
@@ -367,6 +378,16 @@ def test_canonical_path_conforms_to_data_contract(tmp_path):
     canonical, info = canonical_parser.parse_canonical(path)
     assert canonical is not None, info
     _assert_canonical_source_conforms(canonical, contract)
+    # v0.8.0: de nye felter bærer faktisk de leverede værdier (ikke kun nøglen).
+    first = canonical["transactions"][0]["lines"][0]
+    assert first["supplier_document_id"] == "SUP-9" and first["customer_document_id"] == "CUS-9"
+    assert first["source_document_id"] == "SUP-9" and first["country"] == "SE"
+    acc = next(a for a in canonical["accounts"] if a["account_id"] == "1000")
+    assert (acc["name"], acc["description"], acc["account_type_name"]) == (
+        "Salg", "Salg af varer", "Resultat")
+    assert acc["account_tax_type"] == "Output VAT" and acc["movement_balance"] == 0.0
+    assert canonical["suppliers"][0]["standard_tax_code"] == "I25"
+    assert canonical["customers"][0]["standard_tax_code"] == "U25"
 
 
 def test_canonical_path_without_summary_still_conforms(tmp_path):
